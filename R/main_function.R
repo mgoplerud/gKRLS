@@ -1,5 +1,18 @@
-
+#' gKRLS
+#' 
 #' Fit a generalized KRLS model using Laplace approximation
+#' @param y A numeric vector that contains the values of dependent variable or response variable. Missing Values not allowed.
+#' @param X A matrix of numeric observations of independent variables. Factors and missing values not allowed. Also, no intercept is required.
+#' @param family Provide a family as in the Generalized Linear Models (GLM). For example: gaussian or poisson.
+#' @param sketch_size Specify the dimension of the randomized sketches of the kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X is matrix of the independent variable.
+#' @param sketch_method String vector that specifies which kernel sketch method should be used. Options include ``gaussian'': gaussian kernel approximation, 
+#' ``nystrom'': , bernoulli, and no sketch. The default is gaussian.
+#' @param bandwidth A numerical number indicating the bandwidth for kernel. The default is  ``2*ncol(X).'' 
+#' @param standardize A string vector that specifies which standardization method should be used. Must be one of scaled, Mahalanobis, or none, which menas no standardization. The default is ``Mahalanobis''.
+#' @param control A list containing control parameters. The init_var specify the initial value for covariance parameter in lme4 models. See details about theta in lme4 package.
+#' The default is 1. The truncate_eigen determines how much eigenvalues should be truncated. If truncate_eigen set to 1e-6, this means we only keep eigenvalue greater or equal to 1e-6.
+#' The default is sqrt(.Machine$double.eps), where .Machine$double.eps is the smallest positive floating-point number x such that 1 + x != 1.
+#' @param intercept Specify whether add intercept during lme4 estimation. 
 #' @useDynLib gKRLS
 #' @import Matrix
 #' @export
