@@ -11,5 +11,6 @@ License: GPL (>= 2)
 Imports: Rcpp (>= 1.0.6), lme4, Matrix
 LinkingTo: Rcpp, RcppEigen
 RoxygenNote: 7.1.1
-Suggests: 
-    testthat
+Suggests: testthat
+NeedsCompilation: yes
+Packaged: 2021-08-17 01:21:58 UTC; changqing
