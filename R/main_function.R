@@ -3,36 +3,44 @@
 #' @useDynLib gKRLS
 #' @import Matrix
 #' @export
-gKRLS <- function(y, X, family, sketch_size = ceiling(nrow(X)^(1/3)) * 5, 
+gKRLS <- function(y, 
+      formula, data,
+      kernel_X, family, 
+      sketch_size = ceiling(nrow(kernel_X)^(1/3)) * 5, 
       sketch_method = 'gaussian', sketch_prob = NULL, bandwidth = NULL,
-      standardize = 'Mahalanobis',
-      control = list(init_var =  1, 
-                     truncate_eigen = sqrt(.Machine$double.eps)),
-      intercept = FALSE){
+      standardize = 'scaled',
+      control = list(init_var =  1, intercept = TRUE,
+                     truncate_eigen = sqrt(.Machine$double.eps))){
   
   if (!inherits(family, 'family')){
     stop('Provide "family" as in glm, glmer, etc.')
   }
-  if (intercept){stop('Does not accept intercept, yet..')}
-
   
+  # Parse data and get response
+  data <- model.frame(subbars(formula), data)
+  nobs_complete <- nrow(data)
+  y <- model.response(data)
+  rownames(y) <- NULL
+
   if (family$family == 'gaussian'){
     sd_y <- sd(y)
     mean_y <- mean(y)
     fmt_y <- (y - mean(y))/sd(y)
+    data[[1]] <- fmt_y
+    rm(fmt_y)
   }else{
     sd_y <- 1
     mean_y <- 0
-    fmt_y <- y
+    
   }
   
   if (standardize == 'Mahalanobis'){
     
-    std_mean_X <- colMeans(X)
-    std_var_X<- rep(1, ncol(X))
+    std_mean_X <- colMeans(kernel_X)
+    std_var_X <- rep(1, ncol(kernel_X))
     # var(X) = A -> var(X A) = A^T var(X) A 
     # A Q L Q^T A -> A = Q sqrt(L)^{-1}
-    std_whiten_X <- with(eigen(cov(X)), 
+    std_whiten_X <- with(eigen(cov(kernel_X)), 
           vectors %*% Diagonal(x = ifelse(values < sqrt(.Machine$double.eps), 0, 1/sqrt(values))))
     zero_columns <- apply(std_whiten_X, MARGIN = 2, FUN=function(i){all(i == 0)})
     zero_columns <- which(zero_columns == TRUE)  
@@ -42,29 +50,29 @@ gKRLS <- function(y, X, family, sketch_size = ceiling(nrow(X)^(1/3)) * 5,
     }
   }else if (standardize == 'scaled'){
     
-    std_mean_X <- colMeans(X)
-    std_var_X <- apply(X, MARGIN = 2, var)
-    std_whiten_X <- Diagonal(n = ncol(X)) 
+    std_mean_X <- colMeans(kernel_X)
+    std_var_X <- apply(kernel_X, MARGIN = 2, var)
+    std_whiten_X <- Diagonal(n = ncol(kernel_X)) 
     
     # Set "0" variance to one.
     std_var_X <- ifelse(std_var_X == 0, 1, std_var_X)
     
   }else if (standardize == 'none'){
     
-    std_mean_X <- rep(0, ncol(X))
-    std_var_X <- rep(1, ncol(X))
-    std_whiten_X <- Diagonal(n = ncol(X))
+    std_mean_X <- rep(0, ncol(kernel_X))
+    std_var_X <- rep(1, ncol(kernel_X))
+    std_whiten_X <- Diagonal(n = ncol(kernel_X))
     
   }
   # demean X
-  X <- sweep(X, 2, std_mean_X, FUN = "-")
+  kernel_X <- sweep(kernel_X, 2, std_mean_X, FUN = "-")
   # standardize
-  X <- X %*% Diagonal(x = 1/sqrt(std_var_X)) %*% std_whiten_X
-  X <- as.matrix(X)  
+  kernel_X <- kernel_X %*% Diagonal(x = 1/sqrt(std_var_X)) %*% std_whiten_X
+  kernel_X <- as.matrix(kernel_X)  
   
   # Get some metadata
-  N <- nrow(X)
-  P <- ncol(X)
+  N <- nrow(kernel_X)
+  P <- ncol(kernel_X)
   
   if (is.null(bandwidth)){
     bandwidth <- 2 * P
@@ -98,7 +106,7 @@ gKRLS <- function(y, X, family, sketch_size = ceiling(nrow(X)^(1/3)) * 5,
   S <- as.matrix(S)
   
   # Create the sketched kernel for the *training* data
-  KS <- create_sketched_kernel(X_test = X, X_train = X, 
+  KS <- create_sketched_kernel(X_test = kernel_X, X_train = kernel_X, 
       tS = t(S), bandwidth = bandwidth)
   # Get the eigen-decomposition of the penalty 
   eigen_sketch <- eigen(t(KS) %*% S)
@@ -116,9 +124,12 @@ gKRLS <- function(y, X, family, sketch_size = ceiling(nrow(X)^(1/3)) * 5,
     Diagonal(x = 1/sqrt(eigen_sketch$values[nonzero])))
 
   # Fit the KRLS model using lme4
-  fit_krls <- internal_fit_krls(data = projected_data, 
-    y = fmt_y, N = N, init_var = control$init_var,
-    intercept = intercept, family = family)
+  fit_krls <- internal_fit_krls(
+    kernel_data = projected_data, 
+    formula = formula,
+    data = data,
+    init_var = control$init_var,
+    intercept = control$intercept, family = family)
   
   # Adjust fitted values
   fit_krls$fitted <- fit_krls$fitted * sd_y + mean_y
@@ -129,6 +140,16 @@ gKRLS <- function(y, X, family, sketch_size = ceiling(nrow(X)^(1/3)) * 5,
   # Adjust RE variance to match sketched data
   diag_ev <- Diagonal(x = sqrt(1/eigen_sketch$values[nonzero]))
   
+  n_FE_p <- length(fit_krls$fe$mean)
+  ev <- eigen_sketch$vectors
+  ev <- bdiag(Diagonal(x = rep(1, n_FE_p)), ev)
+  aug_diag_ev <- bdiag(Diagonal(x = rep(1, n_FE_p)), diag_ev)
+  
+  meat_ridge <- bdiag(aug_diag_ev %*% fit_krls$vcov_ridge %*% aug_diag_ev, 
+                      Diagonal(x = rep(0, nrow(eigen_sketch$vectors) + 
+                                         -length(nonzero))))
+
+  fit_krls$vcov_ridge <- ev %*% meat_ridge %*% t(ev)
   fit_krls$re$var <- eigen_sketch$vectors %*% 
     bdiag(diag_ev %*% fit_krls$re$var %*% diag_ev, 
         Diagonal(x = rep(0, nrow(eigen_sketch$vectors) + 
@@ -137,7 +158,7 @@ gKRLS <- function(y, X, family, sketch_size = ceiling(nrow(X)^(1/3)) * 5,
   fit_krls$control <- control
   fit_krls$internal <- list(sd_y = sd_y, mean_y = mean_y, 
                             bandwidth = bandwidth,
-                            X_train = X,
+                            kernel_X_train = kernel_X,
                             eigen_sketch = eigen_sketch,
                             eigen_nonzero = nonzero,
                             sketch = S,
@@ -146,6 +167,7 @@ gKRLS <- function(y, X, family, sketch_size = ceiling(nrow(X)^(1/3)) * 5,
                                var = std_var_X, 
                                whiten = std_whiten_X),
                             family = family)
+  
   
   class(fit_krls) <- 'gKRLS'
   
@@ -175,18 +197,19 @@ lme4::ranef
 
 #' @importFrom lme4 glFormula lFormula mkLmerDevfun mkGlmerDevfun mkMerMod
 #'   VarCorr optimizeGlmer updateGlmerDevfun optimizeLmer
-internal_fit_krls <- function(data, y, N, init_var,
+internal_fit_krls <- function(kernel_data, formula, data, y, init_var,
                               intercept, family){
   
-  dim_kernel <- ncol(data)
-  # Create a "fake" RE with two levels to trick lmer to running.
+  dim_kernel <- ncol(kernel_data)
+  N <- nrow(data)
+  if (N != nrow(kernel_data)){stop('FE and Kernel have different #s of observations.')}
+  # Create a "fake" RE with two levels to trick lmer pre-process to run.
   kernel_RE <- c(1, rep(2, N-1))
+  formula <- update.formula(formula, '. ~ . + (1 | kernel_RE)')
+  data$kernel_RE <- kernel_RE
+  # Generate the data  
+  lmod <- glFormula(formula = formula, data = data, family = family)
   
-  if (intercept){
-    lmod <- glFormula(y ~ 1 + (1 | kernel_RE), family = family)
-  }else{
-    lmod <- glFormula(y ~ 0 + (1 | kernel_RE), family = family)
-  }
   # Process and wrap the data from lmer
   # This reasonably closely follows: 
   # https://bbolker.github.io/mixedmodels-misc/notes/varmats.html
@@ -196,7 +219,7 @@ internal_fit_krls <- function(data, y, N, init_var,
   
   # Set initial variance to give to optimizer
   fake_reTrms <- list(
-    Zt = drop0(t(data)),
+    Zt = drop0(t(kernel_data)),
     theta = init_var,
     Lambdat = sparseMatrix(i = 1:dim_kernel, j = 1:dim_kernel, x = init_var),
     Lind = rep(1, dim_kernel),
@@ -220,31 +243,20 @@ internal_fit_krls <- function(data, y, N, init_var,
     devfun <- do.call(mkLmerDevfun, man_lmod)
     opt_gKRLS <- optimizeLmer(devfun)
 
-    # # Custom implementation...
-    # devfun <- do.call(mkLmerDevfun, man_lmod)
-    # # Set an objective function that calls this on the *log scale*
-    # # for somewhat more stable fitting
-    # eval_gKRLS <- function(log_theta){
-    #   devfun(exp(log_theta))
-    # }
-    # # Call optim using 'L-BFGS-B' with boundary constraints.
-    # opt_gKRLS <- optim(par=log(init_var), eval_gKRLS, method = 'L-BFGS-B',
-    #                    lower = -5, upper = 5)
-    # # Wrap the output together
-    # opt_gKRLS <- with(opt_gKRLS,
-    #                   list(par=exp(par), 
-    #                        fval=value, conv=convergence, message=message))
   }else{
-    GHrule <- lme4:::GHrule
+    # GHrule <- lme4:::GHrule
     devfun <- do.call(mkGlmerDevfun, man_lmod)
     opt_gKRLS <- optimizeGlmer(devfun)
     devfun <- updateGlmerDevfun(devfun, man_lmod$reTrms)
     opt_gKRLS <- optimizeGlmer(devfun, stage=2)
-
   }
+  
   # Turn into a lme4 style object
   fmt_gKRLS <- mkMerMod(environment(devfun), opt_gKRLS, 
               man_lmod$reTrms, fr = man_lmod$fr)
+  
+  fmla <- formula(fmt_gKRLS)
+  
   # Custom internal function to extract the REs
   extract_re_KRLS <- function(object){
     ans <- object@pp$b(1)
@@ -254,13 +266,78 @@ internal_fit_krls <- function(data, y, N, init_var,
   # Extract the REs
   re_all <- extract_re_KRLS(fmt_gKRLS)
   
-  out <- list(sigma = sigma(fmt_gKRLS),
-              var = opt_gKRLS$par,
-              fitted = fitted(fmt_gKRLS),
-              fmt_varcorr = VarCorr(fmt_gKRLS),
-              fe = list(mean = fixef(fmt_gKRLS), vcov = vcov(fmt_gKRLS)),
-              re = re_all
-  )
+  fe_all <- list(mean = fixef(fmt_gKRLS))
+  if (length(fe_all$mean) > 0){
+    fe_all$vcov <- vcov(fmt_gKRLS)
+  }
   
+  vcov_ridge <- get_vcov_ridge(fmt_gKRLS, family)
+  
+  out <- list(sigma = sigma(fmt_gKRLS),
+    par_gKRLS = opt_gKRLS$par,
+    fitted = fitted(fmt_gKRLS),
+    fmt_varcorr = VarCorr(fmt_gKRLS),
+    fe = fe_all,
+    re = re_all,
+    vcov_ridge = vcov_ridge,
+    formula = fmla
+  )
+
   return(out)
 }
+
+#' Internal Standard Errors
+#' 
+get_vcov_ridge <- function(object, family){
+  
+  # Get various data components
+  
+  X <- getME(object, 'X')
+  Z <- getME(object, 'Z')
+  XZ <- drop0(cbind(X,Z))
+  y <- getME(object, 'y')
+  mu <- getME(object, 'mu')
+  re_mean <- getME(object, 'b')
+  fe_mean <- getME(object, 'beta')  
+  sigma <- sigma(object)
+  Lambda <- getME(object, 'Lambda')
+  # Add the flat prior on the FE
+  Ridge <- bdiag(Diagonal(x = rep(0, ncol(X))), solve(Lambda))
+  Ridge <- crossprod(Ridge)
+  # XB + ZA - linear predictor of all terms
+  eta <- as.vector(X %*% fe_mean) + as.vector(Z %*% re_mean)
+  
+  if (family$family == 'binomial'){
+    if (!(family$link %in% c('logit', 'probit'))){
+      stop('Standard errors not set up for binomial that is not logit/probit.')
+    }
+  }else if (family$family == 'poisson'){
+    if (family$link != 'log'){
+      stop('Standard errors not set up for non-canonical Poisson.')
+    }
+  }else if (family$family == 'gaussian'){
+    if (family$link != 'identity'){
+      stop('Standard errors not set up for non-identity link Gaussian.')
+    }
+  }
+  
+  if (family$family == 'binomial' & family$link == 'logit'){
+    p <- plogis(eta) 
+    weight <- p * (1-p)
+    stopifnot(all.equal(mu, plogis(eta)))
+    stopifnot(sigma == 1)
+  }else if (family$family == 'gaussian' & family$link == 'identity'){
+    weight <- rep(1, nrow(XZ))
+  }else if (family$family == 'binomial' & family$link == 'probit'){
+    weight <- (2 * y - 1) * dnorm(eta)/pnorm(eta * (2 * y - 1))
+    weight <- weight * (eta + weight)
+  }else if (family$family == 'poisson' & family$link == 'log'){
+    weight <- exp(eta)
+  }else{
+    stop('Not recogized family and link.')
+  }
+  
+  vcov_ridge <- sigma^2 * solve(crossprod(Diagonal(x = sqrt(weight)) %*% XZ) + Ridge)
+  return(vcov_ridge)
+}
+

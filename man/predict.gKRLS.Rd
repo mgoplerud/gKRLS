@@ -5,7 +5,13 @@
 \title{Prediction after gKRLS
 Pass "newdata"}
 \usage{
-\method{predict}{gKRLS}(object, newdata, type = c("link", "response"), return_full = FALSE)
+\method{predict}{gKRLS}(
+  object,
+  newdata,
+  newkernel_X,
+  type = c("link", "response"),
+  return_full = FALSE
+)
 }
 \description{
 Prediction after gKRLS

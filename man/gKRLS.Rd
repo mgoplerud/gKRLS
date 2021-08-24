@@ -6,15 +6,17 @@
 \usage{
 gKRLS(
   y,
-  X,
+  formula,
+  data,
+  kernel_X,
   family,
-  sketch_size = ceiling(nrow(X)^(1/3)) * 5,
+  sketch_size = ceiling(nrow(kernel_X)^(1/3)) * 5,
   sketch_method = "gaussian",
   sketch_prob = NULL,
   bandwidth = NULL,
-  standardize = "Mahalanobis",
-  control = list(init_var = 1, truncate_eigen = sqrt(.Machine$double.eps)),
-  intercept = FALSE
+  standardize = "scaled",
+  control = list(init_var = 1, intercept = TRUE, truncate_eigen =
+    sqrt(.Machine$double.eps))
 )
 }
 \description{
