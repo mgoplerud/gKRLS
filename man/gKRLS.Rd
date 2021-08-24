@@ -20,26 +20,45 @@ gKRLS(
 )
 }
 \arguments{
-\item{y}{A numeric vector that contains the values of dependent variable or response variable. Missing Values not allowed.}
+\item{y}{A numeric vector that contains the values of dependent variable or
+response variable. Missing Values not allowed.}
 
-\item{X}{A matrix of numeric observations of independent variables. Factors and missing values not allowed. Also, no intercept is required.}
+\item{formula}{A formula containing the outcome and any fixed effects. Use `y
+~ 1` for a model with only the kernel}
 
-\item{family}{Provide a family as in the Generalized Linear Models (GLM). For example: gaussian or poisson.}
+\item{data}{data.frame containing the outcome and any fixed effects}
 
-\item{sketch_size}{Specify the dimension of the randomized sketches of the kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X is matrix of the independent variable.}
+\item{kernel_X}{matrix containing the variables used to build the kernel}
 
-\item{sketch_method}{String vector that specifies which kernel sketch method should be used. Options include ``gaussian'': gaussian kernel approximation, 
-``nystrom'': , bernoulli, and no sketch. The default is gaussian.}
+\item{family}{Provide a family as in the Generalized Linear Models (GLM). For
+example: gaussian or poisson.}
 
-\item{bandwidth}{A numerical number indicating the bandwidth for kernel. The default is  ``2*ncol(X).''}
+\item{sketch_size}{Specify the dimension of the randomized sketches of the
+kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X
+is matrix of the independent variable.}
 
-\item{standardize}{A string vector that specifies which standardization method should be used. Must be one of scaled, Mahalanobis, or none, which menas no standardization. The default is ``Mahalanobis''.}
+\item{sketch_method}{String vector that specifies which kernel sketch method
+should be used. Options include ``gaussian'': gaussian kernel
+approximation, ``nystrom'': , bernoulli, and no sketch. The default is
+gaussian.}
 
-\item{control}{A list containing control parameters. The init_var specify the initial value for covariance parameter in lme4 models. See details about theta in lme4 package.
-The default is 1. The truncate_eigen determines how much eigenvalues should be truncated. If truncate_eigen set to 1e-6, this means we only keep eigenvalue greater or equal to 1e-6.
-The default is sqrt(.Machine$double.eps), where .Machine$double.eps is the smallest positive floating-point number x such that 1 + x != 1.}
+\item{bandwidth}{A numerical number indicating the bandwidth for kernel. The
+default is  ``2*ncol(X).''}
 
-\item{intercept}{Specify whether add intercept during lme4 estimation.}
+\item{standardize}{A string vector that specifies which standardization
+method should be used. Must be one of scaled, Mahalanobis, or none, which
+menas no standardization. The default is ``Mahalanobis''.}
+
+\item{control}{A list containing control parameters. The init_var specify the
+initial value for covariance parameter in lme4 models. See details about
+theta in lme4 package. The default is 1. The truncate_eigen determines how
+much eigenvalues should be truncated. If truncate_eigen set to 1e-6, this
+means we only keep eigenvalue greater or equal to 1e-6. The default is
+sqrt(.Machine$double.eps), where .Machine$double.eps is the smallest
+positive floating-point number x such that 1 + x != 1.}
+
+\item{X}{A matrix of numeric observations of independent variables. Factors
+and missing values not allowed. Also, no intercept is required.}
 }
 \description{
 Fit a generalized KRLS model using Laplace approximation
