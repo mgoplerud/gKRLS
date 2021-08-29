@@ -1,8 +1,60 @@
 
+#' @export
 print.gKRLS <- function(object){
   print(object$fmt_varcorr)
 }
 
+plot.gKRLS_ME <- function(object){
+  
+  list_pointwise <- as.list(data.frame(object$ME_pointwise, check.names = F))
+  list_pointwise_var <- as.list(data.frame(object$ME_pointwise_var, check.names = F))
+  
+  pointwise_flat <- do.call('rbind', mapply(names(list_pointwise), list_pointwise, list_pointwise_var, SIMPLIFY = FALSE, 
+         FUN=function(name, est, var){
+           data.frame(variable = name, id = 1:length(est), est = est, se = sqrt(var), check.names = F, stringsAsFactors = F)
+         }))
+  rownames(pointwise_flat) <- NULL
+  
+  out <- data.frame(est = object$AME_pointwise, se = sqrt(object$AME_pointwise_var))
+  
+  thresh <- abs(qt(0.025, df = nrow(object$ME_pointwise)))
+  
+  out$t.stat <- out$est/out$se
+  out$p.value <- 2 * pt(-abs(out$t.stat), df = nrow(object$ME_pointwise))
+  out$variable <- rownames(out)
+  
+  out$variable <- factor(out$variable, levels = out$variable[order(out$est)])
+  pointwise_flat$variable <- factor(pointwise_flat$variable, levels = levels(out$variable))
+
+  g <- ggplot(pointwise_flat) +
+    geom_boxplot(aes(x=est,y=variable, col = 'black'), linetype = 'dashed', alpha = 0.1) +
+    geom_point(aes(x=est,y=variable), col = 'red', data = out) +
+    geom_errorbarh(aes(xmin=est - thresh * se,xmax=est + thresh * se,y=variable), col = 'red',
+                    data = out) +
+    theme_bw() +
+    scale_color_manual(values = rgb(0,0,0, alpha = 0.3), guide = FALSE) +
+    geom_vline(aes(xintercept=0)) + xlab('Marginal Effect') +
+    ylab('Varible')
+  plot(g)
+  invisible(g)
+}
+
+print.gKRLS_ME <- function(object){
+  
+  summary_pointwise <- apply(object$ME_pointwise, MARGIN = 2, FUN=function(i){quantile(i, c(0.25, 0.5, 0.75))})
+  cat(paste0('Distribution of Pointwise Marginal Effects: N = ', nrow(object$ME_pointwise), '\n'))
+  print(summary_pointwise)
+  
+  out <- data.frame(est = object$AME_pointwise, se = sqrt(object$AME_pointwise_var))
+  
+  thresh <- abs(qt(0.025, df = nrow(object$ME_pointwise)))
+  
+  out$t.stat <- out$est/out$se
+  out$p.value <- 2 * pt(-abs(out$t.stat), df = nrow(object$ME_pointwise))
+  cat('\nSummary of Average Marginal Effects\n')
+  print(out)
+  invisible()  
+}
 #' Prediction after gKRLS
 #' Pass "newdata"
 #' @export
@@ -13,15 +65,20 @@ predict.gKRLS <- function(object, newdata, newkernel_X,
     type <- match.arg(type)
   
     # Standardize the incoming new data.
-    newkernel_X <- sweep(newkernel_X, 2, object$internal$std_train$mean, FUN = "-")
-    newkernel_X <- newkernel_X %*% 
-      Diagonal(x = 1/sqrt(object$internal$std_train$var)) %*% 
+    std_newkernel_X <- sweep(newkernel_X, 2, object$internal$std_train$mean, FUN = "-")
+    std_newkernel_X <- std_newkernel_X %*% 
       object$internal$std_train$whiten
-    newkernel_X <- as.matrix(newkernel_X)  
-  
+    std_newkernel_X <- as.matrix(std_newkernel_X)  
+    # Standardize the saved training kernel
+    std_kernel_X <- object$internal$kernel_X_train
+    std_kernel_X <- sweep(std_kernel_X, 2, object$internal$std_train$mean, FUN = "-")
+    std_kernel_X <- std_kernel_X %*% 
+      object$internal$std_train$whiten
+    std_kernel_X <- as.matrix(std_kernel_X)  
+    
     # Get the "test" data after using same sketch matrix
-    newdataKS <- create_sketched_kernel(X_test = newkernel_X, 
-        X_train = object$internal$kernel_X_train, 
+    newdataKS <- create_sketched_kernel(X_test = std_newkernel_X, 
+        X_train = std_kernel_X, 
         tS = t(object$internal$sketch), 
         bandwidth = object$internal$bandwidth)
     

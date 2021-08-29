@@ -2,11 +2,9 @@
 #' 
 #' Fit a generalized KRLS model using Laplace approximation
 #' @param formula A formula containing the outcome and any fixed effects. Use `y
-#'   ~ 1` for a model with only the kernel
+#'   ~ 1` for a model with only the kernel and an intercept.
 #' @param data data.frame containing the outcome and any fixed effects
 #' @param kernel_X matrix containing the variables used to build the kernel 
-#' @param y A numeric vector that contains the values of dependent variable or
-#'   response variable. Missing Values not allowed.
 #' @param X A matrix of numeric observations of independent variables. Factors
 #'   and missing values not allowed. Also, no intercept is required.
 #' @param family Provide a family as in the Generalized Linear Models (GLM). For
@@ -32,14 +30,15 @@
 #'   positive floating-point number x such that 1 + x != 1.
 #' @useDynLib gKRLS
 #' @import Matrix
+#' @importFrom lme4 subbars
 #' @export
-gKRLS <- function(y, 
+gKRLS <- function(
       formula, data,
       kernel_X, family, 
       sketch_size = ceiling(nrow(kernel_X)^(1/3)) * 5, 
       sketch_method = 'gaussian', sketch_prob = NULL, bandwidth = NULL,
       standardize = 'scaled',
-      control = list(init_var =  1, intercept = TRUE,
+      control = list(init_var =  1,
                      truncate_eigen = sqrt(.Machine$double.eps))){
   
   if (!inherits(family, 'family')){
@@ -49,13 +48,13 @@ gKRLS <- function(y,
   # Parse data and get response
   data <- model.frame(subbars(formula), data)
   nobs_complete <- nrow(data)
-  y <- model.response(data)
-  rownames(y) <- NULL
+  response <- model.response(data)
+  rownames(response) <- NULL
 
   if (family$family == 'gaussian'){
-    sd_y <- sd(y)
-    mean_y <- mean(y)
-    fmt_y <- (y - mean(y))/sd(y)
+    sd_y <- sd(response)
+    mean_y <- mean(response)
+    fmt_y <- (response - mean_y)/sd_y
     data[[1]] <- fmt_y
     rm(fmt_y)
   }else{
@@ -67,45 +66,55 @@ gKRLS <- function(y,
   if (standardize == 'Mahalanobis'){
     
     std_mean_X <- colMeans(kernel_X)
-    std_var_X <- rep(1, ncol(kernel_X))
     # var(X) = A -> var(X A) = A^T var(X) A 
     # A Q L Q^T A -> A = Q sqrt(L)^{-1}
-    std_whiten_X <- with(eigen(cov(kernel_X)), 
-          vectors %*% Diagonal(x = ifelse(values < sqrt(.Machine$double.eps), 0, 1/sqrt(values))))
+    
+    eigen_kernel_X <- eigen(cov(kernel_X))
+    eigen_kernel_X$values <- ifelse(
+      eigen_kernel_X$values < sqrt(.Machine$double.eps), 0, 
+      eigen_kernel_X$values
+    )
+    
+    std_whiten_X <- with(eigen_kernel_X, 
+          vectors %*% Diagonal(x = ifelse(values == 0, 0, 1/sqrt(values))))
+    
+    W_Matrix <- with(eigen_kernel_X, 
+       vectors %*% Diagonal(x = ifelse(values == 0, 0, 1/values)) %*% t(vectors)
+       )
+    
     zero_columns <- apply(std_whiten_X, MARGIN = 2, FUN=function(i){all(i == 0)})
     zero_columns <- which(zero_columns == TRUE)  
     if (length(zero_columns) > 0){
-      print(paste('Original X matrix is not full rank. Using an effective rank of', ncol(X) - length(zero_columns), 'throughout.'))
+      print(paste('Original X matrix is not full rank. Using an effective rank of', ncol(kernel_X) - length(zero_columns), 'throughout.'))
       std_whiten_X <- std_whiten_X[,-zero_columns,drop=F]
     }
+
   }else if (standardize == 'scaled'){
     
     std_mean_X <- colMeans(kernel_X)
-    std_var_X <- apply(kernel_X, MARGIN = 2, var)
-    std_whiten_X <- Diagonal(n = ncol(kernel_X)) 
-    
-    # Set "0" variance to one.
-    std_var_X <- ifelse(std_var_X == 0, 1, std_var_X)
+    vr_X <- apply(kernel_X, MARGIN = 2, var)
+    std_whiten_X <- Diagonal(x = 1/sqrt(ifelse(vr_X == 0, 1, vr_X)))
+    W_Matrix <- Diagonal(x = ifelse(vr_X == 0, 0, 1/vr_X))
     
   }else if (standardize == 'none'){
     
     std_mean_X <- rep(0, ncol(kernel_X))
-    std_var_X <- rep(1, ncol(kernel_X))
     std_whiten_X <- Diagonal(n = ncol(kernel_X))
+    W_Matrix <- Diagonal(n = ncol(kernel_X))
     
   }
   # demean X
-  kernel_X <- sweep(kernel_X, 2, std_mean_X, FUN = "-")
+  std_kernel_X <- sweep(kernel_X, 2, std_mean_X, FUN = "-")
   # standardize
-  kernel_X <- kernel_X %*% Diagonal(x = 1/sqrt(std_var_X)) %*% std_whiten_X
-  kernel_X <- as.matrix(kernel_X)  
+  std_kernel_X <- std_kernel_X %*% std_whiten_X
+  std_kernel_X <- as.matrix(std_kernel_X)  
   
   # Get some metadata
-  N <- nrow(kernel_X)
-  P <- ncol(kernel_X)
+  N <- nrow(std_kernel_X)
+  P <- ncol(std_kernel_X)
   
   if (is.null(bandwidth)){
-    bandwidth <- 2 * P
+    bandwidth <- P
   }
   
   
@@ -136,7 +145,7 @@ gKRLS <- function(y,
   S <- as.matrix(S)
   
   # Create the sketched kernel for the *training* data
-  KS <- create_sketched_kernel(X_test = kernel_X, X_train = kernel_X, 
+  KS <- create_sketched_kernel(X_test = std_kernel_X, X_train = std_kernel_X, 
       tS = t(S), bandwidth = bandwidth)
   # Get the eigen-decomposition of the penalty 
   eigen_sketch <- eigen(t(KS) %*% S)
@@ -192,10 +201,12 @@ gKRLS <- function(y,
                             eigen_sketch = eigen_sketch,
                             eigen_nonzero = nonzero,
                             sketch = S,
+                            standardize = standardize,
+                            response = response,
                             std_train = list(
                                mean = std_mean_X,
-                               var = std_var_X, 
-                               whiten = std_whiten_X),
+                               whiten = std_whiten_X,
+                               W_Matrix = W_Matrix),
                             family = family)
   
   
@@ -235,7 +246,9 @@ internal_fit_krls <- function(kernel_data, formula, data, y, init_var,
   if (N != nrow(kernel_data)){stop('FE and Kernel have different #s of observations.')}
   # Create a "fake" RE with two levels to trick lmer pre-process to run.
   kernel_RE <- c(1, rep(2, N-1))
-  formula <- update.formula(formula, '. ~ . + (1 | kernel_RE)')
+
+  formula <- as.formula(paste0(paste(deparse(formula), collapse=' '), ' + (1 | kernel_RE)'))
+
   data$kernel_RE <- kernel_RE
   # Generate the data  
   lmod <- glFormula(formula = formula, data = data, family = family)
@@ -274,7 +287,7 @@ internal_fit_krls <- function(kernel_data, formula, data, y, init_var,
     opt_gKRLS <- optimizeLmer(devfun)
 
   }else{
-    # GHrule <- lme4:::GHrule
+    GHrule <- lme4:::GHrule
     devfun <- do.call(mkGlmerDevfun, man_lmod)
     opt_gKRLS <- optimizeGlmer(devfun)
     devfun <- updateGlmerDevfun(devfun, man_lmod$reTrms)
@@ -284,7 +297,6 @@ internal_fit_krls <- function(kernel_data, formula, data, y, init_var,
   # Turn into a lme4 style object
   fmt_gKRLS <- mkMerMod(environment(devfun), opt_gKRLS, 
               man_lmod$reTrms, fr = man_lmod$fr)
-  
   fmla <- formula(fmt_gKRLS)
   
   # Custom internal function to extract the REs
@@ -317,7 +329,7 @@ internal_fit_krls <- function(kernel_data, formula, data, y, init_var,
 }
 
 #' Internal Standard Errors
-#' 
+#' @importFrom lme4 getME
 get_vcov_ridge <- function(object, family){
   
   # Get various data components
@@ -331,8 +343,16 @@ get_vcov_ridge <- function(object, family){
   fe_mean <- getME(object, 'beta')  
   sigma <- sigma(object)
   Lambda <- getME(object, 'Lambda')
+  
+  if (all(diag(Lambda) == 0)){
+    if (!isDiagonal(Lambda)){stop("Unusual non-invertible Lambda")}
+    Ridge <- bdiag(Diagonal(x = c(rep(0, ncol(X)), rep(Inf, ncol(Lambda)))))
+  }else{
+    Ridge <- bdiag(Diagonal(x = rep(0, ncol(X))), solve(Lambda))
+  }
+  all(Lambda == 0)
+  
   # Add the flat prior on the FE
-  Ridge <- bdiag(Diagonal(x = rep(0, ncol(X))), solve(Lambda))
   Ridge <- crossprod(Ridge)
   # XB + ZA - linear predictor of all terms
   eta <- as.vector(X %*% fe_mean) + as.vector(Z %*% re_mean)

@@ -1,4 +1,5 @@
 #include "RcppEigen.h"
+#include <cmath>
 using namespace Rcpp;
 
 // [[Rcpp::depends(RcppEigen)]]
@@ -10,11 +11,8 @@ double kern_gauss(
     const Eigen::MatrixXd X_two,
     const double bandwidth
 ){
-  
   double dist = (X_one - X_two).squaredNorm();
-  
   double out = exp(-dist/bandwidth);
-  
   return out;
 }
 
@@ -47,8 +45,5 @@ Eigen::MatrixXd create_sketched_kernel(
     // Get the sketched kernel S 
     KS.row(i) = tS * kern_i;
   }
-  
   return KS;
-  
 }
-

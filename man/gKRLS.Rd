@@ -5,7 +5,6 @@
 \title{gKRLS}
 \usage{
 gKRLS(
-  y,
   formula,
   data,
   kernel_X,
@@ -15,16 +14,12 @@ gKRLS(
   sketch_prob = NULL,
   bandwidth = NULL,
   standardize = "scaled",
-  control = list(init_var = 1, intercept = TRUE, truncate_eigen =
-    sqrt(.Machine$double.eps))
+  control = list(init_var = 1, truncate_eigen = sqrt(.Machine$double.eps))
 )
 }
 \arguments{
-\item{y}{A numeric vector that contains the values of dependent variable or
-response variable. Missing Values not allowed.}
-
 \item{formula}{A formula containing the outcome and any fixed effects. Use `y
-~ 1` for a model with only the kernel}
+~ 1` for a model with only the kernel and an intercept.}
 
 \item{data}{data.frame containing the outcome and any fixed effects}
 
