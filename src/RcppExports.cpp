@@ -19,6 +19,37 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cpp_gkrls_me
+Rcpp::List cpp_gkrls_me(const Eigen::MatrixXd std_X_train, const Eigen::MatrixXd std_X_test, const double bandwidth, const std::string family, const bool mahal, const double sd_y, const Eigen::MatrixXd tS, const Eigen::VectorXd fe_mean, const Eigen::VectorXd re_mean, const Eigen::VectorXd all_mean, const Eigen::MatrixXd vcov_ridge, const Eigen::MatrixXd FE_matrix_test, const Eigen::MatrixXd W_Matrix, const Eigen::MatrixXd WX_test, const Eigen::MatrixXd WX_train, const Eigen::MatrixXd raw_X_test, const Eigen::VectorXd std_mean, const Eigen::MatrixXd std_whiten, const std::vector<std::string> type_mfx, const Eigen::MatrixXd fd_matrix, const Eigen::MatrixXd std_fd_matrix);
+RcppExport SEXP _gKRLS_cpp_gkrls_me(SEXP std_X_trainSEXP, SEXP std_X_testSEXP, SEXP bandwidthSEXP, SEXP familySEXP, SEXP mahalSEXP, SEXP sd_ySEXP, SEXP tSSEXP, SEXP fe_meanSEXP, SEXP re_meanSEXP, SEXP all_meanSEXP, SEXP vcov_ridgeSEXP, SEXP FE_matrix_testSEXP, SEXP W_MatrixSEXP, SEXP WX_testSEXP, SEXP WX_trainSEXP, SEXP raw_X_testSEXP, SEXP std_meanSEXP, SEXP std_whitenSEXP, SEXP type_mfxSEXP, SEXP fd_matrixSEXP, SEXP std_fd_matrixSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type std_X_train(std_X_trainSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type std_X_test(std_X_testSEXP);
+    Rcpp::traits::input_parameter< const double >::type bandwidth(bandwidthSEXP);
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
+    Rcpp::traits::input_parameter< const bool >::type mahal(mahalSEXP);
+    Rcpp::traits::input_parameter< const double >::type sd_y(sd_ySEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type tS(tSSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd >::type fe_mean(fe_meanSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd >::type re_mean(re_meanSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd >::type all_mean(all_meanSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type vcov_ridge(vcov_ridgeSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type FE_matrix_test(FE_matrix_testSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type W_Matrix(W_MatrixSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type WX_test(WX_testSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type WX_train(WX_trainSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type raw_X_test(raw_X_testSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd >::type std_mean(std_meanSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type std_whiten(std_whitenSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::string> >::type type_mfx(type_mfxSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type fd_matrix(fd_matrixSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type std_fd_matrix(std_fd_matrixSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_gkrls_me(std_X_train, std_X_test, bandwidth, family, mahal, sd_y, tS, fe_mean, re_mean, all_mean, vcov_ridge, FE_matrix_test, W_Matrix, WX_test, WX_train, raw_X_test, std_mean, std_whiten, type_mfx, fd_matrix, std_fd_matrix));
+    return rcpp_result_gen;
+END_RCPP
+}
 // create_sketched_kernel
 Eigen::MatrixXd create_sketched_kernel(const Eigen::Map<Eigen::MatrixXd> X_test, const Eigen::Map<Eigen::MatrixXd> X_train, const Eigen::Map<Eigen::MatrixXd> tS, const double bandwidth);
 RcppExport SEXP _gKRLS_create_sketched_kernel(SEXP X_testSEXP, SEXP X_trainSEXP, SEXP tSSEXP, SEXP bandwidthSEXP) {
@@ -36,6 +67,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_gKRLS_kern_gauss", (DL_FUNC) &_gKRLS_kern_gauss, 3},
+    {"_gKRLS_cpp_gkrls_me", (DL_FUNC) &_gKRLS_cpp_gkrls_me, 21},
     {"_gKRLS_create_sketched_kernel", (DL_FUNC) &_gKRLS_create_sketched_kernel, 4},
     {NULL, NULL, 0}
 };

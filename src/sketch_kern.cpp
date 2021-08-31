@@ -1,20 +1,9 @@
 #include "RcppEigen.h"
+#include "calc_kernel.h"
 #include <cmath>
 using namespace Rcpp;
 
 // [[Rcpp::depends(RcppEigen)]]
-
-//' Evaluate the kernel distance between two vectors.
-// [[Rcpp::export]]
-double kern_gauss(
-    const Eigen::MatrixXd X_one,
-    const Eigen::MatrixXd X_two,
-    const double bandwidth
-){
-  double dist = (X_one - X_two).squaredNorm();
-  double out = exp(-dist/bandwidth);
-  return out;
-}
 
 //' Create the sketched kernel
 //' @export

@@ -4,6 +4,7 @@ print.gKRLS <- function(object){
   print(object$fmt_varcorr)
 }
 
+#' @export
 plot.gKRLS_ME <- function(object){
   
   list_pointwise <- as.list(data.frame(object$ME_pointwise, check.names = F))
@@ -39,6 +40,7 @@ plot.gKRLS_ME <- function(object){
   invisible(g)
 }
 
+#' @export
 print.gKRLS_ME <- function(object){
   
   summary_pointwise <- apply(object$ME_pointwise, MARGIN = 2, FUN=function(i){quantile(i, c(0.25, 0.5, 0.75))})
@@ -55,6 +57,7 @@ print.gKRLS_ME <- function(object){
   print(out)
   invisible()  
 }
+
 #' Prediction after gKRLS
 #' Pass "newdata"
 #' @export
