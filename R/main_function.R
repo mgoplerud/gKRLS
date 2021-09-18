@@ -30,14 +30,14 @@
 #'   positive floating-point number x such that 1 + x != 1.
 #' @useDynLib gKRLS
 #' @import Matrix
-#' @importFrom lme4 subbars
+#' @importFrom lme4 subbars 
 #' @export
 gKRLS <- function(
       formula, data,
       kernel_X, family, 
       sketch_size = ceiling(nrow(kernel_X)^(1/3)) * 5, 
       sketch_method = 'gaussian', sketch_prob = NULL, bandwidth = NULL,
-      standardize = 'scaled',
+      standardize = 'scaled', prior_stabilize = TRUE,
       control = list(init_var =  1,
                      truncate_eigen = sqrt(.Machine$double.eps))){
   
@@ -102,7 +102,7 @@ gKRLS <- function(
     std_whiten_X <- Diagonal(n = ncol(kernel_X))
     W_Matrix <- Diagonal(n = ncol(kernel_X))
     
-  }
+  }else{stop("Invalid standardization method.")}
   # demean X
   std_kernel_X <- sweep(kernel_X, 2, std_mean_X, FUN = "-")
   # standardize
@@ -163,12 +163,15 @@ gKRLS <- function(
     Diagonal(x = 1/sqrt(eigen_sketch$values[nonzero])))
 
   # Fit the KRLS model using lme4
+  
   fit_krls <- internal_fit_krls(
     kernel_data = projected_data, 
     formula = formula,
     data = data,
     init_var = control$init_var,
-    intercept = control$intercept, family = family)
+    intercept = control$intercept, 
+    family = family,
+    prior_stabilize = prior_stabilize)
   
   # Adjust fitted values
   fit_krls$fitted <- fit_krls$fitted * sd_y + mean_y
@@ -184,10 +187,19 @@ gKRLS <- function(
   ev <- bdiag(Diagonal(x = rep(1, n_FE_p)), ev)
   aug_diag_ev <- bdiag(Diagonal(x = rep(1, n_FE_p)), diag_ev)
   
-  meat_ridge <- bdiag(aug_diag_ev %*% fit_krls$vcov_ridge %*% aug_diag_ev, 
+  
+  meat_ridge <- bdiag(aug_diag_ev %*% fit_krls$vcov_ridge$vcov_ridge %*% aug_diag_ev, 
                       Diagonal(x = rep(0, nrow(eigen_sketch$vectors) + 
                                          -length(nonzero))))
-
+  # meat_LL <- bdiag(aug_diag_ev %*% fit_krls$vcov_ridge$LL_Meat %*% aug_diag_ev, 
+  #                     Diagonal(x = rep(0, nrow(eigen_sketch$vectors) + 
+  #                                        -length(nonzero))))
+  
+  effective_N <- nrow(kernel_X) - fit_krls$vcov_ridge$effective_df
+  
+  fit_krls$effective_df <- fit_krls$vcov_ridge$effective_df
+  fit_krls$effective_N <- effective_N
+  fit_krls$ll <- fit_krls$vcov_ridge$ll
   fit_krls$vcov_ridge <- ev %*% meat_ridge %*% t(ev)
   fit_krls$re$var <- eigen_sketch$vectors %*% 
     bdiag(diag_ev %*% fit_krls$re$var %*% diag_ev, 
@@ -237,10 +249,12 @@ lme4::fixef
 lme4::ranef
 
 #' @importFrom lme4 glFormula lFormula mkLmerDevfun mkGlmerDevfun mkMerMod
-#'   VarCorr optimizeGlmer updateGlmerDevfun optimizeLmer
-internal_fit_krls <- function(kernel_data, formula, data, y, init_var,
-                              intercept, family){
+#'   VarCorr optimizeGlmer updateGlmerDevfun optimizeLmer nloptwrap GHrule
+internal_fit_krls <- function(kernel_data, formula, data, 
+  y, init_var,
+  intercept, family, prior_stabilize){
   
+  copy_init <- as.numeric(init_var + 1 - 1)
   dim_kernel <- ncol(kernel_data)
   N <- nrow(data)
   if (N != nrow(kernel_data)){stop('FE and Kernel have different #s of observations.')}
@@ -263,8 +277,8 @@ internal_fit_krls <- function(kernel_data, formula, data, y, init_var,
   # Set initial variance to give to optimizer
   fake_reTrms <- list(
     Zt = drop0(t(kernel_data)),
-    theta = init_var,
-    Lambdat = sparseMatrix(i = 1:dim_kernel, j = 1:dim_kernel, x = init_var),
+    theta = copy_init,
+    Lambdat = sparseMatrix(i = 1:dim_kernel, j = 1:dim_kernel, x = copy_init),
     Lind = rep(1, dim_kernel),
     flist = mod_flist,
     lower = lmod$reTrms$lower,
@@ -287,17 +301,49 @@ internal_fit_krls <- function(kernel_data, formula, data, y, init_var,
     opt_gKRLS <- optimizeLmer(devfun)
 
   }else{
-    GHrule <- lme4:::GHrule
-    devfun <- do.call(mkGlmerDevfun, man_lmod)
-    opt_gKRLS <- optimizeGlmer(devfun)
-    devfun <- updateGlmerDevfun(devfun, man_lmod$reTrms)
-    opt_gKRLS <- optimizeGlmer(devfun, stage=2)
+    # Fixing variance
+    # https://stackoverflow.com/questions/39718754/fixing-variance-values-in-lme4/39732683#39732683
+
+
+    GHrule <- lme4::GHrule
+    
+    if (!prior_stabilize){
+      devfun <- do.call(mkGlmerDevfun, man_lmod)
+      opt_gKRLS <- optimizeGlmer(devfun)
+      devfun <- updateGlmerDevfun(devfun, man_lmod$reTrms)
+      opt_gKRLS <- optimizeGlmer(devfun, stage = 2)
+    }else{
+      devfun <- do.call(mkGlmerDevfun, man_lmod)
+      theta.lwr <- environment(devfun)$lower  ## this changes after update!
+      devfun <- updateGlmerDevfun(devfun, man_lmod$reTrms)
+      rho <- environment(devfun)
+      nbeta <- ncol(rho$pp$X)
+      theta <- rho$pp$theta
+      if (theta < 1e-6){
+        placeholder <- devfun(c(copy_init, rep(0, nbeta)))
+      }
+      if (!is.finite(theta)){
+        placeholder <- devfun(c(copy_init, rep(0, nbeta)))
+      }
+      penalized_dev <- function(par){
+        par[1] <- exp(par[1])
+        return(devfun(par) - log(par[1]))
+      }
+      
+      opt_gKRLS <- tryCatch(lme4::nloptwrap(par=c(log(theta),rep(0,nbeta)),
+        fn=penalized_dev, lower = rep(-Inf, 1 + nbeta), upper = rep(Inf, 1 + nbeta)), error = function(e){NULL})
+      if (is.null(opt_gKRLS)){stop('Estimation failed')}
+      opt_gKRLS$par[1] <- exp(opt_gKRLS$par[1])
+    }
+    
+    
   }
   
   # Turn into a lme4 style object
   fmt_gKRLS <- mkMerMod(environment(devfun), opt_gKRLS, 
               man_lmod$reTrms, fr = man_lmod$fr)
   fmla <- formula(fmt_gKRLS)
+  
   
   # Custom internal function to extract the REs
   extract_re_KRLS <- function(object){
@@ -315,12 +361,16 @@ internal_fit_krls <- function(kernel_data, formula, data, y, init_var,
   
   vcov_ridge <- get_vcov_ridge(fmt_gKRLS, family)
   
+  
   out <- list(sigma = sigma(fmt_gKRLS),
     par_gKRLS = opt_gKRLS$par,
     fitted = fitted(fmt_gKRLS),
     fmt_varcorr = VarCorr(fmt_gKRLS),
     fe = fe_all,
     re = re_all,
+    AIC = AIC(fmt_gKRLS),
+    BIC = BIC(fmt_gKRLS),
+    logLik = logLik(fmt_gKRLS),
     vcov_ridge = vcov_ridge,
     formula = fmla
   )
@@ -338,7 +388,6 @@ get_vcov_ridge <- function(object, family){
   Z <- getME(object, 'Z')
   XZ <- drop0(cbind(X,Z))
   y <- getME(object, 'y')
-  mu <- getME(object, 'mu')
   re_mean <- getME(object, 'b')
   fe_mean <- getME(object, 'beta')  
   sigma <- sigma(object)
@@ -350,8 +399,7 @@ get_vcov_ridge <- function(object, family){
   }else{
     Ridge <- bdiag(Diagonal(x = rep(0, ncol(X))), solve(Lambda))
   }
-  all(Lambda == 0)
-  
+
   # Add the flat prior on the FE
   Ridge <- crossprod(Ridge)
   # XB + ZA - linear predictor of all terms
@@ -374,20 +422,30 @@ get_vcov_ridge <- function(object, family){
   if (family$family == 'binomial' & family$link == 'logit'){
     p <- plogis(eta) 
     weight <- p * (1-p)
-    stopifnot(all.equal(mu, plogis(eta)))
     stopifnot(sigma == 1)
+    ll <- sum(ifelse(y == 1, log(p), log(1-p)))
   }else if (family$family == 'gaussian' & family$link == 'identity'){
     weight <- rep(1, nrow(XZ))
+    ll <- sum(dnorm(y, mean = eta, sd = sigma, log = TRUE))
   }else if (family$family == 'binomial' & family$link == 'probit'){
     weight <- (2 * y - 1) * dnorm(eta)/pnorm(eta * (2 * y - 1))
     weight <- weight * (eta + weight)
+    p <- pnorm(eta)
+    ll <- sum(ifelse(y == 1, log(p), log(1-p)))
   }else if (family$family == 'poisson' & family$link == 'log'){
     weight <- exp(eta)
+    ll <- sum(dpois(y, lambda = exp(eta), log = TRUE))
   }else{
     stop('Not recogized family and link.')
   }
   
-  vcov_ridge <- sigma^2 * solve(crossprod(Diagonal(x = sqrt(weight)) %*% XZ) + Ridge)
-  return(vcov_ridge)
+  LL_Meat <- crossprod(Diagonal(x = sqrt(weight)) %*% XZ)
+  vcov_ridge <- sigma^2 * solve(LL_Meat + Ridge)
+  
+  effective_df <- sum(Matrix::diag( vcov_ridge %*% (1/sigma^2 * LL_Meat) ))
+  
+  return(list(vcov_ridge = vcov_ridge, LL_Meat = LL_Meat,
+              effective_df = effective_df, ll = ll))
+  
 }
 

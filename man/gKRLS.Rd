@@ -14,6 +14,7 @@ gKRLS(
   sketch_prob = NULL,
   bandwidth = NULL,
   standardize = "scaled",
+  prior_stabilize = TRUE,
   control = list(init_var = 1, truncate_eigen = sqrt(.Machine$double.eps))
 )
 }
