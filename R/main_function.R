@@ -163,7 +163,6 @@ gKRLS <- function(
     Diagonal(x = 1/sqrt(eigen_sketch$values[nonzero])))
 
   # Fit the KRLS model using lme4
-  
   fit_krls <- internal_fit_krls(
     kernel_data = projected_data, 
     formula = formula,
@@ -172,39 +171,46 @@ gKRLS <- function(
     intercept = control$intercept, 
     family = family,
     prior_stabilize = prior_stabilize)
-  
+
+  d_j <- fit_krls$d_j
+  if (names(d_j)[length(d_j)] != 'kernel_RE'){
+    stop('kernel_RE must come last')
+  }
+  n_normal_RE <- sum(d_j[-length(d_j)])
+  n_kernel <- d_j['kernel_RE']
   # Adjust fitted values
   fit_krls$fitted <- fit_krls$fitted * sd_y + mean_y
+  
   # Adjust RE to be dimension of sketched data.
-  fit_krls$re$mean <- eigen_sketch$vectors %*% 
-    c(fit_krls$re$mean * sqrt(1/eigen_sketch$values[nonzero]),
-      rep(0, nrow(eigen_sketch$vectors) - length(fit_krls$re$mean)))
+  fit_krls$re$mean <- bdiag(Diagonal(n = n_normal_RE), eigen_sketch$vectors) %*% 
+    c(fit_krls$re$mean[seq_len(n_normal_RE)], 
+      fit_krls$re$mean[n_normal_RE + seq_len(n_kernel)] * sqrt(1/eigen_sketch$values[nonzero]),
+      rep(0, nrow(eigen_sketch$vectors) - n_kernel))
   # Adjust RE variance to match sketched data
   diag_ev <- Diagonal(x = sqrt(1/eigen_sketch$values[nonzero]))
   
   n_FE_p <- length(fit_krls$fe$mean)
   ev <- eigen_sketch$vectors
-  ev <- bdiag(Diagonal(x = rep(1, n_FE_p)), ev)
-  aug_diag_ev <- bdiag(Diagonal(x = rep(1, n_FE_p)), diag_ev)
+  ev <- bdiag(Diagonal(x = rep(1, n_FE_p + n_normal_RE)), ev)
+  aug_diag_ev <- bdiag(Diagonal(x = rep(1, n_FE_p + n_normal_RE)), diag_ev)
   
   
   meat_ridge <- bdiag(aug_diag_ev %*% fit_krls$vcov_ridge$vcov_ridge %*% aug_diag_ev, 
                       Diagonal(x = rep(0, nrow(eigen_sketch$vectors) + 
                                          -length(nonzero))))
-  # meat_LL <- bdiag(aug_diag_ev %*% fit_krls$vcov_ridge$LL_Meat %*% aug_diag_ev, 
-  #                     Diagonal(x = rep(0, nrow(eigen_sketch$vectors) + 
-  #                                        -length(nonzero))))
-  
+
   effective_N <- nrow(kernel_X) - fit_krls$vcov_ridge$effective_df
   
+
   fit_krls$effective_df <- fit_krls$vcov_ridge$effective_df
   fit_krls$effective_N <- effective_N
   fit_krls$ll <- fit_krls$vcov_ridge$ll
   fit_krls$vcov_ridge <- ev %*% meat_ridge %*% t(ev)
-  fit_krls$re$var <- eigen_sketch$vectors %*% 
-    bdiag(diag_ev %*% fit_krls$re$var %*% diag_ev, 
+  int_aug_ev <- bdiag(Diagonal(x = rep(1, n_normal_RE)), diag_ev)
+  fit_krls$re$var <- bdiag(Diagonal(n = n_normal_RE), eigen_sketch$vectors) %*% 
+    bdiag(int_aug_ev %*% fit_krls$re$var %*% int_aug_ev, 
         Diagonal(x = rep(0, nrow(eigen_sketch$vectors) + 
-          -length(nonzero)))) %*% t(eigen_sketch$vectors)
+          -length(nonzero)))) %*% t(bdiag(Diagonal(n = n_normal_RE), eigen_sketch$vectors))
 
   fit_krls$control <- control
   fit_krls$internal <- list(sd_y = sd_y, mean_y = mean_y, 
@@ -274,15 +280,37 @@ internal_fit_krls <- function(kernel_data, formula, data,
   mod_flist$kernel_RE[-1] <- 1
   mod_flist$kernel_RE <- factor(mod_flist$kernel_RE) 
   
+  
+  d_j <- diff(lmod$reTrms$Gp)
+  names(d_j) <- names(lmod$reTrms$cnms)
+  
+  if (names(lmod$reTrms$cnms)[length(d_j)] != 'kernel_RE'){
+    stop("kernel_RE isn't at the end")
+  }
+  d_j[which(names(lmod$reTrms$cnms) == 'kernel_RE')] <- dim_kernel
+  Gp <- cumsum(c(0, d_j))
+  
+  Zt_aug <- lmod$reTrms$Ztlist
+  Zt_aug[["1 | kernel_RE"]] <- drop0(t(kernel_data))
+  Zt_aug <- do.call('rbind', Zt_aug)
+  
+  theta_aug <- lmod$reTrms$theta
+  theta_aug[which(names(lmod$reTrms$cnms) == 'kernel_RE')] <- copy_init
+  
+  Lind_aug <- rep(1:length(d_j), d_j)
+  Lambdat_aug <- sparseMatrix(i = 1:sum(d_j), j = 1:sum(d_j), x = rep(theta_aug, d_j))
+
+  
+  
   # Set initial variance to give to optimizer
   fake_reTrms <- list(
-    Zt = drop0(t(kernel_data)),
-    theta = copy_init,
-    Lambdat = sparseMatrix(i = 1:dim_kernel, j = 1:dim_kernel, x = copy_init),
-    Lind = rep(1, dim_kernel),
+    Zt = Zt_aug,
+    theta = theta_aug,
+    Lambdat = Lambdat_aug,
+    Lind = Lind_aug,
     flist = mod_flist,
     lower = lmod$reTrms$lower,
-    Gp = as.integer(c(0, dim_kernel)),
+    Gp = as.integer(Gp),
     cnms = lmod$reTrms$cnms
   )
   # Prepare the lme4 object
@@ -295,6 +323,7 @@ internal_fit_krls <- function(kernel_data, formula, data,
     wmsgs = lmod$wmsgs
   )
   
+
   if (family$family == 'gaussian'){
     
     devfun <- do.call(mkLmerDevfun, man_lmod)
@@ -303,8 +332,6 @@ internal_fit_krls <- function(kernel_data, formula, data,
   }else{
     # Fixing variance
     # https://stackoverflow.com/questions/39718754/fixing-variance-values-in-lme4/39732683#39732683
-
-
     GHrule <- lme4::GHrule
     
     if (!prior_stabilize){
@@ -319,21 +346,24 @@ internal_fit_krls <- function(kernel_data, formula, data,
       rho <- environment(devfun)
       nbeta <- ncol(rho$pp$X)
       theta <- rho$pp$theta
-      if (theta < 1e-6){
-        placeholder <- devfun(c(copy_init, rep(0, nbeta)))
+      if (any(theta < 1e-6)){
+        theta[which(theta < 1e-6)] <- theta_aug[which(theta < 1e-6)]
+        placeholder <- devfun(c(theta, rep(0, nbeta)))
       }
-      if (!is.finite(theta)){
-        placeholder <- devfun(c(copy_init, rep(0, nbeta)))
+      if (any(!is.finite(theta))){
+        theta[which(!is.finite(theta))] <- theta_aug[which(!is.finite(theta))]
+        placeholder <- devfun(c(theta, rep(0, nbeta)))
       }
+      n_theta <- seq_len(length(theta_aug))
       penalized_dev <- function(par){
-        par[1] <- exp(par[1])
-        return(devfun(par) - log(par[1]))
+        par[n_theta] <- exp(par[n_theta])
+        return(devfun(par) - sum(log(par[n_theta])))
       }
       
       opt_gKRLS <- tryCatch(lme4::nloptwrap(par=c(log(theta),rep(0,nbeta)),
-        fn=penalized_dev, lower = rep(-Inf, 1 + nbeta), upper = rep(Inf, 1 + nbeta)), error = function(e){NULL})
+        fn=penalized_dev, lower = rep(-Inf, length(theta_aug) + nbeta), upper = rep(Inf, length(theta_aug) + nbeta)), error = function(e){NULL})
       if (is.null(opt_gKRLS)){stop('Estimation failed')}
-      opt_gKRLS$par[1] <- exp(opt_gKRLS$par[1])
+      opt_gKRLS$par[n_theta] <- exp(opt_gKRLS$par[n_theta])
     }
     
     
@@ -361,13 +391,17 @@ internal_fit_krls <- function(kernel_data, formula, data,
   
   vcov_ridge <- get_vcov_ridge(fmt_gKRLS, family)
   
+  levels_of_RE <- lapply(lmod$reTrms$Ztlist, rownames)
   
-  out <- list(sigma = sigma(fmt_gKRLS),
+  out <- list(
+    sigma = sigma(fmt_gKRLS),
     par_gKRLS = opt_gKRLS$par,
     fitted = fitted(fmt_gKRLS),
     fmt_varcorr = VarCorr(fmt_gKRLS),
     fe = fe_all,
     re = re_all,
+    d_j = d_j,
+    levels_of_RE = levels_of_RE,
     AIC = AIC(fmt_gKRLS),
     BIC = BIC(fmt_gKRLS),
     logLik = logLik(fmt_gKRLS),

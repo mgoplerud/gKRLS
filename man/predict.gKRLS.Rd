@@ -10,7 +10,8 @@ Pass "newdata"}
   newdata,
   newkernel_X,
   type = c("link", "response"),
-  return_full = FALSE
+  return_full = FALSE,
+  allow_missing_levels = FALSE
 )
 }
 \description{

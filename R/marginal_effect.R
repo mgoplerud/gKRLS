@@ -43,29 +43,20 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
     }else{stop('Invalid family.')}
   }
   
-  # Standardize the incoming new data.
-  std_newkernel_X <- sweep(newkernel_X, 2, object$internal$std_train$mean, FUN = "-")
-  std_newkernel_X <- std_newkernel_X %*% 
-    object$internal$std_train$whiten
-  std_newkernel_X <- as.matrix(std_newkernel_X)  
-  # Standardize the saved training kernel
-  std_kernel_X <- object$internal$kernel_X_train
-  std_kernel_X <- sweep(std_kernel_X, 2, object$internal$std_train$mean, FUN = "-")
-  std_kernel_X <- std_kernel_X %*% 
-    object$internal$std_train$whiten
-  std_kernel_X <- as.matrix(std_kernel_X)  
   
+  prepped_data <- prepare_predict_data(object = object, newdata = newdata, 
+                                       newkernel_X = newkernel_X,
+                                       allow_missing_levels = allow_missing_levels)
   
-  if (is.null(newdata)){
-    newdata <- data.frame(matrix(nrow = nrow(newkernel_X), ncol = 0))
-  }
-  newdata_FE <- model.matrix(delete.response(terms(lme4::nobars(formula(object)))), data = newdata)
-  
-  orig_X_names <- names(fixef(object))
-  if (!identical(colnames(newdata_FE), orig_X_names)) {
-    print(all.equal(colnames(newdata_FE), orig_X_names))
-    stop("Misaligned Fixed Effects")
-  }
+  Z <- prepped_data$Z
+  newdata_FE <- prepped_data$newdata_FE
+  total_obs <- prepped_data$total_obs
+  obs_in_both <- prepped_data$obs_in_both
+  newdataKS <- prepped_data$newdataKS
+  std_X_test <- prepped_data$std_newkernel_X
+  std_X_train <- prepped_data$std_kernel_X
+  pos_re <- prepped_data$n_pos
+  rm(prepped_data); gc()
   
   family <- object$internal$family
   if (family$family == 'binomial' & family$link == 'logit'){
@@ -80,20 +71,7 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
   
   names_mfx <- c(colnames(newdata_FE), colnames(object$internal$kernel_X_train))
   
-  # The "standardized" data
-  # that can be put into gaussian_kern
-  # to get the correct kernel distance
-  std_X_test = std_newkernel_X
-  std_X_train = std_kernel_X
-  # We need to calculate W_p^T (x_i - x_j)
-  # So if we do X W and then take the ELEMENTS
   W_Matrix <- object$internal$std_train$W_Matrix
-  
-  # WX_train <- sweep(object$internal$kernel_X_train, 2,
-  #   object$internal$std_train$mean, FUN = "-") %*% W_Matrix
-  # WX_test <- sweep(newkernel_X, 2,
-  #   object$internal$std_train$mean, FUN = "-") %*% W_Matrix
-  
   WX_train <- object$internal$kernel_X_train %*% W_Matrix
   WX_test <- newkernel_X %*% W_Matrix
   
@@ -102,11 +80,19 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
   
   fe_mean <- object$fe$mean
   re_mean <- object$re$mean
-  all_mean <- c(fe_mean, re_mean)  
+  
+  if (length(fe_mean) > 0){
+    all_mean <- rbind(fe_mean, re_mean)
+  }else{
+    all_mean <- matrix(re_mean)
+  }
   vcov_ridge <- object$vcov_ridge
   FE_matrix_test <- newdata_FE
   
   fmt_sd_y <- object$internal$sd_y
+  
+  pos_kern <- pos_re[which(names(pos_re) == '1 | kernel_RE')]
+  stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')
   
   #####################
   ### Begin Estimation
@@ -118,12 +104,30 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
   # vcov_ridge
   #####################
 
-  N_train <- nrow(std_kernel_X)
-  N_test <- nrow(std_newkernel_X)
+  N_train <- nrow(std_X_train)
+  N_test <- nrow(std_X_test)
+  
+  offset <- rep(0, N_test)
+
+  orig_re <- re_mean
+  offset_re <- orig_re[seq_len(length(orig_re) - pos_kern),,drop=F]
+  # Are there any "pure" REs in the model? If not, simplify
+  
+  if (nrow(offset_re) == 0){
+    re_mean <- orig_re
+    any_Z <- FALSE
+    Z <- sparseMatrix(i = 1, j = 1, x = 0)
+  }else{
+    any_Z <- TRUE
+    re_mean <- orig_re[-seq_len(length(orig_re) - pos_kern), , drop = F]
+    offset <- as.vector(Z[,seq_len(length(orig_re) - pos_kern), , drop = F] %*% offset_re)
+    Z <- Z[,seq_len(length(orig_re) - pos_kern), , drop = F]
+  }
+
   Sc <- t(tS) %*% re_mean
-  ME_pointwise <- ME_pointwise_var <- matrix(NA, nrow(std_newkernel_X), 
+  ME_pointwise <- ME_pointwise_var <- matrix(NA, nrow(std_X_test), 
                                              ncol(FE_matrix_test) + ncol(W_Matrix))
-  AME_grad <- matrix(0, nrow = length(all_mean), ncol = ncol(FE_matrix_test) + ncol(W_Matrix))
+  AME_grad <- matrix(0, nrow = nrow(all_mean), ncol = ncol(FE_matrix_test) + ncol(W_Matrix))
   SIZE_FE <- ncol(FE_matrix_test)
   SIZE_KERNEL <- ncol(W_Matrix)
   
@@ -168,24 +172,32 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
   if (method == 'cpp'){
     out_ME <- cpp_gkrls_me(std_X_train = std_X_train, std_X_test = std_X_test,
                  bandwidth = bandwidth, family = family,
-                 mahal = mahal, sd_y = fmt_sd_y, tS = tS, fe_mean = fe_mean, re_mean = re_mean, 
-                 all_mean = all_mean, vcov_ridge = vcov_ridge, FE_matrix_test = FE_matrix_test, 
+                 tZ = t(Z), offset = offset, any_Z = any_Z,
+                 mahal = mahal, sd_y = fmt_sd_y, tS = tS, fe_mean = fe_mean, re_mean = as.vector(re_mean), 
+                 SIZE_PARAMETER = nrow(all_mean), vcov_ridge = vcov_ridge, FE_matrix_test = FE_matrix_test, 
                  W_Matrix = W_Matrix, WX_test = WX_test, WX_train = WX_train, raw_X_test = raw_X_test, 
                  std_mean = std_mean, std_whiten = std_whiten, 
                  fd_matrix = fd_matrix, std_fd_matrix = std_fd_matrix, 
                  type_mfx = type_mfx)
   }else{
+    
     for (i in seq_len(N_test)){
       
       std_X_i <- std_X_test[i,]
       WX_i <- WX_test[i,]
+      if (any_Z){
+        z_i <- Z[i,]
+      }else{
+        z_i <- NULL
+      }
+      offset_i <- offset[i]
       X_FE_i <- FE_matrix_test[i,]
       k_i <- sapply(seq_len(N_train), FUN=function(j){
         exp(-sum( (std_X_i - std_X_train[j,])^2)/bandwidth)
       })   
       tilde_k_i <- tS %*% k_i
       fe_i <- sum(fe_mean * X_FE_i)
-      linpred_i <- fe_i + sum(tilde_k_i * re_mean)
+      linpred_i <- fe_i + sum(tilde_k_i * re_mean) + offset_i
       f_prime_i <- f_prime(linpred_i, family)
       f_double_prime_i <- f_double_prime(linpred_i, family)
       
@@ -210,8 +222,15 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
         })
         grad_ME_FE_p_c <- f_double_prime_i * fe_mean[p] * -2/bandwidth *
           (tS %*% k_i)
+        if (any_Z){
+          grad_ME_FE_p_alpha <- f_double_prime_i * fe_mean[p] * z_i
+        }else{
+          grad_ME_FE_p_alpha <- NULL
+        }
+        
         grad_ME_FE_p_c <- as.vector(grad_ME_FE_p_c)
-        grad_ME_FE_p <- c(grad_ME_FE_p_beta, grad_ME_FE_p_c)
+        if (i == 1){stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')}
+        grad_ME_FE_p <- c(grad_ME_FE_p_beta, grad_ME_FE_p_alpha, grad_ME_FE_p_c)
         
         ME_pointwise_var[i,p] <- as.vector(t(grad_ME_FE_p) %*% vcov_ridge %*% grad_ME_FE_p)
         AME_grad[,p] <- AME_grad[,p] + grad_ME_FE_p
@@ -226,12 +245,24 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
           f_prime_i * -2/bandwidth * tS %*% Diagonal(x = D_i[[pkern]]) %*% k_i
         grad_ME_K_p_c <- as.vector(grad_ME_K_p_c)
         grad_ME_K_p_beta <- f_double_prime_i * (-2/bandwidth * meat_ip) * X_FE_i
-        grad_ME_K_p <- c(grad_ME_K_p_beta, grad_ME_K_p_c)
+        
+        if (any_Z){
+          grad_ME_K_p_alpha <- f_double_prime_i * -2/bandwidth * meat_ip * z_i
+        }else{
+          grad_ME_K_p_alpha <- NULL
+        }
+        
+        if (i == 1){stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')}
+        
+        grad_ME_K_p <- c(grad_ME_K_p_beta, grad_ME_K_p_alpha, grad_ME_K_p_c)
         
         ME_pointwise_var[i, SIZE_FE + pkern] <- as.vector(t(grad_ME_K_p) %*% vcov_ridge %*% grad_ME_K_p)
         AME_grad[ , SIZE_FE + pkern] <- AME_grad[ , SIZE_FE + pkern] + grad_ME_K_p
         
       }
+      
+      # Get the Gradient w.r.t. each MFX for the RE
+      
       for (p_fd in which(fd_flag)){
 
         if (p_fd <= SIZE_FE){
@@ -281,14 +312,22 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
           fe_i_0 <- fe_i
           fe_i_1 <- fe_i
         }
-        linpred_i_1 <- fe_i_1 + as.numeric(t(k_i_1) %*% t(tS) %*% re_mean)
-        linpred_i_0 <- fe_i_0 + as.numeric(t(k_i_0) %*% t(tS) %*% re_mean)
+        linpred_i_1 <- fe_i_1 + as.numeric(t(k_i_1) %*% t(tS) %*% re_mean) + offset_i
+        linpred_i_0 <- fe_i_0 + as.numeric(t(k_i_0) %*% t(tS) %*% re_mean) + offset_i
         
         ME_pointwise[i, p_fd] <- f(linpred_i_1, family) - f(linpred_i_0, family)
         # Get the gradient
         grad_ME_i_fd_beta <- (f_prime(linpred_i_1, family) - f_prime(linpred_i_0, family)) * X_FE_i
         grad_ME_i_fd_c <- tS %*% (f_prime(linpred_i_1, family) * k_i_1 - f_prime(linpred_i_0, family) * k_i_0)
-        grad_ME_FD <- c(grad_ME_i_fd_beta, grad_ME_i_fd_c)
+        if (any_Z){
+          grad_ME_i_fd_alpha <- (f_prime(linpred_i_1, family) - f_prime(linpred_i_0, family)) * z_i
+        }else{
+          grad_ME_i_fd_alpha <- NULL
+        }
+        if (i == 1){stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')}
+        
+        
+        grad_ME_FD <- c(grad_ME_i_fd_beta, grad_ME_i_fd_alpha, grad_ME_i_fd_c)
         ME_pointwise_var[i,p_fd] <- as.vector(t(grad_ME_FD) %*% vcov_ridge %*% grad_ME_FD)
         AME_grad[,p_fd] <- AME_grad[,p_fd] + grad_ME_FD
         
