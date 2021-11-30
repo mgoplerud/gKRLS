@@ -59,8 +59,10 @@ print.gKRLS_ME <- function(object){
 }
 
 prepare_predict_data <- function(object, newdata, newkernel_X, allow_missing_levels){
+
   # Standardize the incoming new data.
   std_newkernel_X <- sweep(newkernel_X, 2, object$internal$std_train$mean, FUN = "-")
+  
   std_newkernel_X <- std_newkernel_X %*% 
     object$internal$std_train$whiten
   std_newkernel_X <- as.matrix(std_newkernel_X)  
@@ -84,19 +86,30 @@ prepare_predict_data <- function(object, newdata, newkernel_X, allow_missing_lev
     rownames(newdata) <- as.character(1:nrow(newdata))
   }
   
-  # Code Adapted from github.com/mgoplerud/vglmer
   fmla <- formula(object)
-  newdata_FE <- model.matrix(delete.response(terms(lme4::nobars(fmla))), data = newdata)
-  orig_FE_names <- names(object$fe$mean)
-  if (!identical(colnames(newdata_FE), orig_FE_names)) {
-    print(all.equal(colnames(newdata_FE), orig_FE_names))
+  fmla <- update.formula(fmla, '. ~ . + (1 | kernel_RE)')
+  # Adapted from "predict.lm"
+  tt <- object$internal$fe_options$terms
+  Terms <- delete.response(tt)
+  m <- model.frame(Terms, newdata, na.action = object$internal$fe_options$na.action, 
+                   xlev = object$internal$fe_options$xlevels)
+  if (!is.null(cl <- attr(Terms, "dataClasses"))){
+    .checkMFClasses(cl, m)
+  } 
+  
+  newdata_FE <- model.matrix(Terms, m, contrasts.arg = contrasts)
+
+  if (!identical(colnames(newdata_FE), names(object$fe$mean))) {
+    print(all.equal(colnames(newdata_FE), names(object$fe$mean)))
     stop("Misaligned Fixed Effects")
   }
   
-  
+  # Adapted from vglmer (github.com/mgoplerud/vglmer)
   # Extract the Z (Random Effect) design matrix.
   newdata$kernel_RE <- 1
   mk_Z <- model.frame(delete.response(terms(subbars(fmla))), data = newdata)
+  if (nrow(newdataKS) != nrow(mk_Z)){stop('Kernel data size misaligned with RE/FE.')}
+  if (nrow(mk_Z) != nrow(newdata_FE)){stop('Data size for RE and FE are misaligned.')}
   rownames_Z <- rownames(mk_Z)
   mk_Z <- lme4::mkReTrms(lme4::findbars(fmla), mk_Z, reorder.terms = FALSE, reorder.vars = FALSE)
   mk_Z$Zt <- NULL
@@ -123,6 +136,8 @@ prepare_predict_data <- function(object, newdata, newkernel_X, allow_missing_lev
     recons_Z[, match(in_both, levels_training)] <- t(zj[match(in_both, rownames(zj)),])
     return(recons_Z)      
   })
+  
+  
   Z[["1 | kernel_RE"]] <- newdataKS
   n_pos <- sapply(Z, ncol)
   Z <- do.call('cbind', Z)
@@ -134,6 +149,7 @@ prepare_predict_data <- function(object, newdata, newkernel_X, allow_missing_lev
 
   newdata_FE <- newdata_FE[match(obs_in_both, rownames(newdata_FE)), , drop = F]
   Z <- Z[match(obs_in_both, rownames(Z)), , drop = F]
+  
   
   return(list(
     Z = Z,

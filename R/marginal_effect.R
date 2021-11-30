@@ -1,7 +1,9 @@
 
 #' Estimate marginal effects
 #' @export
-marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
+marginal_effect_base <- function(object, newdata, newkernel_X, 
+                                 keep = NULL,
+                                 method = 'cpp'){
   
   standardize <- object$internal$standardize
   
@@ -43,10 +45,9 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
     }else{stop('Invalid family.')}
   }
   
-  
   prepped_data <- prepare_predict_data(object = object, newdata = newdata, 
-                                       newkernel_X = newkernel_X,
-                                       allow_missing_levels = allow_missing_levels)
+     newkernel_X = newkernel_X,
+     allow_missing_levels = allow_missing_levels)
   
   Z <- prepped_data$Z
   newdata_FE <- prepped_data$newdata_FE
@@ -82,7 +83,7 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
   re_mean <- object$re$mean
   
   if (length(fe_mean) > 0){
-    all_mean <- rbind(fe_mean, re_mean)
+    all_mean <- rbind(matrix(fe_mean), re_mean)
   }else{
     all_mean <- matrix(re_mean)
   }
@@ -169,7 +170,29 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
   WX_test <- as.matrix(WX_test)
   WX_train <- as.matrix(WX_train)
   
+  # All variables in kernel and FE
+  kern_names <- colnames(object$internal$kernel_X_train)
+  fe_names <- names(fe_mean)
+  if (!is.null(keep)){
+    # Variables to calculate AME for
+    kern_to_fit <- intersect(kern_names, keep)
+    fe_to_fit <- intersect(fe_names, keep)
+    missing_provided <- setdiff(setdiff(keep, kern_to_fit), fe_to_fit)
+    all_to_fit <- c(fe_to_fit, kern_to_fit)
+    if (length(missing_provided) != 0){
+      warning('Some variables in "keep" not located in data.')
+    }
+    fit_position <- which(rownames(fd_matrix) %in% all_to_fit)
+    mfx_counter <- seq_len(length(fit_position))
+  }else{
+    fit_position <- seq_len(nrow(fd_matrix))
+    mfx_counter <- seq_len(nrow(fd_matrix))
+  }
+  
   if (method == 'cpp'){
+    cpp_fit_position <- as.integer(fit_position - 1)
+    cpp_mfx_counter <- as.integer(mfx_counter - 1)
+    
     out_ME <- cpp_gkrls_me(std_X_train = std_X_train, std_X_test = std_X_test,
                  bandwidth = bandwidth, family = family,
                  tZ = t(Z), offset = offset, any_Z = any_Z,
@@ -178,8 +201,14 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
                  W_Matrix = W_Matrix, WX_test = WX_test, WX_train = WX_train, raw_X_test = raw_X_test, 
                  std_mean = std_mean, std_whiten = std_whiten, 
                  fd_matrix = fd_matrix, std_fd_matrix = std_fd_matrix, 
-                 type_mfx = type_mfx)
+                 type_mfx = type_mfx, fit_position = cpp_fit_position,
+                 mfx_counter = cpp_mfx_counter)
+    
   }else{
+
+    AME_grad <- AME_grad[,seq_len(length(mfx_counter)), drop = F]
+    ME_pointwise <- ME_pointwise[,seq_len(length(mfx_counter)), drop = F]
+    ME_pointwise_var <- ME_pointwise_var[,seq_len(length(mfx_counter)), drop = F]
     
     for (i in seq_len(N_test)){
       
@@ -200,122 +229,116 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
       linpred_i <- fe_i + sum(tilde_k_i * re_mean) + offset_i
       f_prime_i <- f_prime(linpred_i, family)
       f_double_prime_i <- f_double_prime(linpred_i, family)
-      
-      # Get Marginal Effects for FE
-      me_fe_i <- f_prime_i * fe_mean
-      # Get Marginal Effects for Kernel Columns
-      D_i <- lapply(seq_len(SIZE_KERNEL), FUN=function(p){WX_i[p] - WX_train[,p]})
-      
-      me_kern_i <- sapply(D_i, FUN=function(dip){
-        as.numeric(f_prime_i * -2/bandwidth * (t(k_i) %*% Diagonal(x = dip) %*% Sc))
-      })
-      
-      # Store all pointwise ME
-      ME_pointwise[i,] <- c(me_fe_i, me_kern_i)
-      
-      # Get Gradient w.r.t. each MFX for the FE
-      for (p in setdiff(seq_len(SIZE_FE), which(fd_flag))){
-        
-        grad_ME_FE_p_beta <- sapply(seq_len(SIZE_FE), FUN=function(p.prime){
-          f_double_prime_i * fe_mean[p] * X_FE_i[p.prime] + 
-            (p == p.prime) * f_prime_i
-        })
-        grad_ME_FE_p_c <- f_double_prime_i * fe_mean[p] * -2/bandwidth *
-          (tS %*% k_i)
-        if (any_Z){
-          grad_ME_FE_p_alpha <- f_double_prime_i * fe_mean[p] * z_i
-        }else{
-          grad_ME_FE_p_alpha <- NULL
-        }
-        
-        grad_ME_FE_p_c <- as.vector(grad_ME_FE_p_c)
-        if (i == 1){stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')}
-        grad_ME_FE_p <- c(grad_ME_FE_p_beta, grad_ME_FE_p_alpha, grad_ME_FE_p_c)
-        
-        ME_pointwise_var[i,p] <- as.vector(t(grad_ME_FE_p) %*% vcov_ridge %*% grad_ME_FE_p)
-        AME_grad[,p] <- AME_grad[,p] + grad_ME_FE_p
-      }
-      
-      # Get the Gradient w.r.t. each MFX for the Kernel
-      for (pkern in setdiff(seq_len(SIZE_KERNEL), -SIZE_FE + which(fd_flag))){
-        
-        meat_ip <- as.numeric(t(k_i) %*% Diagonal(x = D_i[[pkern]]) %*% Sc)
-        grad_ME_K_p_c <- f_double_prime_i * (tS %*% k_i) * 
-          (-2/bandwidth * meat_ip) +
-          f_prime_i * -2/bandwidth * tS %*% Diagonal(x = D_i[[pkern]]) %*% k_i
-        grad_ME_K_p_c <- as.vector(grad_ME_K_p_c)
-        grad_ME_K_p_beta <- f_double_prime_i * (-2/bandwidth * meat_ip) * X_FE_i
-        
-        if (any_Z){
-          grad_ME_K_p_alpha <- f_double_prime_i * -2/bandwidth * meat_ip * z_i
-        }else{
-          grad_ME_K_p_alpha <- NULL
-        }
-        
-        if (i == 1){stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')}
-        
-        grad_ME_K_p <- c(grad_ME_K_p_beta, grad_ME_K_p_alpha, grad_ME_K_p_c)
-        
-        ME_pointwise_var[i, SIZE_FE + pkern] <- as.vector(t(grad_ME_K_p) %*% vcov_ridge %*% grad_ME_K_p)
-        AME_grad[ , SIZE_FE + pkern] <- AME_grad[ , SIZE_FE + pkern] + grad_ME_K_p
-        
-      }
-      
-      # Get the Gradient w.r.t. each MFX for the RE
-      
-      for (p_fd in which(fd_flag)){
 
-        if (p_fd <= SIZE_FE){
-          # If the flagged FD variable is in the fixed effect
-          fe_i_no_p_fd <- fe_i - X_FE_i[p_fd] * fe_mean[p_fd]
-          fe_i_0 <- fe_i_no_p_fd + fd_matrix[p_fd, 1] * fe_mean[p_fd]
-          fe_i_1 <- fe_i_no_p_fd + fd_matrix[p_fd, 2] * fe_mean[p_fd]
-          k_i_0 <- k_i
-          k_i_1 <- k_i
-        }else{
-          # If the flagged FD variable is in the kernel  
-          if (standardize != 'Mahalanobis'){
-            
-            std_X_train_p_fd <- std_X_train[,p_fd - SIZE_FE]
-            std_X_train_i_p_df <- std_X_i[p_fd - SIZE_FE]
-            
-            # Remove the contribution of the FD column
-            k_i_no_p_fd <-  k_i * exp( (std_X_train_i_p_df - std_X_train_p_fd)^2 / bandwidth)
-            # Create the counterfactual kernels
-            k_i_0 <- k_i_no_p_fd * exp( -(std_fd_matrix[p_fd,1] - std_X_train_p_fd)^2 / bandwidth)
-            k_i_1 <- k_i_no_p_fd * exp( -(std_fd_matrix[p_fd,2] - std_X_train_p_fd)^2 / bandwidth)
+      for (raw_pos in mfx_counter){
+        p <- fit_position[raw_pos]
+        if (type_mfx[p] == 'deriv_FE'){
+          
+          # Get Marginal Effects for FE
+          me_fe_ip <- f_prime_i * fe_mean[p]
+          
+          grad_ME_FE_p_beta <- sapply(seq_len(SIZE_FE), FUN=function(p.prime){
+            f_double_prime_i * fe_mean[p] * X_FE_i[p.prime] + 
+              (p == p.prime) * f_prime_i
+          })
+          grad_ME_FE_p_c <- f_double_prime_i * fe_mean[p] * -2/bandwidth *
+            (tS %*% k_i)
+          if (any_Z){
+            grad_ME_FE_p_alpha <- f_double_prime_i * fe_mean[p] * z_i
           }else{
-            
-            raw_i <- newkernel_X[i,]
-            if (fd_matrix[p_fd, 1] != raw_i[p_fd - SIZE_FE]){
-              raw_i_0 <- raw_i
-              raw_i_0[p_fd - SIZE_FE] <- fd_matrix[p_fd, 1]
-              std_X_i_0 <- t(std_whiten) %*% (raw_i_0 - std_mean)
-              k_i_0 <- sapply(seq_len(N_train), FUN=function(j){
-                exp(-sum( (std_X_i_0 - std_X_train[j,])^2)/bandwidth)
-              })   
-            }else{
-              k_i_0 <- k_i
-            }
-            
-            if (fd_matrix[p_fd, 2] != raw_i[p_fd - SIZE_FE]){
-              raw_i_1 <- raw_i
-              raw_i_1[p_fd - SIZE_FE] <- fd_matrix[p_fd, 2]
-              std_X_i_1 <- t(std_whiten) %*% (raw_i_1 - std_mean)
-              k_i_1 <- sapply(seq_len(N_train), FUN=function(j){
-                exp(-sum( (std_X_i_1 - std_X_train[j,])^2)/bandwidth)
-              })   
-            }else{
-              k_i_1 <- k_i
-            }
+            grad_ME_FE_p_alpha <- NULL
           }
-          fe_i_0 <- fe_i
-          fe_i_1 <- fe_i
+          
+          grad_ME_FE_p_c <- as.vector(grad_ME_FE_p_c)
+          if (i == 1){stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')}
+          grad_ME_FE_p <- c(grad_ME_FE_p_beta, grad_ME_FE_p_alpha, grad_ME_FE_p_c)
+          
+          ME_pointwise[i, raw_pos] <- me_fe_ip
+          ME_pointwise_var[i,raw_pos] <- as.vector(t(grad_ME_FE_p) %*% vcov_ridge %*% grad_ME_FE_p)
+          AME_grad[,raw_pos] <- AME_grad[,raw_pos] + grad_ME_FE_p
+          
+        }else if (type_mfx[p] == 'deriv_Kern'){
+          pkern <- p - SIZE_FE
+          
+          D_ip <- WX_i[pkern] - WX_train[,pkern]
+  
+          meat_ip <- as.numeric(t(k_i) %*% Diagonal(x = D_ip) %*% Sc)
+          me_kern_ip <- meat_ip * f_prime_i * -2/bandwidth
+          
+          grad_ME_K_p_c <- f_double_prime_i * (tS %*% k_i) * 
+            (-2/bandwidth * meat_ip) +
+            f_prime_i * -2/bandwidth * tS %*% Diagonal(x = D_ip) %*% k_i
+          grad_ME_K_p_c <- as.vector(grad_ME_K_p_c)
+          grad_ME_K_p_beta <- f_double_prime_i * (-2/bandwidth * meat_ip) * X_FE_i
+          
+          if (any_Z){
+            grad_ME_K_p_alpha <- f_double_prime_i * -2/bandwidth * meat_ip * z_i
+          }else{
+            grad_ME_K_p_alpha <- NULL
+          }
+          
+          if (i == 1){stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')}
+          
+          grad_ME_K_p <- c(grad_ME_K_p_beta, grad_ME_K_p_alpha, grad_ME_K_p_c)
+          
+          ME_pointwise[i, raw_pos] <- me_kern_ip
+          ME_pointwise_var[i, raw_pos] <- as.vector(t(grad_ME_K_p) %*% vcov_ridge %*% grad_ME_K_p)
+          AME_grad[ , raw_pos] <- AME_grad[ , raw_pos] + grad_ME_K_p
+          
+        }else if (type_mfx[p] == 'FD'){
+          
+          p_fd <- p - SIZE_FE
+          
+          if (p <= SIZE_FE){
+            # If the flagged FD variable is in the fixed effect
+            fe_i_no_p_fd <- fe_i - X_FE_i[p] * fe_mean[p]
+            fe_i_0 <- fe_i_no_p_fd + fd_matrix[p, 1] * fe_mean[p]
+            fe_i_1 <- fe_i_no_p_fd + fd_matrix[p, 2] * fe_mean[p]
+            k_i_0 <- k_i
+            k_i_1 <- k_i
+          }else{
+            # If the flagged FD variable is in the kernel  
+            if (standardize != 'Mahalanobis'){
+              
+              std_X_train_p_fd <- std_X_train[, p_fd]
+              std_X_train_i_p_df <- std_X_i[p_fd]
+              
+              # Remove the contribution of the FD column
+              k_i_no_p_fd <-  k_i * exp( (std_X_train_i_p_df - std_X_train_p_fd)^2 / bandwidth)
+              # Create the counterfactual kernels
+              k_i_0 <- k_i_no_p_fd * exp( -(std_fd_matrix[p,1] - std_X_train_p_fd)^2 / bandwidth)
+              k_i_1 <- k_i_no_p_fd * exp( -(std_fd_matrix[p,2] - std_X_train_p_fd)^2 / bandwidth)
+            }else{
+              
+              raw_i <- newkernel_X[i,]
+              
+              if (fd_matrix[p, 1] != raw_i[p_fd]){
+                raw_i_0 <- raw_i
+                raw_i_0[p_fd] <- fd_matrix[p, 1]
+                std_X_i_0 <- t(std_whiten) %*% (raw_i_0 - std_mean)
+                k_i_0 <- sapply(seq_len(N_train), FUN=function(j){
+                  exp(-sum( (std_X_i_0 - std_X_train[j,])^2)/bandwidth)
+                })   
+              }else{
+                k_i_0 <- k_i
+              }
+              
+              if (fd_matrix[p, 2] != raw_i[p_fd]){
+                raw_i_1 <- raw_i
+                raw_i_1[p_fd] <- fd_matrix[p, 2]
+                std_X_i_1 <- t(std_whiten) %*% (raw_i_1 - std_mean)
+                k_i_1 <- sapply(seq_len(N_train), FUN=function(j){
+                  exp(-sum( (std_X_i_1 - std_X_train[j,])^2)/bandwidth)
+                })   
+              }else{
+                k_i_1 <- k_i
+              }
+            }
+            fe_i_0 <- fe_i
+            fe_i_1 <- fe_i
         }
         linpred_i_1 <- fe_i_1 + as.numeric(t(k_i_1) %*% t(tS) %*% re_mean) + offset_i
         linpred_i_0 <- fe_i_0 + as.numeric(t(k_i_0) %*% t(tS) %*% re_mean) + offset_i
-        
-        ME_pointwise[i, p_fd] <- f(linpred_i_1, family) - f(linpred_i_0, family)
         # Get the gradient
         grad_ME_i_fd_beta <- (f_prime(linpred_i_1, family) - f_prime(linpred_i_0, family)) * X_FE_i
         grad_ME_i_fd_c <- tS %*% (f_prime(linpred_i_1, family) * k_i_1 - f_prime(linpred_i_0, family) * k_i_0)
@@ -326,13 +349,15 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
         }
         if (i == 1){stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')}
         
-        
         grad_ME_FD <- c(grad_ME_i_fd_beta, grad_ME_i_fd_alpha, grad_ME_i_fd_c)
-        ME_pointwise_var[i,p_fd] <- as.vector(t(grad_ME_FD) %*% vcov_ridge %*% grad_ME_FD)
-        AME_grad[,p_fd] <- AME_grad[,p_fd] + grad_ME_FD
         
+        ME_pointwise[i, raw_pos] <- f(linpred_i_1, family) - f(linpred_i_0, family)
+        ME_pointwise_var[i, raw_pos] <- as.vector(t(grad_ME_FD) %*% vcov_ridge %*% grad_ME_FD)
+        AME_grad[ , raw_pos] <- AME_grad[ , raw_pos] + grad_ME_FD
+        
+        }else{stop('type_mfx INVALID')}
       }
-      
+
     }
     
     AME_grad <- 1/N_test * AME_grad
@@ -359,9 +384,12 @@ marginal_effect_base <- function(object, newdata, newkernel_X, method = 'cpp'){
     
   }
   
-  names(out_ME$AME_pointwise) <- colnames(out_ME$ME_pointwise) <- colnames(out_ME$ME_pointwise_var) <- names_mfx
-  colnames(out_ME$AME_grad) <- names(out_ME$AME_pointwise_var) <- names_mfx
+  names(out_ME$AME_pointwise) <- colnames(out_ME$ME_pointwise) <- colnames(out_ME$ME_pointwise_var) <- names_mfx[fit_position]
+  colnames(out_ME$AME_grad) <- names(out_ME$AME_pointwise_var) <- names_mfx[fit_position]
+  
+  out_ME$type <- type_mfx[fit_position[mfx_counter]]
   
   class(out_ME) <- c('gKRLS_ME')
+  
   return(out_ME)
 }

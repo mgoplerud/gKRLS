@@ -28,7 +28,9 @@ cpp_gkrls_me(
   std_whiten,
   type_mfx,
   fd_matrix,
-  std_fd_matrix
+  std_fd_matrix,
+  fit_position,
+  mfx_counter
 )
 }
 \description{

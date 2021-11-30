@@ -6,8 +6,12 @@ kern_gauss <- function(X_one, X_two, bandwidth) {
 }
 
 #' Internal C++ function to calculate marginal effects
-cpp_gkrls_me <- function(std_X_train, std_X_test, bandwidth, family, mahal, sd_y, offset, any_Z, tZ, tS, fe_mean, re_mean, SIZE_PARAMETER, vcov_ridge, FE_matrix_test, W_Matrix, WX_test, WX_train, raw_X_test, std_mean, std_whiten, type_mfx, fd_matrix, std_fd_matrix) {
-    .Call('_gKRLS_cpp_gkrls_me', PACKAGE = 'gKRLS', std_X_train, std_X_test, bandwidth, family, mahal, sd_y, offset, any_Z, tZ, tS, fe_mean, re_mean, SIZE_PARAMETER, vcov_ridge, FE_matrix_test, W_Matrix, WX_test, WX_train, raw_X_test, std_mean, std_whiten, type_mfx, fd_matrix, std_fd_matrix)
+cpp_gkrls_me <- function(std_X_train, std_X_test, bandwidth, family, mahal, sd_y, offset, any_Z, tZ, tS, fe_mean, re_mean, SIZE_PARAMETER, vcov_ridge, FE_matrix_test, W_Matrix, WX_test, WX_train, raw_X_test, std_mean, std_whiten, type_mfx, fd_matrix, std_fd_matrix, fit_position, mfx_counter) {
+    .Call('_gKRLS_cpp_gkrls_me', PACKAGE = 'gKRLS', std_X_train, std_X_test, bandwidth, family, mahal, sd_y, offset, any_Z, tZ, tS, fe_mean, re_mean, SIZE_PARAMETER, vcov_ridge, FE_matrix_test, W_Matrix, WX_test, WX_train, raw_X_test, std_mean, std_whiten, type_mfx, fd_matrix, std_fd_matrix, fit_position, mfx_counter)
+}
+
+build_kern_parallel <- function(X_train, X_test, tS, bandwidth, grain_size = 100L, threads = -1L) {
+    .Call('_gKRLS_build_kern_parallel', PACKAGE = 'gKRLS', X_train, X_test, tS, bandwidth, grain_size, threads)
 }
 
 #' Create the sketched kernel

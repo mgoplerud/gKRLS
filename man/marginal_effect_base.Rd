@@ -4,7 +4,7 @@
 \alias{marginal_effect_base}
 \title{Estimate marginal effects}
 \usage{
-marginal_effect_base(object, newdata, newkernel_X, method = "cpp")
+marginal_effect_base(object, newdata, newkernel_X, keep = NULL, method = "cpp")
 }
 \description{
 Estimate marginal effects

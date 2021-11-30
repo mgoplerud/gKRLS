@@ -29,6 +29,7 @@
 #'   sqrt(.Machine$double.eps), where .Machine$double.eps is the smallest
 #'   positive floating-point number x such that 1 + x != 1.
 #' @useDynLib gKRLS
+#' @importFrom RcppParallel RcppParallelLibs
 #' @import Matrix
 #' @importFrom lme4 subbars 
 #' @export
@@ -38,6 +39,7 @@ gKRLS <- function(
       sketch_size = ceiling(nrow(kernel_X)^(1/3)) * 5, 
       sketch_method = 'gaussian', sketch_prob = NULL, bandwidth = NULL,
       standardize = 'scaled', prior_stabilize = TRUE,
+      verbose = FALSE,
       control = list(init_var =  1,
                      truncate_eigen = sqrt(.Machine$double.eps))){
   
@@ -49,7 +51,30 @@ gKRLS <- function(
   data <- model.frame(subbars(formula), data)
   nobs_complete <- nrow(data)
   response <- model.response(data)
-  rownames(response) <- NULL
+  
+  # From lm to deal with factors
+  mf <- match.call(expand.dots = FALSE)
+  m <- match(c("formula", "data"), 
+             names(mf), 0L)
+  mf <- mf[c(1L, m)]
+  mf$formula <- nobars(formula)
+  mf$drop.unused.levels <- TRUE
+  mf[[1L]] <- quote(stats::model.frame)
+  mf <- eval(mf, parent.frame())
+  mt <- attr(mf, "terms")
+  response_2 <- model.response(mf, "numeric")
+  design_FE <- model.matrix(mt, mf, contrasts)
+  xlevels <- .getXlevels(mt, mf)
+  
+  fe_design_options <- list(contrasts = attr(design_FE, 'contrasts'),
+       xlevels = xlevels,
+       terms = mt,
+       na.action = attr(mf, 'na.action'))
+  rm(xlevels, mt, mf, m); gc()
+  
+  if (!isTRUE(all.equal(response_2, response))){
+    stop('response parsed incorrectly. Maybe NA in data?')
+  }
 
   if (family$family == 'gaussian'){
     sd_y <- sd(response)
@@ -61,6 +86,11 @@ gKRLS <- function(
     sd_y <- 1
     mean_y <- 0
     
+  }
+  
+  if (verbose){
+    print('Standardizing Data')
+    print(Sys.time())
   }
   
   if (standardize == 'Mahalanobis'){
@@ -117,7 +147,12 @@ gKRLS <- function(
     bandwidth <- P
   }
   
+  if (verbose){
+    print('Create Sketching Matrix')
+    print(Sys.time())
+  }
   
+  full_kernel_original <- std_kernel_X
   # Create the sketching matrix S
   if (sketch_method == 'gaussian'){
     
@@ -126,10 +161,10 @@ gKRLS <- function(
     
   }else if (sketch_method == 'nystrom'){
     
-    # Sample rows from the design
-    S <- t(as.matrix(sparseMatrix(i = 1:sketch_size,
-          j = sample(1:N, sketch_size, replace = T),
-          x = 1, dims = c(sketch_size, N))))
+    nystrom_id <- sample(1:N, sketch_size, replace = T)
+
+    std_kernel_X <- full_kernel_original[nystrom_id,, drop = F]
+    S <- as.matrix(Diagonal(n = length(nystrom_id)))
     
   }else if (sketch_method == 'bernoulli'){
     if (is.null(sketch_prob)){stop('sketch method "bernoulli" requires a probability.')}
@@ -144,11 +179,26 @@ gKRLS <- function(
   
   S <- as.matrix(S)
   
+  if (verbose){
+    print('Create Sketched Kernel')
+    print(Sys.time())
+  }
   # Create the sketched kernel for the *training* data
-  KS <- create_sketched_kernel(X_test = std_kernel_X, X_train = std_kernel_X, 
+  KS <- create_sketched_kernel(
+      X_test = full_kernel_original, 
+      X_train = std_kernel_X, 
       tS = t(S), bandwidth = bandwidth)
+  
+  if (verbose){
+    print('Eigendecompose Penalty')
+    print(Sys.time())
+  }
   # Get the eigen-decomposition of the penalty 
-  eigen_sketch <- eigen(t(KS) %*% S)
+  if (sketch_method == 'nystrom'){
+    eigen_sketch <- eigen(t(KS[nystrom_id,]) %*% S)
+  }else{
+    eigen_sketch <- eigen(t(KS) %*% S)
+  }
   # Set all negative eigenvalues to zero. This should only occur
   # because of numerical errors as S^T K S should be positive semi-definite...
   eigen_sketch$values <- ifelse(eigen_sketch$values < control$truncate_eigen, 0, eigen_sketch$values)
@@ -157,19 +207,27 @@ gKRLS <- function(
   nonzero <- which(eigen_sketch$values != 0)
   
   # Create and scale the design given to the mixed effect model.
-  
+  if (verbose){
+    print('Project Sketched Data')
+    print(Sys.time())
+  }
   projected_data <- KS %*% eigen_sketch$vectors[,nonzero]
   projected_data <- as.matrix(projected_data %*% 
     Diagonal(x = 1/sqrt(eigen_sketch$values[nonzero])))
 
+  if (verbose){
+    print('Fit lmer')
+    print(Sys.time())
+  }
+  
   # Fit the KRLS model using lme4
   fit_krls <- internal_fit_krls(
     kernel_data = projected_data, 
-    formula = formula,
-    data = data,
+    response = response,
+    design_FE = design_FE,
     init_var = control$init_var,
-    intercept = control$intercept, 
     family = family,
+    formula = formula,
     prior_stabilize = prior_stabilize)
 
   d_j <- fit_krls$d_j
@@ -180,6 +238,11 @@ gKRLS <- function(
   n_kernel <- d_j['kernel_RE']
   # Adjust fitted values
   fit_krls$fitted <- fit_krls$fitted * sd_y + mean_y
+  
+  if (verbose){
+    print('Process lmer')
+    print(Sys.time())
+  }
   
   # Adjust RE to be dimension of sketched data.
   fit_krls$re$mean <- bdiag(Diagonal(n = n_normal_RE), eigen_sketch$vectors) %*% 
@@ -212,13 +275,18 @@ gKRLS <- function(
         Diagonal(x = rep(0, nrow(eigen_sketch$vectors) + 
           -length(nonzero)))) %*% t(bdiag(Diagonal(n = n_normal_RE), eigen_sketch$vectors))
 
+  if (sketch_method == 'nystrom'){
+    kernel_X <- kernel_X[nystrom_id,]
+  }
   fit_krls$control <- control
+  fit_krls$formula <- formula
   fit_krls$internal <- list(sd_y = sd_y, mean_y = mean_y, 
                             bandwidth = bandwidth,
                             kernel_X_train = kernel_X,
                             eigen_sketch = eigen_sketch,
                             eigen_nonzero = nonzero,
                             sketch = S,
+                            fe_options = fe_design_options,
                             standardize = standardize,
                             response = response,
                             std_train = list(
@@ -227,7 +295,10 @@ gKRLS <- function(
                                W_Matrix = W_Matrix),
                             family = family)
   
-  
+  if (verbose){
+    print('Completed')
+    print(Sys.time())
+  }
   class(fit_krls) <- 'gKRLS'
   
   return(fit_krls)
@@ -256,23 +327,39 @@ lme4::ranef
 
 #' @importFrom lme4 glFormula lFormula mkLmerDevfun mkGlmerDevfun mkMerMod
 #'   VarCorr optimizeGlmer updateGlmerDevfun optimizeLmer nloptwrap GHrule
-internal_fit_krls <- function(kernel_data, formula, data, 
-  y, init_var,
-  intercept, family, prior_stabilize){
+internal_fit_krls <- function(kernel_data, design_FE, response, 
+  init_var, family, formula, prior_stabilize){
   
   copy_init <- as.numeric(init_var + 1 - 1)
   dim_kernel <- ncol(kernel_data)
-  N <- nrow(data)
+  N <- nrow(design_FE)
   if (N != nrow(kernel_data)){stop('FE and Kernel have different #s of observations.')}
   # Create a "fake" RE with two levels to trick lmer pre-process to run.
   kernel_RE <- c(1, rep(2, N-1))
 
-  formula <- as.formula(paste0(paste(deparse(formula), collapse=' '), ' + (1 | kernel_RE)'))
-
-  data$kernel_RE <- kernel_RE
-  # Generate the data  
-  lmod <- glFormula(formula = formula, data = data, family = family)
+  # formula <- as.formula(paste0(paste(deparse(formula), collapse=' '), ' + (1 | kernel_RE)'))
+  # data$kernel_RE <- kernel_RE
+  # # Generate the data  
+  # lmod <- glFormula(formula = formula, data = data, family = family)
   
+  extra_re <- paste(sapply(findbars(formula), FUN=function(i){paste0('(', deparse(i), ')')}), collapse = ' + ')
+  if (extra_re == ""){extra_re <- NULL}
+  
+  if (ncol(design_FE) == 0){
+    formula <- as.formula(paste(c('response ~ 0 + (1 | kernel_RE)', extra_re, collapse = ' + ')), env = environment())
+  }else{
+    formula <- as.formula(paste(c('response ~ 0 + design_FE + (1 | kernel_RE)', extra_re), collapse = ' + '), env = environment())
+  }
+  lmod <- glFormula(formula = formula, data = NULL, family = family) 
+  if (ncol(design_FE) != 0 & max(abs(lmod$X - design_FE)) != 0){
+    stop('lmer processing of FE failed.')
+  }
+  colnames(lmod$X) <- gsub(colnames(lmod$X), pattern='^design_FE', replacement = '')
+  if (ncol(lmod$X) == 1){
+    if (colnames(lmod$X)[1] == ""){
+      colnames(lmod$X) <- '(Intercept)'
+    }
+  }
   # Process and wrap the data from lmer
   # This reasonably closely follows: 
   # https://bbolker.github.io/mixedmodels-misc/notes/varmats.html
@@ -372,9 +459,8 @@ internal_fit_krls <- function(kernel_data, formula, data,
   # Turn into a lme4 style object
   fmt_gKRLS <- mkMerMod(environment(devfun), opt_gKRLS, 
               man_lmod$reTrms, fr = man_lmod$fr)
-  fmla <- formula(fmt_gKRLS)
-  
-  
+  # fmla <- formula(fmt_gKRLS)
+
   # Custom internal function to extract the REs
   extract_re_KRLS <- function(object){
     ans <- object@pp$b(1)
@@ -405,8 +491,7 @@ internal_fit_krls <- function(kernel_data, formula, data,
     AIC = AIC(fmt_gKRLS),
     BIC = BIC(fmt_gKRLS),
     logLik = logLik(fmt_gKRLS),
-    vcov_ridge = vcov_ridge,
-    formula = fmla
+    vcov_ridge = vcov_ridge
   )
 
   return(out)

@@ -1,55 +1,123 @@
+rm(list=ls())
 library(testthat)
-est_gKRLS <- gKRLS(formula = y ~ 1, kernel_X =  X, standardize = 'Mahalanobis',
-                   sketch_method = 'gaussian',
+library(gKRLS)
+
+X <- matrix(rnorm(500 * 2), ncol = 2)
+X <- apply(X, MARGIN = 2, scale)
+X <- cbind(X, model.matrix(~0 + sample(letters[1:7], nrow(X), replace = T)))
+w <- runif(nrow(X))
+colnames(X) <- paste0('x_', 1:ncol(X))
+y <- rnorm(nrow(X), mean = X %*% rnorm(ncol(X), sd = 5))
+
+
+est_gKRLS <- gKRLS(formula = y ~ 1 + w, kernel_X =  X, 
+                   standardize = 'scaled',
+                   sketch_method = 'gaussian', data = data.frame(w = w),
                    family = gaussian())
 
-pred_gKRLS <- predict(est_gKRLS, newdata = X)
+pred_gKRLS <- predict(est_gKRLS, newkernel_X = X, newdata = data.frame(w = w))
 
 
 fitted_internal <- fitted(est_gKRLS)
-manual_predict <- predict(est_gKRLS, newdata = X)
-expect_equivalent(manual_predict$fitted, fitted_internal)
+expect_equivalent(pred_gKRLS$fitted, fitted_internal)
 
+
+MFX_SIZE <- sample(1:nrow(X), nrow(X), replace = T)
+
+mfx_gKRLS_base <- marginal_effect_base(object = est_gKRLS,
+    newdata = data.frame(w = w[MFX_SIZE]), 
+    newkernel_X = X[MFX_SIZE,], method = 'base')
+
+mfx_gKRLS <- marginal_effect_base(object = est_gKRLS,
+    newdata = data.frame(w = w[MFX_SIZE]), newkernel_X = X[MFX_SIZE,])
+
+# mfx calculated both ways aligns
+expect_true(all(sapply(names(mfx_gKRLS), FUN=function(i){
+  all.equal(mfx_gKRLS[[i]], mfx_gKRLS_base[[i]])
+})))
+
+
+mfx_gKRLS_base_select <- marginal_effect_base(object = est_gKRLS, keep = c('w', 'x_1', 'x_6', 'x_2'),
+                                       newdata = data.frame(w = w[MFX_SIZE]), 
+                                       newkernel_X = X[MFX_SIZE,], method = 'base')
+
+mfx_gKRLS_select <- marginal_effect_base(object = est_gKRLS, keep = c('w', 'x_1', 'x_6', 'x_2'),
+        newdata = data.frame(w = w[MFX_SIZE]), newkernel_X = X[MFX_SIZE,])
+
+expect_true(all(sapply(names(mfx_gKRLS), FUN=function(i){
+  all.equal(mfx_gKRLS_select[[i]], mfx_gKRLS_base_select[[i]])
+})))
+# expect_identical(colnames(mfx_gKRLS_select$ME_pointwise), c('w', 'x_1', 'x_6', 'x_2'))
+
+expect_equal(
+  mfx_gKRLS$ME_pointwise_var[,colnames(mfx_gKRLS_select$ME_pointwise_var)] ,
+  mfx_gKRLS_select$ME_pointwise_var
+)
+
+
+
+stop()
+
+
+
+stop()
 
 N <- 200
 x1 <- rnorm(N)
 x2 <- rbinom(N,size=1,prob=.2)
 y <- x1^3 - 0.5 *x2 + rnorm(N,0,.15)
 X <- cbind(x1, x2)
+X <- cbind(X, model.matrix(~ 0 + sample(letters[1:5], N, replace  = T)))
 X_copy <- cbind(X, X, X)
 
 est_gKRLS <- gKRLS(formula = y ~ 1, kernel_X = X, 
-                   sketch_method = 'none',
+                   sketch_method = 'none', data = NULL,
                    family = gaussian())
 
-est_copy <- gKRLS(y = y, X = X_copy, 
+est_copy <- gKRLS(formula = y ~ 1, kernel_X = X_copy, data = NULL,
                    sketch_method = 'none',
                    family = gaussian())
 
 expect_equal(est_gKRLS$fitted, est_copy$fitted)
 
-plot(predict(est_copy, newdata = X_copy)$fitted, est_copy$fitted)
-
-
-
 fit_gKRLS <- gKRLS(formula = y ~ 0, kernel_X = X, 
       sketch_method = 'none', data = NULL,
       family = gaussian(), prior_stabilize = F)
-fit_krls <- krls(X = X, y = y, sigma = fit_gKRLS$internal$bandwidth, 
+fit_krls <- KRLS::krls(X = X, y = y, sigma = fit_gKRLS$internal$bandwidth, 
                  lambda = 1/fit_gKRLS$fmt_varcorr[[1]][1,1] * fit_gKRLS$sigma^2)
 
 plot(fitted(fit_gKRLS), fitted(fit_krls))
 abline(a=0,b=1)
 
-mfx_gKRLS <- marginal_effect_base(object = fit_gKRLS, newdata = NULL, newkernel_X = X)
 mfx_gKRLS_base <- marginal_effect_base(object = fit_gKRLS, newdata = NULL, newkernel_X = X, method = 'base')
+mfx_gKRLS <- marginal_effect_base(object = fit_gKRLS, newdata = NULL, newkernel_X = X)
 mfx_gKRLS$AME_pointwise
 mfx_gKRLS_base$AME_pointwise
 mfx_gKRLS$AME_pointwise - fit_krls$avgderivatives
 
-plot(as.vector(fit_krls$derivatives), as.vector(mfx_gKRLS$ME_pointwise))
+expect_equal(as.vector(fit_krls$derivatives), 
+             as.vector(mfx_gKRLS_base$ME_pointwise), tol = 1e-5)
 
-plot(fit_krls$coeffs, fit_gKRLS$)
+
+expect_equal(as.vector(mfx_gKRLS$ME_pointwise), 
+             as.vector(mfx_gKRLS_base$ME_pointwise), tol = 1e-5)
+
+
+fit_with_FE <- gKRLS(formula = y ~ 1 + w + factor(id), kernel_X =  X, 
+      standardize = 'scaled',
+      sketch_method = 'gaussian', data = data.frame(w = w, id = sample(letters, length(w), replace = T)),
+      family = gaussian())
+
+predict(fit_with_FE, newdata = data.frame(w = rnorm(3), id = letters[c(3,5,10)]),
+        newkernel_X = X[c(14,5,2),])
+
+
+mfx_gKRLS_base <- marginal_effect_base(object = fit_with_FE, keep = c('x_1', 'w'),
+                                       newdata = data.frame(w = rnorm(3), id = letters[c(3,5,10)]), 
+                                       newkernel_X = X[c(3,10,6),])
+
+stop()
+
 
 
 N <- 200
