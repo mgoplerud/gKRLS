@@ -80,7 +80,9 @@ gKRLS <- function(
     sd_y <- sd(response)
     mean_y <- mean(response)
     fmt_y <- (response - mean_y)/sd_y
-    data[[1]] <- fmt_y
+    # data[[1]] <- fmt_y
+    data[[1]] <- NA
+    response <- fmt_y
     rm(fmt_y)
   }else{
     sd_y <- 1
