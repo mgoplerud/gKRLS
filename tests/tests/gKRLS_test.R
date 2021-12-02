@@ -86,6 +86,31 @@ fit_gKRLS <- gKRLS(formula = y ~ 0, kernel_X = X,
 fit_krls <- KRLS::krls(X = X, y = y, sigma = fit_gKRLS$internal$bandwidth, 
                  lambda = 1/fit_gKRLS$fmt_varcorr[[1]][1,1] * fit_gKRLS$sigma^2)
 
+
+fit_krls$K
+
+fake_K <- function(object, raw_X){
+  
+  # Standardize the incoming new data.
+  std_newkernel_X <- sweep(raw_X, 2, object$internal$std_train$mean, FUN = "-")
+  
+  std_newkernel_X <- std_newkernel_X %*% 
+    object$internal$std_train$whiten
+  std_newkernel_X <- as.matrix(std_newkernel_X)  
+  # Standardize the saved training kernel
+  std_kernel_X <- object$internal$kernel_X_train
+  std_kernel_X <- sweep(std_kernel_X, 2, object$internal$std_train$mean, FUN = "-")
+  std_kernel_X <- std_kernel_X %*% 
+    object$internal$std_train$whiten
+  std_kernel_X <- as.matrix(std_kernel_X)  
+  
+  # Get the "test" data after using same sketch matrix
+  newdataKS <- create_sketched_kernel(X_test = raw_X, 
+                                      X_train = raw_X, 
+                                      tS = t(object$internal$sketch), 
+                                      bandwidth = object$internal$bandwidth)
+  
+}
 plot(fitted(fit_gKRLS), fitted(fit_krls))
 abline(a=0,b=1)
 

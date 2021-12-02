@@ -346,7 +346,7 @@ internal_fit_krls <- function(kernel_data, design_FE, response,
   if (extra_re == ""){extra_re <- NULL}
   
   if (ncol(design_FE) == 0){
-    formula <- as.formula(paste(c('response ~ 0 + (1 | kernel_RE)', extra_re, collapse = ' + ')), env = environment())
+    formula <- as.formula(paste(c('response ~ 0 + (1 | kernel_RE)', extra_re), collapse = ' + '), env = environment())
   }else{
     formula <- as.formula(paste(c('response ~ 0 + design_FE + (1 | kernel_RE)', extra_re), collapse = ' + '), env = environment())
   }
