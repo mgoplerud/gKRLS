@@ -66,6 +66,7 @@ N <- 200
 x1 <- rnorm(N)
 x2 <- rbinom(N,size=1,prob=.2)
 y <- x1^3 - 0.5 *x2 + rnorm(N,0,.15)
+y <- y * 10
 X <- cbind(x1, x2)
 X <- cbind(X, model.matrix(~ 0 + sample(letters[1:5], N, replace  = T)))
 X_copy <- cbind(X, X, X)
@@ -86,6 +87,7 @@ fit_gKRLS <- gKRLS(formula = y ~ 0, kernel_X = X,
 fit_krls <- KRLS::krls(X = X, y = y, sigma = fit_gKRLS$internal$bandwidth, 
                  lambda = 1/fit_gKRLS$fmt_varcorr[[1]][1,1] * fit_gKRLS$sigma^2)
 
+all.equal(as.vector(fitted(fit_krls)), as.vector(fitted(fit_gKRLS)))
 
 fit_krls$K
 

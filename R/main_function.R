@@ -51,6 +51,7 @@ gKRLS <- function(
   data <- model.frame(subbars(formula), data)
   nobs_complete <- nrow(data)
   response <- model.response(data)
+  data <- data[, -attr(terms(data), 'response'), drop = F]
   
   # From lm to deal with factors
   mf <- match.call(expand.dots = FALSE)
@@ -63,7 +64,7 @@ gKRLS <- function(
   mf <- eval(mf, parent.frame())
   mt <- attr(mf, "terms")
   response_2 <- model.response(mf, "numeric")
-  design_FE <- model.matrix(mt, mf, contrasts)
+  design_FE <- model.matrix(mt, mf)
   xlevels <- .getXlevels(mt, mf)
   
   fe_design_options <- list(contrasts = attr(design_FE, 'contrasts'),
@@ -81,13 +82,12 @@ gKRLS <- function(
     mean_y <- mean(response)
     fmt_y <- (response - mean_y)/sd_y
     # data[[1]] <- fmt_y
-    data[[1]] <- NA
+    # data[[1]] <- NA
     response <- fmt_y
     rm(fmt_y)
   }else{
     sd_y <- 1
     mean_y <- 0
-    
   }
   
   if (verbose){
@@ -223,10 +223,12 @@ gKRLS <- function(
   }
   
   # Fit the KRLS model using lme4
+  
   fit_krls <- internal_fit_krls(
     kernel_data = projected_data, 
     response = response,
     design_FE = design_FE,
+    design_RE = data,
     init_var = control$init_var,
     family = family,
     formula = formula,
@@ -329,7 +331,7 @@ lme4::ranef
 
 #' @importFrom lme4 glFormula lFormula mkLmerDevfun mkGlmerDevfun mkMerMod
 #'   VarCorr optimizeGlmer updateGlmerDevfun optimizeLmer nloptwrap GHrule
-internal_fit_krls <- function(kernel_data, design_FE, response, 
+internal_fit_krls <- function(kernel_data, design_FE, design_RE, response, 
   init_var, family, formula, prior_stabilize){
   
   copy_init <- as.numeric(init_var + 1 - 1)
@@ -352,7 +354,8 @@ internal_fit_krls <- function(kernel_data, design_FE, response,
   }else{
     formula <- as.formula(paste(c('response ~ 0 + design_FE + (1 | kernel_RE)', extra_re), collapse = ' + '), env = environment())
   }
-  lmod <- glFormula(formula = formula, data = NULL, family = family) 
+  
+  lmod <- glFormula(formula = formula, data = design_RE, family = family) 
   if (ncol(design_FE) != 0 & max(abs(lmod$X - design_FE)) != 0){
     stop('lmer processing of FE failed.')
   }
