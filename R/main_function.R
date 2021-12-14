@@ -520,6 +520,14 @@ get_vcov_ridge <- function(object, family){
   if (all(diag(Lambda) == 0)){
     if (!isDiagonal(Lambda)){stop("Unusual non-invertible Lambda")}
     Ridge <- bdiag(Diagonal(x = c(rep(0, ncol(X)), rep(Inf, ncol(Lambda)))))
+  }else if (any(diag(Lambda) == 0)){
+    if (!isDiagonal(Lambda)){stop("Unusual non-invertible Lambda")}
+    diag_L <- diag(Lambda)
+    noninvert_L <- which(diag_L == 0)
+    if (!isTRUE(all(re_mean[noninvert_L] == 0))){
+      stop('Issues with partially non-invertible Lambda')
+    }
+    Ridge <- Diagonal(x = c(rep(0, ncol(X)), 1/diag_L))
   }else{
     Ridge <- bdiag(Diagonal(x = rep(0, ncol(X))), solve(Lambda))
   }
