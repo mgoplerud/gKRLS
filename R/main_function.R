@@ -21,9 +21,7 @@
 #' @param standardize A string vector that specifies which standardization
 #'   method should be used. Must be one of scaled, Mahalanobis, or none, which
 #'   menas no standardization. The default is ``Mahalanobis''.
-#' @param control A list containing control parameters. The init_var specify the
-#'   initial value for covariance parameter in lme4 models. See details about
-#'   theta in lme4 package. The default is 1. The truncate_eigen determines how
+#' @param control A list containing control parameters. The truncate_eigen determines how
 #'   much eigenvalues should be truncated. If truncate_eigen set to 1e-6, this
 #'   means we only keep eigenvalue greater or equal to 1e-6. The default is
 #'   sqrt(.Machine$double.eps), where .Machine$double.eps is the smallest
@@ -40,8 +38,7 @@ gKRLS <- function(
       sketch_method = 'gaussian', sketch_prob = NULL, bandwidth = NULL,
       standardize = 'scaled', prior_stabilize = TRUE,
       verbose = FALSE,
-      control = list(init_var =  1,
-                     truncate_eigen = sqrt(.Machine$double.eps))){
+      control = list(truncate_eigen = sqrt(.Machine$double.eps))){
   
   if (!inherits(family, 'family')){
     stop('Provide "family" as in glm, glmer, etc.')
@@ -229,7 +226,6 @@ gKRLS <- function(
     response = response,
     design_FE = design_FE,
     design_RE = data,
-    init_var = control$init_var,
     family = family,
     formula = formula,
     prior_stabilize = prior_stabilize)
@@ -332,9 +328,8 @@ lme4::ranef
 #' @importFrom lme4 glFormula lFormula mkLmerDevfun mkGlmerDevfun mkMerMod
 #'   VarCorr optimizeGlmer updateGlmerDevfun optimizeLmer nloptwrap GHrule
 internal_fit_krls <- function(kernel_data, design_FE, design_RE, response, 
-  init_var, family, formula, prior_stabilize){
+  family, formula, prior_stabilize){
   
-  copy_init <- as.numeric(init_var + 1 - 1)
   dim_kernel <- ncol(kernel_data)
   N <- nrow(design_FE)
   if (N != nrow(kernel_data)){stop('FE and Kernel have different #s of observations.')}
@@ -386,14 +381,11 @@ internal_fit_krls <- function(kernel_data, design_FE, design_RE, response,
   Zt_aug[["1 | kernel_RE"]] <- drop0(t(kernel_data))
   Zt_aug <- do.call('rbind', Zt_aug)
   
-  theta_aug <- lmod$reTrms$theta
-  theta_aug[which(names(lmod$reTrms$cnms) == 'kernel_RE')] <- copy_init
-  
+  theta_aug <- new("numeric", as.numeric(lmod$reTrms$theta + 1.0 - 1.0))
+
   Lind_aug <- rep(1:length(d_j), d_j)
   Lambdat_aug <- sparseMatrix(i = 1:sum(d_j), j = 1:sum(d_j), x = rep(theta_aug, d_j))
 
-  
-  
   # Set initial variance to give to optimizer
   fake_reTrms <- list(
     Zt = Zt_aug,
@@ -418,8 +410,43 @@ internal_fit_krls <- function(kernel_data, design_FE, design_RE, response,
 
   if (family$family == 'gaussian'){
     
-    devfun <- do.call(mkLmerDevfun, man_lmod)
-    opt_gKRLS <- optimizeLmer(devfun)
+    if (!prior_stabilize){
+      
+      devfun <- do.call(mkLmerDevfun, man_lmod)
+      opt_gKRLS <- optimizeLmer(devfun)
+      
+    }else{
+      
+      devfun <- do.call(mkLmerDevfun, man_lmod)
+      theta.lwr <- environment(devfun)$lower  ## this changes after update!
+      
+      rho <- environment(devfun)
+      nbeta <- ncol(rho$pp$X)
+      theta <- new("numeric", rho$pp$theta)
+      d0 <- devfun(theta)
+
+      
+      if (any(theta < 1e-6)){
+        theta[which(theta < 1e-6)] <- 1e-06
+        placeholder <- devfun(theta)
+      }
+      if (any(!is.finite(theta))){
+        theta[which(!is.finite(theta))] <- 1e-06
+        placeholder <- devfun(theta)
+      }
+
+      penalized_dev <- function(par){
+        par <- exp(par)
+        return(devfun(par) - sum(log(par)))
+      }
+
+      opt_gKRLS <- tryCatch(lme4::nloptwrap(par=c(log(theta)),
+          fn=penalized_dev, lower = rep(-Inf, length(theta_aug)), 
+          upper = rep(Inf, length(theta_aug))), error = function(e){NULL})
+      if (is.null(opt_gKRLS)){stop('Estimation failed')}
+      opt_gKRLS$par <- exp(opt_gKRLS$par)
+      
+    }
 
   }else{
     # Fixing variance
@@ -432,12 +459,14 @@ internal_fit_krls <- function(kernel_data, design_FE, design_RE, response,
       devfun <- updateGlmerDevfun(devfun, man_lmod$reTrms)
       opt_gKRLS <- optimizeGlmer(devfun, stage = 2)
     }else{
+      
       devfun <- do.call(mkGlmerDevfun, man_lmod)
       theta.lwr <- environment(devfun)$lower  ## this changes after update!
       devfun <- updateGlmerDevfun(devfun, man_lmod$reTrms)
       rho <- environment(devfun)
       nbeta <- ncol(rho$pp$X)
       theta <- rho$pp$theta
+      
       if (any(theta < 1e-6)){
         theta[which(theta < 1e-6)] <- theta_aug[which(theta < 1e-6)]
         placeholder <- devfun(c(theta, rep(0, nbeta)))
@@ -447,6 +476,7 @@ internal_fit_krls <- function(kernel_data, design_FE, design_RE, response,
         placeholder <- devfun(c(theta, rep(0, nbeta)))
       }
       n_theta <- seq_len(length(theta_aug))
+      
       penalized_dev <- function(par){
         par[n_theta] <- exp(par[n_theta])
         return(devfun(par) - sum(log(par[n_theta])))
