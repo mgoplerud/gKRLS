@@ -97,7 +97,7 @@ prepare_predict_data <- function(object, newdata, newkernel_X, allow_missing_lev
     .checkMFClasses(cl, m)
   } 
   
-  newdata_FE <- model.matrix(Terms, m, contrasts.arg = contrasts)
+  newdata_FE <- model.matrix(Terms, m, contrasts.arg = object$internal$fe_options$contrasts)
 
   if (!identical(colnames(newdata_FE), names(object$fe$mean))) {
     print(all.equal(colnames(newdata_FE), names(object$fe$mean)))
