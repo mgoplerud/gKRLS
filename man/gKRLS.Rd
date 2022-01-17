@@ -16,7 +16,7 @@ gKRLS(
   standardize = "scaled",
   prior_stabilize = TRUE,
   verbose = FALSE,
-  control = list(init_var = 1, truncate_eigen = sqrt(.Machine$double.eps))
+  control = list(truncate_eigen = sqrt(.Machine$double.eps))
 )
 }
 \arguments{
@@ -46,9 +46,7 @@ default is  ``2*ncol(X).''}
 method should be used. Must be one of scaled, Mahalanobis, or none, which
 menas no standardization. The default is ``Mahalanobis''.}
 
-\item{control}{A list containing control parameters. The init_var specify the
-initial value for covariance parameter in lme4 models. See details about
-theta in lme4 package. The default is 1. The truncate_eigen determines how
+\item{control}{A list containing control parameters. The truncate_eigen determines how
 much eigenvalues should be truncated. If truncate_eigen set to 1e-6, this
 means we only keep eigenvalue greater or equal to 1e-6. The default is
 sqrt(.Machine$double.eps), where .Machine$double.eps is the smallest

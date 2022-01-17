@@ -1,7 +1,7 @@
 
 #' Estimate marginal effects
 #' @export
-marginal_effect_base <- function(object, newdata, newkernel_X, 
+marginal_effect_base <- function(object, newdata, newkernel_X = NULL, 
                                  keep = NULL,
                                  method = 'cpp'){
   
@@ -44,22 +44,188 @@ marginal_effect_base <- function(object, newdata, newkernel_X,
       return(exp(x))
     }else{stop('Invalid family.')}
   }
+
+
+  if (!inherits(object, 'gam')){
+    if (is.null(newkernel_X)){stop('newkernel_X must be specified for gKRLS fit with lmer.')}
+    prepped_data <- prepare_predict_data(object = object, newdata = newdata, 
+                                         newkernel_X = newkernel_X,
+                                         allow_missing_levels = allow_missing_levels)
+    
+    Z <- prepped_data$Z
+    newdata_FE <- prepped_data$newdata_FE
+    total_obs <- prepped_data$total_obs
+    obs_in_both <- prepped_data$obs_in_both
+    newdataKS <- prepped_data$newdataKS
+    std_X_test <- prepped_data$std_newkernel_X
+    std_X_train <- prepped_data$std_kernel_X
+    pos_re <- prepped_data$n_pos
+    rm(prepped_data); gc()
+    
+    family <- object$internal$family
+    
+    names_mfx <- c(colnames(newdata_FE), colnames(object$internal$kernel_X_train))
+    
+    W_Matrix <- object$internal$std_train$W_Matrix
+    WX_train <- object$internal$kernel_X_train %*% W_Matrix
+    WX_test <- newkernel_X %*% W_Matrix
+    
+    tS <- t(object$internal$sketch)
+    bandwidth <- object$internal$bandwidth
+    
+    fe_mean <- object$fe$mean
+    re_mean <- object$re$mean
+    
+    if (length(fe_mean) > 0){
+      all_mean <- rbind(matrix(fe_mean), re_mean)
+    }else{
+      all_mean <- matrix(re_mean)
+    }
+    vcov_ridge <- object$vcov_ridge
+    FE_matrix_test <- newdata_FE
+    
+    fmt_sd_y <- object$internal$sd_y
+    
+    pos_kern <- pos_re[which(names(pos_re) == '1 | kernel_RE')]
+    stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')
+    
+    std_whiten <- object$internal$std_train$whiten
+    std_mean <- object$internal$std_train$mean
+    
+    # All variables in kernel and FE
+    kern_names <- colnames(object$internal$kernel_X_train)
+    fe_names <- names(fe_mean)
+    
+    N_train <- nrow(std_X_train)
+    N_test <- nrow(std_X_test)
+    
+    offset <- rep(0, N_test)
+    
+    orig_re <- re_mean
+    offset_re <- orig_re[seq_len(length(orig_re) - pos_kern),,drop=F]
+    # Are there any "pure" REs in the model? If not, simplify
+    
+    if (nrow(offset_re) == 0){
+      re_mean <- orig_re
+      any_Z <- FALSE
+      Z <- sparseMatrix(i = 1, j = 1, x = 0)
+    }else{
+      any_Z <- TRUE
+      re_mean <- orig_re[-seq_len(length(orig_re) - pos_kern), , drop = F]
+      offset <- as.vector(Z[,seq_len(length(orig_re) - pos_kern), , drop = F] %*% offset_re)
+      Z <- Z[,seq_len(length(orig_re) - pos_kern), , drop = F]
+    }
+    
+    Sc <- t(tS) %*% re_mean
+    
+    fd_flag <- which(apply(object$internal$kernel_X_train, MARGIN = 2, FUN=function(i){
+      all(i %in% c(0,1))
+    }))
+    
+    raw_X_test <- newkernel_X
+    
+  }else{
+    
+    if (!is.null(newkernel_X)){stop('newkernel_X must be NULL if fit with "gam".')}
+    
+    full_lp <- predict(object, newdata = newdata, type = 'lpmatrix')
+    model_offset <- attr(full_lp, 'model.offset')
+    
+    class_smooth <- lapply(object$smooth, FUN=function(i){class(i)})
+    stopifnot(all(lengths(class_smooth) == 2))
+    class_smooth <- sapply(class_smooth, FUN=function(i){i[1]})
+    if (sum(class_smooth == 'kern.smooth') != 1){
+      stop('marginal_effects can only be run with one kernel...for now...')
+    }
+    kern_smooth <- object$smooth[[which(class_smooth == 'kern.smooth')]]
+    
+    # Get the fixed effects
+    fe_id <- setdiff(seq_len(ncol(full_lp)),
+          unlist(lapply(object$smooth, FUN=function(i){i$first.par:i$last.par}))
+    )
+    if (length(fe_id) > 0){
+      FE_matrix_test <- full_lp[, fe_id, drop = F]
+    }else{
+      FE_matrix_test <- matrix(nrow = nrow(full_lp), ncol = 0)
+    }
+    colnames(FE_matrix_test) <- colnames(full_lp)[fe_id]
+    
+    kernel_id <- unlist(kern_smooth[c('first.para', 'last.para')])
+    kernel_id <- kernel_id[1]:kernel_id[2]
+    # All *other* smoothes, e.g. random effects
+    Z <- full_lp[, -c(fe_id, kernel_id), drop = F]
+    
+    # Get the raw design and UNDO standardization
+    std_X_train <- kern_smooth$X_train
+    raw_X_train <- sweep(std_X_train %*% solve(kern_smooth$std_train$whiten), 
+      2, kern_smooth$std_train$mean, FUN = "+")
+
+    standardize <- kern_smooth$xt$standardize  
+    
+    std_whiten <- kern_smooth$std_train$whiten
+    std_mean <- kern_smooth$std_train$mean
+    W_Matrix <- kern_smooth$std_train$W_Matrix
+    
+    kern_smooth$xt$return_raw <- TRUE
+    kern_smooth$std_train <- NULL
+    
+    raw_X_test <- PredictMat(kern_smooth, data = newdata)
+    family <- object$family
+    
+    kern_names <- colnames(std_X_train)
+    fe_names <- colnames(FE_matrix_test)
+    names_mfx <- c(fe_names, kern_names)
+    if (!identical(kern_smooth$term, colnames(std_X_train))){
+      message('Names of kern and std_X_train seem misaligned...')
+      browser()
+    }
+    
+    WX_train <- raw_X_train %*% W_Matrix
+    WX_test <- raw_X_test %*% W_Matrix
+    
+    std_X_test <- sweep(raw_X_test, 2, std_mean, FUN = "-")
+    std_X_test <- as.matrix(std_X_test %*% std_whiten)
+    
+    tS <- t(kern_smooth$sketch_matrix)
+    bandwidth <- kern_smooth$bandwidth
+    
+    all_mean <- matrix(coef(object))
+    if (length(fe_id) > 0){
+      fe_mean <- matrix(coef(object)[fe_id])
+      re_mean <- all_mean[-fe_id,,drop=F]
+    }else{
+      re_mean <- all_mean
+      fe_mean <- numeric(0)
+    }
+    vcov_ridge <- vcov(object)
+    fmt_sd_y <- 1
+    
+    N_train <- nrow(std_X_train)
+    N_test <- nrow(std_X_test)
   
-  prepped_data <- prepare_predict_data(object = object, newdata = newdata, 
-     newkernel_X = newkernel_X,
-     allow_missing_levels = allow_missing_levels)
+    if (length(model_offset) == 1){
+      offset <- rep(0, N_test)
+    }else{
+      if (length(model_offset) != N_test){stop('Model offest is incorrect length.')}
+      offset <- model_offset
+    }
+    
+    if (ncol(Z) == 0){
+      any_Z <- FALSE
+      Z <- sparseMatrix(i = 1, j = 1, x = 0)
+    }else{
+      any_Z <- TRUE
+      offset_mean <- matrix(coef(object)[-c(fe_id, kernel_id)])
+      re_mean <- matrix(coef(object)[kernel_id])
+      offset <- as.vector(offset + Z %*% offset_mean)
+      Z <- drop0(Z)
+    }
+    Sc <- t(tS) %*% re_mean
+    
+    fd_flag <- kern_smooth$fd_flag
+    
+  }   
   
-  Z <- prepped_data$Z
-  newdata_FE <- prepped_data$newdata_FE
-  total_obs <- prepped_data$total_obs
-  obs_in_both <- prepped_data$obs_in_both
-  newdataKS <- prepped_data$newdataKS
-  std_X_test <- prepped_data$std_newkernel_X
-  std_X_train <- prepped_data$std_kernel_X
-  pos_re <- prepped_data$n_pos
-  rm(prepped_data); gc()
-  
-  family <- object$internal$family
   if (family$family == 'binomial' & family$link == 'logit'){
     family <- 'logit'
   }else if (family$family == 'binomial' & family$link == 'probit'){
@@ -70,72 +236,14 @@ marginal_effect_base <- function(object, newdata, newkernel_X,
     family <- 'poisson'
   }else{stop('Invalid family!')}
   
-  names_mfx <- c(colnames(newdata_FE), colnames(object$internal$kernel_X_train))
   
-  W_Matrix <- object$internal$std_train$W_Matrix
-  WX_train <- object$internal$kernel_X_train %*% W_Matrix
-  WX_test <- newkernel_X %*% W_Matrix
-  
-  tS <- t(object$internal$sketch)
-  bandwidth <- object$internal$bandwidth
-  
-  fe_mean <- object$fe$mean
-  re_mean <- object$re$mean
-  
-  if (length(fe_mean) > 0){
-    all_mean <- rbind(matrix(fe_mean), re_mean)
-  }else{
-    all_mean <- matrix(re_mean)
-  }
-  vcov_ridge <- object$vcov_ridge
-  FE_matrix_test <- newdata_FE
-  
-  fmt_sd_y <- object$internal$sd_y
-  
-  pos_kern <- pos_re[which(names(pos_re) == '1 | kernel_RE')]
-  stopifnot(names(pos_re)[length(pos_re)] == '1 | kernel_RE')
-  
-  #####################
-  ### Begin Estimation
-  # Uses the following arguments
-  # std_X_test, std_X_train, 
-  # WX_train, WX_test,
-  # tS, bandwidth, FE_matrix_test,
-  # fe_mean, re_mean, all_mean,
-  # vcov_ridge
-  #####################
-
-  N_train <- nrow(std_X_train)
-  N_test <- nrow(std_X_test)
-  
-  offset <- rep(0, N_test)
-
-  orig_re <- re_mean
-  offset_re <- orig_re[seq_len(length(orig_re) - pos_kern),,drop=F]
-  # Are there any "pure" REs in the model? If not, simplify
-  
-  if (nrow(offset_re) == 0){
-    re_mean <- orig_re
-    any_Z <- FALSE
-    Z <- sparseMatrix(i = 1, j = 1, x = 0)
-  }else{
-    any_Z <- TRUE
-    re_mean <- orig_re[-seq_len(length(orig_re) - pos_kern), , drop = F]
-    offset <- as.vector(Z[,seq_len(length(orig_re) - pos_kern), , drop = F] %*% offset_re)
-    Z <- Z[,seq_len(length(orig_re) - pos_kern), , drop = F]
-  }
-
-  Sc <- t(tS) %*% re_mean
   ME_pointwise <- ME_pointwise_var <- matrix(NA, nrow(std_X_test), 
-                                             ncol(FE_matrix_test) + ncol(W_Matrix))
+      ncol(FE_matrix_test) + ncol(W_Matrix))
   AME_grad <- matrix(0, nrow = nrow(all_mean), ncol = ncol(FE_matrix_test) + ncol(W_Matrix))
   SIZE_FE <- ncol(FE_matrix_test)
   SIZE_KERNEL <- ncol(W_Matrix)
   
   # Flag the columns that should be analyzed using first differences
-  fd_flag <- which(apply(object$internal$kernel_X_train, MARGIN = 2, FUN=function(i){
-    all(i %in% c(0,1))
-  }))
   fd_flag <- names(fd_flag)
   fd_matrix <- matrix(data = 0, ncol = 2, nrow = SIZE_KERNEL + SIZE_FE)
   rownames(fd_matrix) <- names_mfx
@@ -144,9 +252,6 @@ marginal_effect_base <- function(object, newdata, newkernel_X,
   fd_matrix[fd_flag, 2] <- 1
   fd_flag <- (rownames(fd_matrix) %in% fd_flag)
   
-  
-  std_whiten <- object$internal$std_train$whiten
-  std_mean <- object$internal$std_train$mean
   
   std_fd_matrix <- sweep(t(fd_matrix), 2, c(rep(0, SIZE_FE), std_mean), FUN = "-")
   std_fd_matrix <- std_fd_matrix %*% 
@@ -163,16 +268,12 @@ marginal_effect_base <- function(object, newdata, newkernel_X,
   type_mfx <- c(rep('deriv_FE', ncol(FE_matrix_test)), rep('deriv_Kern', ncol(std_X_test)))
   type_mfx[which(fd_flag)] <- 'FD'
   mahal <- standardize == 'Mahalanobis'
-  raw_X_test <- newkernel_X
   std_whiten <- as.matrix(std_whiten)
   vcov_ridge <- as.matrix(vcov_ridge)
   W_Matrix <- as.matrix(W_Matrix)
   WX_test <- as.matrix(WX_test)
   WX_train <- as.matrix(WX_train)
   
-  # All variables in kernel and FE
-  kern_names <- colnames(object$internal$kernel_X_train)
-  fe_names <- names(fe_mean)
   if (!is.null(keep)){
     # Variables to calculate AME for
     kern_to_fit <- intersect(kern_names, keep)
@@ -190,21 +291,24 @@ marginal_effect_base <- function(object, newdata, newkernel_X,
   }
   
   if (method == 'cpp'){
+    
     cpp_fit_position <- as.integer(fit_position - 1)
     cpp_mfx_counter <- as.integer(mfx_counter - 1)
     
     out_ME <- cpp_gkrls_me(std_X_train = std_X_train, std_X_test = std_X_test,
-                 bandwidth = bandwidth, family = family,
-                 tZ = t(Z), offset = offset, any_Z = any_Z,
-                 mahal = mahal, sd_y = fmt_sd_y, tS = tS, fe_mean = fe_mean, re_mean = as.vector(re_mean), 
-                 SIZE_PARAMETER = nrow(all_mean), vcov_ridge = vcov_ridge, FE_matrix_test = FE_matrix_test, 
-                 W_Matrix = W_Matrix, WX_test = WX_test, WX_train = WX_train, raw_X_test = raw_X_test, 
-                 std_mean = std_mean, std_whiten = std_whiten, 
-                 fd_matrix = fd_matrix, std_fd_matrix = std_fd_matrix, 
-                 type_mfx = type_mfx, fit_position = cpp_fit_position,
-                 mfx_counter = cpp_mfx_counter)
-    
-  }else{
+                bandwidth = bandwidth, family = family,
+                tZ = t(Z), offset = offset, any_Z = any_Z,
+                mahal = mahal, sd_y = fmt_sd_y, tS = tS, fe_mean = fe_mean, 
+                re_mean = as.vector(re_mean), 
+                SIZE_PARAMETER = nrow(all_mean), vcov_ridge = vcov_ridge, 
+                FE_matrix_test = FE_matrix_test, 
+                W_Matrix = W_Matrix, WX_test = WX_test, WX_train = WX_train, 
+                raw_X_test = raw_X_test, 
+                std_mean = std_mean, std_whiten = std_whiten, 
+                fd_matrix = fd_matrix, std_fd_matrix = std_fd_matrix, 
+                type_mfx = type_mfx, fit_position = cpp_fit_position,
+                mfx_counter = cpp_mfx_counter)
+    }else{
 
     AME_grad <- AME_grad[,seq_len(length(mfx_counter)), drop = F]
     ME_pointwise <- ME_pointwise[,seq_len(length(mfx_counter)), drop = F]
