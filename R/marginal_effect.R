@@ -497,3 +497,6 @@ marginal_effect_base <- function(object, newdata, newkernel_X = NULL,
   
   return(out_ME)
 }
+
+
+

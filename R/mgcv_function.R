@@ -2,7 +2,7 @@
 #' @export
 gKRLS_gam_control <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                               demean_kernel = FALSE,
-                              sketch_method = 'gaussian',
+                              sketch_method = 'nystrom',
                               no.rescale = FALSE, standardize = 'scaled',
                               sketch_size = function(N){ceiling(N^(1/3)) * 5},
                               remove_instability = TRUE){
@@ -20,7 +20,6 @@ smooth.construct.kern.smooth.spec<-function(object,data,knots) {
     object$xt$return_raw <- FALSE
   }
   
-  # if (object$by != "NA"){stop('non-"NA" "by" not set up yet.')}
   if (!is.null(object$pc)){stop('non-NULL "pc" not set up yet.')}
   if (!is.null(object$id)){stop('custom "id" not set up yet for "kern".')}
   if (!is.na(object$p.order)){
@@ -29,7 +28,7 @@ smooth.construct.kern.smooth.spec<-function(object,data,knots) {
   if (object$bs.dim != '-1'){
     stop('k should not be modified directly. Set sketch size via "xt"')
   }  
-  
+  print(object$term)
   if (length(object$term) > 1){
     
     length_data <- sapply(data, length)

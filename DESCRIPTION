@@ -8,10 +8,19 @@ Author: Qing Chang and Max Goplerud
 Maintainer: Max Goplerud <mgoplerud@pitt.edu>
 Description: Fits generalized KRLS 
 License: GPL (>= 2)
-Imports: Rcpp (>= 1.0.6), RcppParallel, lme4, Matrix, mgcv
+Imports: 
+  Rcpp (>= 1.0.6), 
+  RcppParallel, 
+  Matrix, 
+  mgcv,
+  utils
+Suggests:
+  lme4, 
+  margins, 
+  prediction,
+  testthat
 LinkingTo: Rcpp, RcppEigen, RcppParallel
 SystemRequirements: GNU make
 RoxygenNote: 7.1.1
-Suggests: testthat
 NeedsCompilation: yes
 Packaged: 2021-08-17 01:21:58 UTC; changqing

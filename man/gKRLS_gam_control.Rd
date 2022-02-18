@@ -7,7 +7,7 @@
 gKRLS_gam_control(
   truncate.eigen.tol = sqrt(.Machine$double.eps),
   demean_kernel = FALSE,
-  sketch_method = "gaussian",
+  sketch_method = "nystrom",
   no.rescale = FALSE,
   standardize = "scaled",
   sketch_size = function(N) {     ceiling(N^(1/3)) * 5 },
