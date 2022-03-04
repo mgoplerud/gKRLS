@@ -1,17 +1,26 @@
 Package: gKRLS
 Type: Package
-Title: generalized KRLS
+Title: Generalized KRLS
 Version: 1.0
 Date: 2021-07-05
 Encoding: UTF-8
 Author: Qing Chang and Max Goplerud
 Maintainer: Max Goplerud <mgoplerud@pitt.edu>
-Description: More about what it does (maybe more than one line)
+Description: Fits generalized KRLS 
 License: GPL (>= 2)
-Imports: Rcpp (>= 1.0.6), RcppParallel, lme4, Matrix
+Imports: 
+  Rcpp (>= 1.0.6), 
+  RcppParallel, 
+  Matrix, 
+  mgcv,
+  utils
+Suggests:
+  lme4, 
+  margins, 
+  prediction,
+  testthat
 LinkingTo: Rcpp, RcppEigen, RcppParallel
 SystemRequirements: GNU make
 RoxygenNote: 7.1.1
-Suggests: testthat
 NeedsCompilation: yes
 Packaged: 2021-08-17 01:21:58 UTC; changqing

@@ -1,93 +1,48 @@
-rm(list=ls())
-library(testthat)
-library(gKRLS)
 
-X <- matrix(rnorm(500 * 2), ncol = 2)
-X <- apply(X, MARGIN = 2, scale)
-X <- cbind(X, model.matrix(~0 + sample(letters[1:7], nrow(X), replace = T)))
-w <- runif(nrow(X))
-colnames(X) <- paste0('x_', 1:ncol(X))
-y <- rnorm(nrow(X), mean = X %*% rnorm(ncol(X), sd = 5))
+test_that("gKRLS agrees with direct solution", {
 
+  N <- 200
+  x1 <- rnorm(N)
+  x2 <- rbinom(N,size=1,prob=.2)
+  y <- x1^3 - 0.5 *x2 + rnorm(N,0,.15)
+  y <- y * 10
+  X <- cbind(x1, x2)
+  X <- cbind(X, model.matrix(~ 0 + sample(letters[1:5], N, replace  = T)))
+  X_copy <- cbind(X, X, X)
+  
+  est_gKRLS <- gKRLS(formula = y ~ 1, kernel_X = X, 
+                     sketch_method = 'none', data = NULL,
+                     family = gaussian())
+  
+  est_copy <- gKRLS(formula = y ~ 1, kernel_X = X_copy, data = NULL,
+                    sketch_method = 'none',
+                    family = gaussian())
+  
+  expect_equal(est_gKRLS$fitted, est_copy$fitted)
+  
+  fit_gKRLS <- gKRLS(formula = y ~ 0, kernel_X = X, 
+                     sketch_method = 'none', data = NULL, 
+                     truncate_eigen_penalty = .Machine$double.eps,
+                     family = gaussian(), prior_stabilize = F)
+  lambda <- fit_gKRLS$internal$KS_scale^2 * 
+    1/fit_gKRLS$fmt_varcorr[[1]][1,1] * 
+    fit_gKRLS$sigma^2
+  K_manual <- exp(-as.matrix(dist(apply(X, MARGIN = 2, scale))^2) / fit_gKRLS$internal$bandwidth)
+  
+  direct_fitted <- as.vector(K_manual %*% 
+                               solve(K_manual + lambda * Diagonal(n = nrow(K_manual))) %*% 
+                               scale(y)) * sd(y) + mean(y)  
+  fit_krls <- KRLS::krls(X = X, y = y, sigma = fit_gKRLS$internal$bandwidth, 
+                         lambda = lambda)
+  plot(as.vector(fitted(fit_krls)) - as.vector(fitted(fit_gKRLS)))
+  
+  expect_equivalent(fitted(fit_krls), fitted(fit_gKRLS))
+  expect_equivalent(direct_fitted, fitted(fit_gKRLS))
+  expect_equal(direct_fitted, as.vector(fitted(fit_krls)))
+  
+  
+})
 
-est_gKRLS <- gKRLS(formula = y ~ 1 + w, kernel_X =  X, 
-                   standardize = 'scaled',
-                   sketch_method = 'gaussian', data = data.frame(w = w),
-                   family = gaussian())
-
-pred_gKRLS <- predict(est_gKRLS, newkernel_X = X, newdata = data.frame(w = w))
-
-
-fitted_internal <- fitted(est_gKRLS)
-expect_equivalent(pred_gKRLS$fitted, fitted_internal)
-
-
-MFX_SIZE <- sample(1:nrow(X), nrow(X), replace = T)
-
-mfx_gKRLS_base <- marginal_effect_base(object = est_gKRLS,
-    newdata = data.frame(w = w[MFX_SIZE]), 
-    newkernel_X = X[MFX_SIZE,], method = 'base')
-
-mfx_gKRLS <- marginal_effect_base(object = est_gKRLS,
-    newdata = data.frame(w = w[MFX_SIZE]), newkernel_X = X[MFX_SIZE,])
-
-# mfx calculated both ways aligns
-expect_true(all(sapply(names(mfx_gKRLS), FUN=function(i){
-  all.equal(mfx_gKRLS[[i]], mfx_gKRLS_base[[i]])
-})))
-
-
-mfx_gKRLS_base_select <- marginal_effect_base(object = est_gKRLS, keep = c('w', 'x_1', 'x_6', 'x_2'),
-                                       newdata = data.frame(w = w[MFX_SIZE]), 
-                                       newkernel_X = X[MFX_SIZE,], method = 'base')
-
-mfx_gKRLS_select <- marginal_effect_base(object = est_gKRLS, keep = c('w', 'x_1', 'x_6', 'x_2'),
-        newdata = data.frame(w = w[MFX_SIZE]), newkernel_X = X[MFX_SIZE,])
-
-expect_true(all(sapply(names(mfx_gKRLS), FUN=function(i){
-  all.equal(mfx_gKRLS_select[[i]], mfx_gKRLS_base_select[[i]])
-})))
-# expect_identical(colnames(mfx_gKRLS_select$ME_pointwise), c('w', 'x_1', 'x_6', 'x_2'))
-
-expect_equal(
-  mfx_gKRLS$ME_pointwise_var[,colnames(mfx_gKRLS_select$ME_pointwise_var)] ,
-  mfx_gKRLS_select$ME_pointwise_var
-)
-
-
-
-stop()
-
-
-
-stop()
-
-N <- 200
-x1 <- rnorm(N)
-x2 <- rbinom(N,size=1,prob=.2)
-y <- x1^3 - 0.5 *x2 + rnorm(N,0,.15)
-y <- y * 10
-X <- cbind(x1, x2)
-X <- cbind(X, model.matrix(~ 0 + sample(letters[1:5], N, replace  = T)))
-X_copy <- cbind(X, X, X)
-
-est_gKRLS <- gKRLS(formula = y ~ 1, kernel_X = X, 
-                   sketch_method = 'none', data = NULL,
-                   family = gaussian())
-
-est_copy <- gKRLS(formula = y ~ 1, kernel_X = X_copy, data = NULL,
-                   sketch_method = 'none',
-                   family = gaussian())
-
-expect_equal(est_gKRLS$fitted, est_copy$fitted)
-
-fit_gKRLS <- gKRLS(formula = y ~ 0, kernel_X = X, 
-      sketch_method = 'none', data = NULL,
-      family = gaussian(), prior_stabilize = F)
-fit_krls <- KRLS::krls(X = X, y = y, sigma = fit_gKRLS$internal$bandwidth, 
-                 lambda = 1/fit_gKRLS$fmt_varcorr[[1]][1,1] * fit_gKRLS$sigma^2)
-
-all.equal(as.vector(fitted(fit_krls)), as.vector(fitted(fit_gKRLS)))
 
 fit_krls$K
 
@@ -197,4 +152,21 @@ verify_glmer <- gKRLS(formula = bin_y ~ 1 + (1 | g), kernel_X = X[,1,drop=F], ba
                           sketch_method = 'none', data = data.frame(X),
                           family = binomial(), prior_stabilize = T)
 basic_glmer <- glmer(bin_y ~ 1 + (1 | g), family = binomial())
+
+#
+
+
+gKRLS_fixed <- gKRLS(formula = out_y ~ 1 + x1 + x2,
+                     kernel_X = kern_data,  prior_stabilize = F,
+                     data = reg_data %>% dplyr::mutate(out_y = (100 * as.numeric(outcome_y > 0))), 
+                     family = gaussian())
+
+gKRLS_fixed2 <- gKRLS(formula = out_y ~ 1 + x1 + x2, standardize_outcome = F,
+                      kernel_X = kern_data,  prior_stabilize = F,
+                      data = reg_data %>% dplyr::mutate(out_y = (100 * as.numeric(outcome_y > 0))), 
+                      family = gaussian())
+
+b <- glm(out_y ~ 1 + x1 + x2,
+         data = reg_data %>% dplyr::mutate(out_y = (100 * as.numeric(outcome_y > 0))),
+         family = gaussian())
 
