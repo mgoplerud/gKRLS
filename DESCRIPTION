@@ -10,16 +10,17 @@ Description: Fits generalized KRLS
 License: GPL (>= 2)
 Imports: 
   Rcpp (>= 1.0.6), 
-  RcppParallel, 
   Matrix, 
   mgcv,
   utils
 Suggests:
-  lme4, 
-  margins, 
-  prediction,
   testthat
-LinkingTo: Rcpp, RcppEigen, RcppParallel
+Extend:
+  SuperLearner,
+  DoubleML,
+  margins, 
+  prediction
+LinkingTo: Rcpp, RcppEigen
 SystemRequirements: GNU make
 RoxygenNote: 7.1.1
 NeedsCompilation: yes

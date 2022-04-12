@@ -5,56 +5,57 @@
 \title{gKRLS}
 \usage{
 gKRLS(
-  formula,
-  data,
-  kernel_X,
-  family,
-  sketch_size = ceiling(nrow(kernel_X)^(1/3)) * 5,
-  sketch_method = "gaussian",
-  sketch_prob = NULL,
-  bandwidth = NULL,
+  truncate.eigen.tol = sqrt(.Machine$double.eps),
+  demean_kernel = FALSE,
+  sketch_method = "nystrom",
+  no.rescale = FALSE,
   standardize = "scaled",
-  prior_stabilize = TRUE,
-  verbose = FALSE,
-  control = list(truncate_eigen = sqrt(.Machine$double.eps))
+  sketch_size = function(N) {     ceiling(N^(1/3)) * 5 },
+  remove_instability = TRUE
 )
 }
 \arguments{
-\item{formula}{A formula containing the outcome and any fixed effects. Use `y
-~ 1` for a model with only the kernel and an intercept.}
-
-\item{data}{data.frame containing the outcome and any fixed effects}
-
-\item{kernel_X}{matrix containing the variables used to build the kernel}
-
-\item{family}{Provide a family as in the Generalized Linear Models (GLM). For
-example: gaussian or poisson.}
-
-\item{sketch_size}{Specify the dimension of the randomized sketches of the
-kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X
-is matrix of the independent variable.}
-
 \item{sketch_method}{String vector that specifies which kernel sketch method
 should be used. Options include ``gaussian'': gaussian kernel
 approximation, ``nystrom'': , bernoulli, and no sketch. The default is
 gaussian.}
 
-\item{bandwidth}{A numerical number indicating the bandwidth for kernel. The
-default is  ``2*ncol(X).''}
-
 \item{standardize}{A string vector that specifies which standardization
 method should be used. Must be one of scaled, Mahalanobis, or none, which
 menas no standardization. The default is ``Mahalanobis''.}
+
+\item{sketch_size}{Specify the dimension of the randomized sketches of the
+kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X
+is matrix of the independent variable.}
+
+\item{data}{data.frame containing the outcome and any fixed effects}
+
+\item{kernel_X}{matrix containing the variables used to build the kernel}
+
+\item{X}{A matrix of numeric observations of independent variables. Factors
+and missing values not allowed. Also, no intercept is required.}
+
+\item{family}{Provide a family as in the Generalized Linear Models (GLM). For
+example: gaussian or poisson.}
+
+\item{bandwidth}{A numerical number indicating the bandwidth for kernel. The
+default is  ``2*ncol(X).''}
 
 \item{control}{A list containing control parameters. The truncate_eigen determines how
 much eigenvalues should be truncated. If truncate_eigen set to 1e-6, this
 means we only keep eigenvalue greater or equal to 1e-6. The default is
 sqrt(.Machine$double.eps), where .Machine$double.eps is the smallest
 positive floating-point number x such that 1 + x != 1.}
-
-\item{X}{A matrix of numeric observations of independent variables. Factors
-and missing values not allowed. Also, no intercept is required.}
 }
 \description{
-Fit a generalized KRLS model using Laplace approximation
+Fit a generalized KRLS model using mgcv
+}
+\details{
+The function `gKRLS` should be given as a control argument to any relevant
+function for fitting a generalized additive model from `mgcv` (e.g. `bam`,
+`gam`, `gamm4`). Its arguments are described below with a simple example.
+
+A kernel can be specified by `s(..., bs = "gKRLS")`.
+
+NOTE: Variables must be separated by commas inside of the `s(..)`.
 }

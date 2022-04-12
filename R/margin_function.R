@@ -176,6 +176,8 @@ find_terms_in_model.gam <- function(model, variables = NULL){
   
   cterms <- utils::getFromNamespace('clean_terms', 'margins')
   names(classes) <- cterms(names(classes))
+  
+  
   vars <- list(nnames = unique(names(classes)[!classes %in% 
                                                 c("factor", "ordered", "logical")]), 
                lnames = unique(names(classes)[classes == "logical"]), 

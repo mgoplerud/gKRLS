@@ -1,20 +1,9 @@
-#' Control options for Kernel-Gam
-#' @export
-gKRLS_gam_control <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
-                              demean_kernel = FALSE,
-                              sketch_method = 'nystrom',
-                              no.rescale = FALSE, standardize = 'scaled',
-                              sketch_size = function(N){ceiling(N^(1/3)) * 5},
-                              remove_instability = TRUE){
-  return(mget(ls()))
-}
-
 #' @importFrom mgcv Predict.matrix smooth.construct
 #' @export
-smooth.construct.kern.smooth.spec<-function(object,data,knots) {
+smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
   
   if (is.null(object$xt)){
-    object$xt <- gKRLS_gam_control()
+    object$xt <- gKRLS()
   }
   if (!('return_raw' %in% names(object$xt))){
     object$xt$return_raw <- FALSE
@@ -25,10 +14,11 @@ smooth.construct.kern.smooth.spec<-function(object,data,knots) {
   if (!is.na(object$p.order)){
     stop('m not used in "kern".')
   }
+  
   if (object$bs.dim != '-1'){
     stop('k should not be modified directly. Set sketch size via "xt"')
   }  
-  print(object$term)
+  
   if (length(object$term) > 1){
     
     length_data <- sapply(data, length)
@@ -165,7 +155,7 @@ smooth.construct.kern.smooth.spec<-function(object,data,knots) {
 }
 
 #' @export
-Predict.matrix.kern.smooth<-function(object,data) {
+Predict.matrix.gKRLS.smooth<-function(object,data) {
   
   if (length(object$term) > 1){
     X_test <- do.call('cbind', data[object$term])
