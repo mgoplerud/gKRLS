@@ -15,11 +15,9 @@ Imports:
   utils
 Suggests:
   testthat
-Extend:
+Extends:
   SuperLearner,
-  DoubleML,
-  margins, 
-  prediction
+  DoubleML
 LinkingTo: Rcpp, RcppEigen
 SystemRequirements: GNU make
 RoxygenNote: 7.1.1

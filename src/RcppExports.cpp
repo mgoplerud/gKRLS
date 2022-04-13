@@ -55,22 +55,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// build_kern_parallel
-Rcpp::NumericMatrix build_kern_parallel(const NumericMatrix X_train, const NumericMatrix X_test, const Eigen::MatrixXd tS, double bandwidth, size_t grain_size, int threads);
-RcppExport SEXP _gKRLS_build_kern_parallel(SEXP X_trainSEXP, SEXP X_testSEXP, SEXP tSSEXP, SEXP bandwidthSEXP, SEXP grain_sizeSEXP, SEXP threadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const NumericMatrix >::type X_train(X_trainSEXP);
-    Rcpp::traits::input_parameter< const NumericMatrix >::type X_test(X_testSEXP);
-    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type tS(tSSEXP);
-    Rcpp::traits::input_parameter< double >::type bandwidth(bandwidthSEXP);
-    Rcpp::traits::input_parameter< size_t >::type grain_size(grain_sizeSEXP);
-    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(build_kern_parallel(X_train, X_test, tS, bandwidth, grain_size, threads));
-    return rcpp_result_gen;
-END_RCPP
-}
 // create_sketched_kernel
 Eigen::MatrixXd create_sketched_kernel(const Eigen::Map<Eigen::MatrixXd> X_test, const Eigen::Map<Eigen::MatrixXd> X_train, const Eigen::Map<Eigen::MatrixXd> tS, const double bandwidth);
 RcppExport SEXP _gKRLS_create_sketched_kernel(SEXP X_testSEXP, SEXP X_trainSEXP, SEXP tSSEXP, SEXP bandwidthSEXP) {
@@ -89,7 +73,6 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_gKRLS_kern_gauss", (DL_FUNC) &_gKRLS_kern_gauss, 3},
     {"_gKRLS_cpp_gkrls_me", (DL_FUNC) &_gKRLS_cpp_gkrls_me, 26},
-    {"_gKRLS_build_kern_parallel", (DL_FUNC) &_gKRLS_build_kern_parallel, 6},
     {"_gKRLS_create_sketched_kernel", (DL_FUNC) &_gKRLS_create_sketched_kernel, 4},
     {NULL, NULL, 0}
 };

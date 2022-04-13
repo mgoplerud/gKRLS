@@ -150,12 +150,12 @@ smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
   object$te.ok <- 0
   object$plot.me <- FALSE
   object$C <- matrix(nrow = 0, ncol = ncol(KS))
-  class(object)<-"kern.smooth"  # Give object a class
+  class(object) <-"gKRLS.smooth"  # Give object a class
   object
 }
 
 #' @export
-Predict.matrix.gKRLS.smooth<-function(object,data) {
+Predict.matrix.gKRLS.smooth <- function(object,data) {
   
   if (length(object$term) > 1){
     X_test <- do.call('cbind', data[object$term])
