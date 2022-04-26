@@ -15,37 +15,33 @@ gKRLS(
 )
 }
 \arguments{
+\item{truncate.eigen.tol}{It determines how much eigenvalues should be truncated. 
+If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalue greater or 
+equal to 1e-6. The default is sqrt(.Machine$double.eps), where .Machine$double.eps 
+is the smallest positive floating-point number x such that 1 + x != 1.}
+
+\item{demean_kernel}{A logical variable ``True'' or ``False'' indicates whether 
+the kernel should be demeaned. The default is False. If True is given, column mean 
+will be used to calculate the demean kernel matrix.}
+
 \item{sketch_method}{String vector that specifies which kernel sketch method
-should be used. Options include ``gaussian'': gaussian kernel
-approximation, ``nystrom'': , bernoulli, and no sketch. The default is
-gaussian.}
+should be used. Options include ``gaussian'': gaussian kernel approximation,
+ ``nystrom'':  Nystrom approximation, ``bernoulli'', and no sketch. The default is
+Nystrom approximation.}
+
+\item{no.rescale}{}
 
 \item{standardize}{A string vector that specifies which standardization
-method should be used. Must be one of scaled, Mahalanobis, or none, which
-menas no standardization. The default is ``Mahalanobis''.}
+method should be used. Must be one of ``scaled'', ``Mahalanobis'', or ``none'', which
+menas no standardization. The default is ``scaled''.}
 
 \item{sketch_size}{Specify the dimension of the randomized sketches of the
 kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X
-is matrix of the independent variable.}
+is kernel matrix. If desires to use a larger matrix, change 5 to a larger number, 
+e.g. 15.}
 
-\item{data}{data.frame containing the outcome and any fixed effects}
-
-\item{kernel_X}{matrix containing the variables used to build the kernel}
-
-\item{X}{A matrix of numeric observations of independent variables. Factors
-and missing values not allowed. Also, no intercept is required.}
-
-\item{family}{Provide a family as in the Generalized Linear Models (GLM). For
-example: gaussian or poisson.}
-
-\item{bandwidth}{A numerical number indicating the bandwidth for kernel. The
-default is  ``2*ncol(X).''}
-
-\item{control}{A list containing control parameters. The truncate_eigen determines how
-much eigenvalues should be truncated. If truncate_eigen set to 1e-6, this
-means we only keep eigenvalue greater or equal to 1e-6. The default is
-sqrt(.Machine$double.eps), where .Machine$double.eps is the smallest
-positive floating-point number x such that 1 + x != 1.}
+\item{remove_instability}{A logical variable indicates whether 0 should be removed 
+from the eigenvector when building the kernel matrix. The default is ``True''}
 }
 \description{
 Fit a generalized KRLS model using mgcv
@@ -58,4 +54,28 @@ function for fitting a generalized additive model from `mgcv` (e.g. `bam`,
 A kernel can be specified by `s(..., bs = "gKRLS")`.
 
 NOTE: Variables must be separated by commas inside of the `s(..)`.
+}
+\examples{
+n <- 5000
+x1 <- rnorm(n)
+x2 <- rnorm(n)
+x3 <- rnorm(n)
+state <- sample(letters, n, replace = T)
+y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
+data <- data.frame(y, x1, x2, x3, state)
+
+# A gKRLS model without fixed effects
+gkrls_est <- gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
+summary(gkrls_est)
+# A gKRLS model with fixed effects
+gkrls_fx <- gam(y ~ factor(state) + s(x1,x2,x3, bs="gKRLS"), data = data)
+# Change default standardization to Mahalanobis, sketch method to Nystrom, and larger kernel matrix
+gkrls_mah <- gam(y ~ s(x1,x2,x3, bs="gKRLS", xt = gKRLS(standardize = 'Mahalanobis',
+                                                         sketch_method = "nystrom",
+                                                         sketch_size = function(N) {ceiling(N^(1/3)) * 15 })),
+                                                          data = data)
+
+ # calculate marginal effect
+ calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative')
+
 }

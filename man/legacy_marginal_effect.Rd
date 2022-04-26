@@ -6,6 +6,17 @@
 \usage{
 legacy_marginal_effect(object, newdata, keep = NULL, method = "cpp")
 }
+\arguments{
+\item{object}{A fitted gKRLS model.}
+
+\item{newdata}{A new data frame that used to calculate the marginal effect.}
+
+\item{keep}{A character string indicating which variables to calculate marginal 
+effects. Default is NULL, which calculates marginal effects for all.}
+
+\item{method}{A character string indicating which method uses to calculate marginal 
+effects. The default is ``cpp'', which means using the internal C++ functions.}
+}
 \description{
 Find the (average) marginal effect and standard error by taking the
 analytical derivative of the conditional expectation function. This method is
@@ -19,4 +30,18 @@ Because of these restrictions, users should rely on `calculate_effects` and
 this function may be removed in future updates. If a derivative is really
 desired, this can be approximated as described in the `calculate_effects`
 documentation.
+}
+\examples{
+n <- 5000
+x1 <- rnorm(n)
+x2 <- rnorm(n)
+x3 <- rnorm(n)
+state <- sample(letters, n, replace = T)
+y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
+data <- data.frame(y, x1, x2, x3, state)
+
+# A gKRLS model 
+gkrls_est <- gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
+# calculate marginal effect using derivative
+legacy_marginal_effect(gkrls_est, newdata = data) 
 }

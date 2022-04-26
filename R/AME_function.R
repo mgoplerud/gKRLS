@@ -1,3 +1,4 @@
+
 weighted_mfx <- function(model, data_list, vcov,
                          weights, raw = FALSE, individual = FALSE){
   
@@ -82,7 +83,60 @@ weighted_mfx <- function(model, data_list, vcov,
   ))
 }
 
+
+
+#' Marginal Effects by Numerical Derivatives
+#' 
+#' This function calculates the marginal effects using numeric approximations of 
+#' the partial derivatives. For a description of this method, please see Thomas Leeper's 
+#' article "Interpreting Regression Results using Average Marginal Effects with R’s margins."
+#' 
+#' 
+#' 
+#' @param model A fitted gKRLS model.
+#' @param data A new data frame that used to calculate the marginal effect, or 
+#' set to ``NULL'', which the data used to estimate the model will be used. The 
+#' default is ``NULL.''
+#' @param variables Specify the variable names that need to calculate marginal 
+#' effect. The default is ``NULL'', which means calculate marginal effect for all variables.
+#' @param vcov Specify the covariance matrix.It accepts a user-defined covariance 
+#' matrix or clustered covariance matrices using functions from sandwich package. 
+#' @param raw 
+#' @param conditional  This is an analogue of Stata's ``at()'' option and ``at'' argument 
+#' in ``margins'' package. Specify the values at which to calculate the marginal 
+#' effect in a named data from. See an example below.
+#' @param epsilon A numerical value to define the step when calculating numerical 
+#' derivatives. See Leeper's articel for details. 
+#' @param verbose A logical value indicates whether to report the current stage 
+#' when calculating the marginal effects.
+#' @param continuous_type A character string indicating the type of marginal effects 
+#' to estimate. Options are ``IQR'': variable values change from 25% to 75%, ``minmax'': 
+#' variable values changes from minimum to maximum, ``derivative'': variable values 
+#' change by epsilon defined in the epsilon argument, ``onesd'': variable values 
+#' change by one standard deviation.
+#' 
+#' @examples
+#' n <- 5000
+#' x1 <- rnorm(n)
+#' x2 <- rnorm(n)
+#' x3 <- rnorm(n)
+#' state <- sample(letters, n, replace = T)
+#' y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
+#' data <- data.frame(y, x1, x2, x3, state)
+#' 
+#' # A gKRLS model 
+#' gkrls_est <- gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
+#' # calculate marginal effect using derivative
+#' calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative') 
+#' # calculate marginal effect by specifying conditional variables
+#' calculate_effects(gkrls_est, variables = "x1", 
+#' conditional = data.frame(x2 = c(0.6, 0.8), x3=0.3))
+#' # calculate marginal effect by specifying a factor conditional variable
+#' calculate_effects(gkrls_est, variables = "x1", 
+#' conditional = data.frame(state = c("a", "b", "c")), continuous_type = 'derivative')
 #' @export
+#' 
+#' 
 calculate_effects <- function(model, data = NULL, 
   variables = NULL, vcov = NULL, raw = FALSE,
   conditional = NULL, epsilon = 1e-7, verbose = FALSE,
@@ -412,6 +466,7 @@ print.gKRLS_mfx <- function(x){
   }
 }
 
+## not export this one
 #' @export
 kernel_interactions <- function(model, 
   variables, QOI = c('AMIE', 'ACE', 'AIE', 'AME'), ...){
