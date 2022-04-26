@@ -13,15 +13,15 @@ Imports:
   Matrix, 
   mgcv,
   utils,
+  mlr3, mlr3misc,
   R6
 Suggests:
-  mlr3,
   testthat
 Extends:
   SuperLearner,
   DoubleML
 LinkingTo: Rcpp, RcppEigen
 SystemRequirements: GNU make
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 NeedsCompilation: yes
 Packaged: 2021-08-17 01:21:58 UTC; changqing

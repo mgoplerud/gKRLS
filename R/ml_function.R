@@ -79,9 +79,11 @@ add_bam_to_mlr3 <- function(){
 #' This contains the integration of `mgcv::bam` into `mlr3` without requiring
 #' explicit loading of `mlr3extralearners.`
 #' @rdname mlr3_gKRLS
+#' @importFrom mlr3 LearnerRegr
+#' @importFrom mlr3misc invoke
 #' @importFrom R6 R6Class
 #' @export
-LearnerRegrBam = R6Class("LearnerRegrBam", inherit = LearnerRegr,
+LearnerRegrBam <- R6Class("LearnerRegrBam", inherit = LearnerRegr,
                          
  public = list(
    #' @description
@@ -144,7 +146,7 @@ LearnerRegrBam = R6Class("LearnerRegrBam", inherit = LearnerRegr,
        predict_types = c("response", "se"),
        param_set = ps,
        properties = c("missings", "weights"),
-       man = "mlr3extralearners::mlr_learners_regr.bam"
+       man = "regr.bam"
      )
    }
  ),
@@ -231,6 +233,7 @@ LearnerRegrBam = R6Class("LearnerRegrBam", inherit = LearnerRegr,
 )
 #' 
 #' @rdname mlr3_gKRLS
+#' @importFrom mlr3 LearnerClassif
 #' @export
 LearnerClassifBam = R6Class("LearnerClassifBam",
   inherit = LearnerClassif,
@@ -297,7 +300,7 @@ LearnerClassifBam = R6Class("LearnerClassifBam",
         predict_types = c("response", "prob"),
         param_set = ps,
         properties = c("missings", "twoclass", "weights"),
-        man = "mlr3extralearners::mlr_learners_classif.bam"
+        man = "mlr_learners_classif.bam"
       )
     }
     
