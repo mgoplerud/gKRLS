@@ -28,8 +28,6 @@ smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
     X <- do.call('cbind', data[object$term])
   }else{
     
-    browser()
-    
     stop('Kernel must consist of multiple variables. The syntax is s(a,b,c,d,...).')
     X <- data[[object$term]]
   }

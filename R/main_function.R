@@ -61,9 +61,11 @@
 gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                               demean_kernel = FALSE,
                               sketch_method = 'nystrom',
-                              no.rescale = FALSE, standardize = 'mahalanobis',
+                              no.rescale = FALSE, standardize = 'Mahalanobis',
                               sketch_size = function(N){ceiling(N^(1/3)) * 5},
                               remove_instability = TRUE){
+  
+  standardize <- match.arg(standardize, c('Mahalanobis', 'scaled', 'none'))
   return(mget(ls()))
 }
 

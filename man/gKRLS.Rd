@@ -9,7 +9,7 @@ gKRLS(
   demean_kernel = FALSE,
   sketch_method = "nystrom",
   no.rescale = FALSE,
-  standardize = "scaled",
+  standardize = "Mahalanobis",
   sketch_size = function(N) {     ceiling(N^(1/3)) * 5 },
   remove_instability = TRUE
 )

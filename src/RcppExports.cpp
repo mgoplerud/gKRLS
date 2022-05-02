@@ -6,11 +6,6 @@
 
 using namespace Rcpp;
 
-#ifdef RCPP_USE_GLOBAL_ROSTREAM
-Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
-Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
-#endif
-
 // kern_gauss
 double kern_gauss(const Eigen::MatrixXd X_one, const Eigen::MatrixXd X_two, const double bandwidth);
 RcppExport SEXP _gKRLS_kern_gauss(SEXP X_oneSEXP, SEXP X_twoSEXP, SEXP bandwidthSEXP) {
