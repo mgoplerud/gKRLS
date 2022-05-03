@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      token: ${{ secrets.CODECOV_TOKEN }} 
 
     steps:
       - uses: actions/checkout@v2
@@ -24,6 +25,7 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v1
         with:
           extra-packages: covr
+          token: ${{ secrets.CODECOV_TOKEN }} 
 
       - name: Test coverage
         run: covr::codecov()
