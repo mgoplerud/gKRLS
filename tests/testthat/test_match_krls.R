@@ -1,172 +1,121 @@
+library(mgcv)
 
 test_that("gKRLS agrees with direct solution", {
 
   N <- 200
   x1 <- rnorm(N)
   x2 <- rbinom(N,size=1,prob=.2)
-  y <- x1^3 - 0.5 *x2 + rnorm(N,0,.15)
+  y <- x1^3 - 0.5 *x2 + rnorm(N,0, 1)
   y <- y * 10
   X <- cbind(x1, x2)
   X <- cbind(X, model.matrix(~ 0 + sample(letters[1:5], N, replace  = T)))
+  colnames(X) <- paste0('x', 1:ncol(X))
   X_copy <- cbind(X, X, X)
+  colnames(X_copy) <- paste0('x', 1:ncol(X_copy))
   
-  est_gKRLS <- gKRLS(formula = y ~ 1, kernel_X = X, 
-                     sketch_method = 'none', data = NULL,
-                     family = gaussian())
+  est_gKRLS <- gam(y ~ s(x1,x2,x3,x4,x5,x6,x7, bs = 'gKRLS',
+   xt = gKRLS(sketch_method = 'none', truncate.eigen.tol = 0)),
+   family = gaussian(), data = data.frame(y, X))
   
-  est_copy <- gKRLS(formula = y ~ 1, kernel_X = X_copy, data = NULL,
-                    sketch_method = 'none',
-                    family = gaussian())
+  est_copy <- gam(y ~ s(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,
+                         x14,x15,x16,x17,x18,x19,x20,x21, bs = 'gKRLS',
+                         xt = gKRLS(sketch_method = 'none', truncate.eigen.tol = 0)),
+                   family = gaussian(), data = data.frame(y, X_copy))
   
-  expect_equal(est_gKRLS$fitted, est_copy$fitted)
+  expect_equal(fitted(est_gKRLS), fitted(est_copy), tol = 1e-5)
   
-  fit_gKRLS <- gKRLS(formula = y ~ 0, kernel_X = X, 
-                     sketch_method = 'none', data = NULL, 
-                     truncate_eigen_penalty = .Machine$double.eps,
-                     family = gaussian(), prior_stabilize = F)
-  lambda <- fit_gKRLS$internal$KS_scale^2 * 
-    1/fit_gKRLS$fmt_varcorr[[1]][1,1] * 
-    fit_gKRLS$sigma^2
-  K_manual <- exp(-as.matrix(dist(apply(X, MARGIN = 2, scale))^2) / fit_gKRLS$internal$bandwidth)
-  
-  direct_fitted <- as.vector(K_manual %*% 
-                               solve(K_manual + lambda * Diagonal(n = nrow(K_manual))) %*% 
-                               scale(y)) * sd(y) + mean(y)  
-  fit_krls <- KRLS::krls(X = X, y = y, sigma = fit_gKRLS$internal$bandwidth, 
-                         lambda = lambda)
-  plot(as.vector(fitted(fit_krls)) - as.vector(fitted(fit_gKRLS)))
-  
-  expect_equivalent(fitted(fit_krls), fitted(fit_gKRLS))
-  expect_equivalent(direct_fitted, fitted(fit_gKRLS))
-  expect_equal(direct_fitted, as.vector(fitted(fit_krls)))
-  
+  fit_gKRLS <- gam(y ~ 0 + s(x1,x2,x3,x4,x5,x6,x7, bs = 'gKRLS',
+    xt = gKRLS(standardize = 'scaled', no.rescale = TRUE, truncate.eigen.tol = 0,
+      sketch_method = 'none', remove_instability = TRUE)), 
+    family = gaussian(), method = 'REML', data = data.frame(y, X))
+
+  K_manual <- exp(-as.matrix(dist(apply(X, MARGIN = 2, scale))^2) / fit_gKRLS$smooth[[1]]$bandwidth)
+  pred_kern <- predict(fit_gKRLS, newdata = data.frame(X), type = 'lpmatrix')
+
+  # if (requireNamespace('KRLS', quietly = TRUE)){
+  #   
+  #   fit_krls <- suppressWarnings(KRLS::krls(X = X, y = y))
+  #   
+  #   direct_fitted_KRLS <- as.vector(K_manual %*% 
+  #    solve(K_manual + as.numeric(fit_krls$lambda) * Diagonal(n = nrow(K_manual))) %*% 
+  #    scale(y)) * sd(y) + mean(y)  
+  # 
+  #   expect_equivalent(as.vector(fitted(fit_krls)), as.vector(direct_fitted_KRLS))
+  #   rm(direct_fitted_KRLS, fit_krls)
+  # }
+  # 
+  direct_fit <- as.vector(pred_kern %*% 
+      solve(crossprod(pred_kern) + fit_gKRLS$sp * fit_gKRLS$smooth[[1]]$S[[1]], t(pred_kern) %*% y))
+  expect_equivalent(direct_fit, fitted(fit_gKRLS), tol = 1e-5)
   
 })
 
 
-fit_krls$K
+test_that("Legacy Agrees with Numerical", {
 
-fake_K <- function(object, raw_X){
+  N <- 200
+  x1 <- rnorm(N)
+  x2 <- rbinom(N,size=1,prob=.2)
+  y <- x1^3 - 0.5 *x2 + rnorm(N,0, 1)
+  y <- y * 10
+  X <- cbind(x1, x2)
+  X <- cbind(X, model.matrix(~ 0 + sample(letters[1:5], N, replace  = T)))
+  colnames(X) <- paste0('x', 1:ncol(X))
+  fit_gKRLS <- gam(y ~ 0 + s(x1,x2,x3,x4,x5,x6,x7, bs = 'gKRLS', xt = gKRLS(standardize = 'scaled')),
+     family = gaussian(), method = 'REML', data = data.frame(y, X)
+  )
   
-  # Standardize the incoming new data.
-  std_newkernel_X <- sweep(raw_X, 2, object$internal$std_train$mean, FUN = "-")
+  mfx_gKRLS <- legacy_marginal_effect(object = fit_gKRLS, newdata = data.frame(X))
+  mfx_numerical <- calculate_effects(model = fit_gKRLS, individual = TRUE,
+      data = data.frame(X), continuous_type = 'deriv')
   
-  std_newkernel_X <- std_newkernel_X %*% 
-    object$internal$std_train$whiten
-  std_newkernel_X <- as.matrix(std_newkernel_X)  
-  # Standardize the saved training kernel
-  std_kernel_X <- object$internal$kernel_X_train
-  std_kernel_X <- sweep(std_kernel_X, 2, object$internal$std_train$mean, FUN = "-")
-  std_kernel_X <- std_kernel_X %*% 
-    object$internal$std_train$whiten
-  std_kernel_X <- as.matrix(std_kernel_X)  
+  expect_equivalent(mfx_gKRLS$AME_pointwise, mfx_numerical$marginal_effects$est, tol = 1e-5)
+  expect_equivalent(mfx_gKRLS$AME_pointwise_var, mfx_numerical$marginal_effects$se^2, tol = 1e-5)
+
+  expect_equivalent(
+    do.call('rbind', split(mfx_numerical$individual$est, mfx_numerical$individual$obs)),
+    mfx_gKRLS$ME_pointwise, tol = 1e-4
+  )
   
-  # Get the "test" data after using same sketch matrix
-  newdataKS <- create_sketched_kernel(X_test = raw_X, 
-                                      X_train = raw_X, 
-                                      tS = t(object$internal$sketch), 
-                                      bandwidth = object$internal$bandwidth)
+  expect_equivalent(
+    do.call('rbind', split(mfx_numerical$individual$se^2, mfx_numerical$individual$obs)),
+    mfx_gKRLS$ME_pointwise_var, tol = 1e-4
+  )
   
-}
-plot(fitted(fit_gKRLS), fitted(fit_krls))
-abline(a=0,b=1)
-
-mfx_gKRLS_base <- marginal_effect_base(object = fit_gKRLS, newdata = NULL, newkernel_X = X, method = 'base')
-mfx_gKRLS <- marginal_effect_base(object = fit_gKRLS, newdata = NULL, newkernel_X = X)
-mfx_gKRLS$AME_pointwise
-mfx_gKRLS_base$AME_pointwise
-mfx_gKRLS$AME_pointwise - fit_krls$avgderivatives
-
-expect_equal(as.vector(fit_krls$derivatives), 
-             as.vector(mfx_gKRLS_base$ME_pointwise), tol = 1e-5)
+})
 
 
-expect_equal(as.vector(mfx_gKRLS$ME_pointwise), 
-             as.vector(mfx_gKRLS_base$ME_pointwise), tol = 1e-5)
+test_that("Logistic KRLS Tests", {
 
-
-fit_with_FE <- gKRLS(formula = y ~ 1 + w + factor(id), kernel_X =  X, 
-      standardize = 'scaled',
-      sketch_method = 'gaussian', data = data.frame(w = w, id = sample(letters, length(w), replace = T)),
-      family = gaussian())
-
-predict(fit_with_FE, newdata = data.frame(w = rnorm(3), id = letters[c(3,5,10)]),
-        newkernel_X = X[c(14,5,2),])
-
-
-mfx_gKRLS_base <- marginal_effect_base(object = fit_with_FE, keep = c('x_1', 'w'),
-                                       newdata = data.frame(w = rnorm(3), id = letters[c(3,5,10)]), 
-                                       newkernel_X = X[c(3,10,6),])
-
-stop()
-
-
-
-N <- 200
-x1 <- rnorm(N)
-x2 <- rbinom(N,size=1,prob=.2)
-x2 <- x2 + sample(c(1,0,-1), size = N, replace = T) * 1e-6
-b1 <- 1
-b2 <- -3
-y <- b1 * x1^3 + b2 * x2 + rnorm(N,0,.15)
-X <- cbind(x1, x2)
-
-bin_y <- rbinom(nrow(X), 1, plogis(scale(y)))
-
-fit_binary_gKRLS <- gKRLS(formula = bin_y ~ 1, kernel_X = X, 
-                   sketch_method = 'none', data = NULL, bandwidth = 2,
-                   family = binomial(), prior_stabilize = T)
-
-fit_krls_logit <- KRLS2::krls(X = X, y = bin_y, b = 2, 
-            loss = 'logistic', truncate = 1 - sqrt(.Machine$double.eps),
-            lambda = 1/2 * 1/nrow(X) * 1/fit_binary_gKRLS$fmt_varcorr[[1]][1,1])
-
-plot(fitted(fit_krls_logit), fitted(fit_binary_gKRLS))
-
-mfx_logit <- marginal_effect_base(fit_binary_gKRLS, newdata = NULL, newkernel_X = X)
-mfx_KRLS_2 <- KRLS2::summary.krls2(fit_krls_logit)
-
-base_glm <- glm(bin_y ~ I(X[,1]^3) + X[,2], family = binomial())
-coef(base_glm)
-plot(as.vector(mfx_KRLS_2$derivatives), as.vector(mfx_logit$ME_pointwise[,-1]))
-
-cbind(mfx_logit$AME_pointwise[-1], mfx_KRLS_2$avgderivatives)
-
-ggplot() + geom_density(aes(x=value, group = Var2), data = reshape2::melt(mfx_KRLS_2$derivatives)) +
-  facet_wrap(~Var2) +
-  geom_density(aes(x=value,group=Var2), data = reshape2::melt(mfx_logit$ME_pointwise[,-1]), col = 'red') 
-
-
-# Linear Case
-fit_extend_gKRLS <- gKRLS(formula = y ~ 1, kernel_X = X[,1,drop=F], bandwidth = 10^6,
-                   sketch_method = 'none', data = data.frame(X),
-                   family = gaussian(), prior_stabilize = T)
-extrapolate_X <- as.matrix(expand.grid(seq(3 * min(X[,1]), 3 * max(X[,2]), length.out = 1000), c(0)))
-colnames(extrapolate_X) <- c('x1','x2')
-plot(extrapolate_X[,1] , predict(fit_extend_gKRLS, newdata = data.frame(as.matrix(extrapolate_X)), newkernel_X = extrapolate_X[,1,drop=F])$fitted)
-abline(lm(y ~ X[,1]), col = 'red')
-
-      
-g <- sample(1:5, N, replace = T)
-verify_glmer <- gKRLS(formula = bin_y ~ 1 + (1 | g), kernel_X = X[,1,drop=F], bandwidth = 10^6,
-                          sketch_method = 'none', data = data.frame(X),
-                          family = binomial(), prior_stabilize = T)
-basic_glmer <- glmer(bin_y ~ 1 + (1 | g), family = binomial())
-
-#
-
-
-gKRLS_fixed <- gKRLS(formula = out_y ~ 1 + x1 + x2,
-                     kernel_X = kern_data,  prior_stabilize = F,
-                     data = reg_data %>% dplyr::mutate(out_y = (100 * as.numeric(outcome_y > 0))), 
-                     family = gaussian())
-
-gKRLS_fixed2 <- gKRLS(formula = out_y ~ 1 + x1 + x2, standardize_outcome = F,
-                      kernel_X = kern_data,  prior_stabilize = F,
-                      data = reg_data %>% dplyr::mutate(out_y = (100 * as.numeric(outcome_y > 0))), 
-                      family = gaussian())
-
-b <- glm(out_y ~ 1 + x1 + x2,
-         data = reg_data %>% dplyr::mutate(out_y = (100 * as.numeric(outcome_y > 0))),
-         family = gaussian())
-
+  
+  N <- 200
+  x1 <- rnorm(N)
+  x2 <- rbinom(N,size=1,prob=.2)
+  x2 <- x2 + sample(c(1,0,-1), size = N, replace = T) * 1e-6
+  b1 <- 1
+  b2 <- -3
+  y <- b1 * x1^3 + b2 * x2 + rnorm(N,0,.15)
+  X <- cbind(x1, x2)
+  
+  bin_y <- rbinom(nrow(X), 1, plogis(scale(y)))
+  
+  fit_binary_gKRLS <- gam(bin_y ~ s(x1, x2, bs = 'gKRLS'), data = data.frame(X, bin_y),
+                          family = binomial())
+  
+  mfx_logit <- legacy_marginal_effect(fit_binary_gKRLS, newdata = data.frame(X))
+  mfx_logit_num <- calculate_effects(fit_binary_gKRLS, data = data.frame(X), 
+        continuous_type = 'deriv', individual = TRUE)
+  
+  expect_equivalent(mfx_logit$AME_pointwise[-1], mfx_logit_num$marginal_effects$est, tol = 1e-5)
+  expect_equivalent(mfx_logit$AME_pointwise_var[-1], mfx_logit_num$marginal_effects$se^2, tol = 1e-5)
+  
+  expect_equivalent(
+    do.call('rbind', split(mfx_logit_num$individual$est, mfx_logit_num$individual$obs)),
+    mfx_logit$ME_pointwise[,-1], tol = 1e-4
+  )
+  
+  expect_equivalent(
+    do.call('rbind', split(mfx_logit_num$individual$se^2, mfx_logit_num$individual$obs)),
+    mfx_logit$ME_pointwise_var[,-1], tol = 1e-4
+  )
+})

@@ -2,6 +2,7 @@
 % Please edit documentation in R/AME_function.R
 \name{calculate_effects}
 \alias{calculate_effects}
+\alias{print.gKRLS_mfx}
 \title{Marginal Effects by Numerical Derivatives}
 \usage{
 calculate_effects(
@@ -10,11 +11,14 @@ calculate_effects(
   variables = NULL,
   vcov = NULL,
   raw = FALSE,
+  individual = FALSE,
   conditional = NULL,
   epsilon = 1e-07,
   verbose = FALSE,
   continuous_type = c("IQR", "minmax", "derivative", "onesd")
 )
+
+\method{print}{gKRLS_mfx}(x, ...)
 }
 \arguments{
 \item{model}{A fitted gKRLS model.}
@@ -46,6 +50,8 @@ to estimate. Options are ``IQR'': variable values change from 25% to 75%, ``minm
 variable values changes from minimum to maximum, ``derivative'': variable values 
 change by epsilon defined in the epsilon argument, ``onesd'': variable values 
 change by one standard deviation.}
+
+\item{x}{Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}}
 }
 \description{
 This function calculates the marginal effects using numeric approximations of 
@@ -53,16 +59,17 @@ the partial derivatives. For a description of this method, please see Thomas Lee
 article "Interpreting Regression Results using Average Marginal Effects with R’s margins."
 }
 \examples{
-n <- 5000
+n <- 50
 x1 <- rnorm(n)
 x2 <- rnorm(n)
 x3 <- rnorm(n)
-state <- sample(letters, n, replace = T)
+state <- sample(letters[1:5], n, replace = TRUE)
 y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
 data <- data.frame(y, x1, x2, x3, state)
-
+# Make character variables into factors for mgcv
+data$state <- factor(data$state)
 # A gKRLS model 
-gkrls_est <- gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
+gkrls_est <- mgcv::gam(y ~ state + s(x1,x2,x3, bs="gKRLS"), data = data)
 # calculate marginal effect using derivative
 calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative') 
 # calculate marginal effect by specifying conditional variables

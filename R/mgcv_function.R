@@ -1,4 +1,5 @@
-#' @importFrom mgcv Predict.matrix smooth.construct
+#' @import mgcv
+#' @import Rcpp
 #' @export
 smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
   
@@ -38,7 +39,7 @@ smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
   fd_flag <- which(apply(X, MARGIN = 2, FUN=function(i){
     all(i %in% c(0,1))
   }))
-  
+
   std_X <- standardize_design(kernel_X = X, standardize = object$xt$standardize)
   X <- std_X$std_kernel_X
   std_train <- std_X$std_train

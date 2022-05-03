@@ -56,26 +56,28 @@ A kernel can be specified by `s(..., bs = "gKRLS")`.
 NOTE: Variables must be separated by commas inside of the `s(..)`.
 }
 \examples{
-n <- 5000
+n <- 100
 x1 <- rnorm(n)
 x2 <- rnorm(n)
 x3 <- rnorm(n)
-state <- sample(letters, n, replace = T)
+state <- sample(letters[1:5], n, replace = TRUE)
 y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
 data <- data.frame(y, x1, x2, x3, state)
-
+data$state <- factor(data$state)
 # A gKRLS model without fixed effects
-gkrls_est <- gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
+gkrls_est <- mgcv::gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
 summary(gkrls_est)
 # A gKRLS model with fixed effects
-gkrls_fx <- gam(y ~ factor(state) + s(x1,x2,x3, bs="gKRLS"), data = data)
-# Change default standardization to Mahalanobis, sketch method to Nystrom, and larger kernel matrix
-gkrls_mah <- gam(y ~ s(x1,x2,x3, bs="gKRLS", xt = gKRLS(standardize = 'Mahalanobis',
-                                                         sketch_method = "nystrom",
-                                                         sketch_size = function(N) {ceiling(N^(1/3)) * 15 })),
-                                                          data = data)
+gkrls_fx <- mgcv::gam(y ~ state + s(x1,x2,x3, bs="gKRLS"), data = data)
+# Change default standardization to Mahalanobis, sketch method to Gaussian,
+# and alter sketching multiplier
+gkrls_mah <- mgcv::gam(y ~ s(x1,x2,x3, bs="gKRLS",
+  xt = gKRLS(standardize = 'Mahalanobis',
+       sketch_method = "gaussian",
+       sketch_size = function(N) {ceiling(N^(1/3)) * 2 })),
+  data = data)
 
- # calculate marginal effect
- calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative')
+# calculate marginal effect
+calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative')
 
 }

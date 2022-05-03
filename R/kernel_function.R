@@ -47,7 +47,7 @@ standardize_design <- function(kernel_X, standardize){
       print(paste('Original X matrix is not full rank. Using an effective rank of', ncol(kernel_X) - length(zero_columns), 'throughout.'))
       std_whiten_X <- std_whiten_X[,-zero_columns,drop=F]
     }
-
+    colnames(std_whiten_X) <- names_kx <- paste0('m_', 1:ncol(std_whiten_X))
   }else if (standardize == 'scaled'){
     
     std_mean_X <- colMeans(kernel_X)

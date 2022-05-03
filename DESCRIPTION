@@ -16,7 +16,8 @@ Imports:
   mlr3, mlr3misc,
   R6
 Suggests:
-  testthat
+    covr,
+    testthat
 Extends:
   SuperLearner,
   DoubleML

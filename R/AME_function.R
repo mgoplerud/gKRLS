@@ -63,15 +63,17 @@ weighted_mfx <- function(model, data_list, vcov,
   out_aggregate <- data.frame(name = colnames(weights), est = out_est, se = out_se)  
   
   if (individual){
-    browser()
     checksum_ind <- length(unique(sapply(raw_predictions, FUN=function(i){i$nrow_valid})))
     if (checksum_ind != 1){
       stop('individual=TRUE requires same pattern of missing data across all elements of data_list.')
     }
     jacob_net_i <- Reduce('+', mapply(sapply(raw_predictions, FUN=function(i){i$jacobian_i}), weights, FUN=function(i,j){i * j}))
-    out_se_i <- apply(jacob_net_i, MARGIN = 1, FUN=function(i){sqrt(as.numeric(t(i) %*% vcov %*% i))})
+    # out_se_i <- apply(jacob_net_i, MARGIN = 1, FUN=function(i){sqrt(as.numeric(t(i) %*% vcov %*% i))})
+    out_se_i <- sqrt(rowSums( (jacob_net_i %*% vcov) * jacob_net_i ))
+    names(out_se_i) <- NULL
     out_est <- as.vector(sapply(raw_predictions, FUN=function(i){i$expectation_i}) %*% weights)
-    out_individual <- data.frame(est = out_est, se = out_se)
+    names(out_se) <- NULL
+    out_individual <- data.frame(est = out_est, se = out_se_i, obs = 1:length(out_est))
   }else{
     out_individual <- NULL
   }
@@ -91,8 +93,7 @@ weighted_mfx <- function(model, data_list, vcov,
 #' the partial derivatives. For a description of this method, please see Thomas Leeper's 
 #' article "Interpreting Regression Results using Average Marginal Effects with R’s margins."
 #' 
-#' 
-#' 
+#' @name calculate_effects
 #' @param model A fitted gKRLS model.
 #' @param data A new data frame that used to calculate the marginal effect, or 
 #' set to ``NULL'', which the data used to estimate the model will be used. The 
@@ -114,18 +115,18 @@ weighted_mfx <- function(model, data_list, vcov,
 #' variable values changes from minimum to maximum, ``derivative'': variable values 
 #' change by epsilon defined in the epsilon argument, ``onesd'': variable values 
 #' change by one standard deviation.
-#' 
 #' @examples
-#' n <- 5000
+#' n <- 50
 #' x1 <- rnorm(n)
 #' x2 <- rnorm(n)
 #' x3 <- rnorm(n)
-#' state <- sample(letters, n, replace = T)
+#' state <- sample(letters[1:5], n, replace = TRUE)
 #' y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
 #' data <- data.frame(y, x1, x2, x3, state)
-#' 
+#' # Make character variables into factors for mgcv
+#' data$state <- factor(data$state)
 #' # A gKRLS model 
-#' gkrls_est <- gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
+#' gkrls_est <- mgcv::gam(y ~ state + s(x1,x2,x3, bs="gKRLS"), data = data)
 #' # calculate marginal effect using derivative
 #' calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative') 
 #' # calculate marginal effect by specifying conditional variables
@@ -135,17 +136,17 @@ weighted_mfx <- function(model, data_list, vcov,
 #' calculate_effects(gkrls_est, variables = "x1", 
 #' conditional = data.frame(state = c("a", "b", "c")), continuous_type = 'derivative')
 #' @export
-#' 
-#' 
 calculate_effects <- function(model, data = NULL, 
-  variables = NULL, vcov = NULL, raw = FALSE,
+  variables = NULL, vcov = NULL, raw = FALSE, individual = FALSE,
   conditional = NULL, epsilon = 1e-7, verbose = FALSE,
   continuous_type = c('IQR', 'minmax', 'derivative', 'onesd')){
   
   if (!is.list(continuous_type)){
     continuous_type <- match.arg(continuous_type)
   }
-  individual <- FALSE
+
+  N_eff <- length(model$y) - sum(model$edf)
+  N <- length(model$y)
 
   if (is.null(data)){
     raw_data <- model.frame(model)
@@ -213,6 +214,9 @@ calculate_effects <- function(model, data = NULL,
   }else{stop('"variables" must be NULL, list or a vector.')}
   
   out_mfx <- data.frame()
+  if (individual){
+    out_mfx_individual <- data.frame()
+  }
   out_jacobian <- matrix(nrow = length(coef(model)), ncol = 0)
   out_counter <- c()
   
@@ -243,7 +247,6 @@ calculate_effects <- function(model, data = NULL,
     }
   
     data_out <- list()
-    
     for (v in variable_list){
       
       type_v <- variable_type[v]
@@ -356,7 +359,7 @@ calculate_effects <- function(model, data = NULL,
             
             names(packaged_data) <- v_i
           }else{
-            browser()
+            stop('Invalid logical data.')
           }
         }else if (type_i == 'fnames'){
           levs <- levels(as.factor(data[[v_i]]))
@@ -426,48 +429,74 @@ calculate_effects <- function(model, data = NULL,
       return(i$aggregate)
     }))
     
+    if (individual){
+      out_mfx_i_ind <- do.call('rbind', lapply(data_out, FUN=function(i){
+        i$individual$variable <- i$name
+        i$individual$name <- NULL
+        i$individual$type <- i$type
+        return(i$individual)
+      }))
+      rownames(out_mfx_i_ind) <- NULL
+    }
+    
     if ('...id' %in% colnames(out_mfx_i)){
       id <- out_mfx_i[['...id']]
+      if (individual){
+        id_individual <- out_mfx_i_ind[['...id']]
+      }
     }else{
       id <- NULL
+      id_individual <- NULL
     }
     out_mfx_i <- out_mfx_i[,c('variable', 'type', 'est', 'se')]
     out_mfx_i[['...id']] <- id
-    rownames(out_mfx_i) <- NULL  
+    rownames(out_mfx_i) <- NULL
+    
+    if (individual){
+      out_mfx_i_ind <- out_mfx_i_ind[,c('obs', 'variable', 'type', 'est', 'se')]
+      out_mfx_i_ind[['...id']] <- id
+    }
+    
     if (!is.null(conditional)){
       for (j in names(cond_data_i)){
         out_mfx_i[[j]] <- cond_data_i[[j]]
+        if (individual){
+          out_mfx_i_ind[[j]] <- cond_data_i[[j]]
+        }
       }
     }
+    
     out_counter <- c(out_counter, rep(cond_i, nrow(out_mfx_i)))
     out_mfx <- rbind(out_mfx, out_mfx_i)
     out_jacobian_i <- do.call('cbind', lapply(data_out, FUN=function(i){i$jacobian}))
     out_jacobian <- cbind(out_jacobian, out_jacobian_i)
+    
+    if (individual){
+      out_mfx_individual <- rbind(out_mfx_individual, out_mfx_i_ind)
+    }
+    
   }
   cat('\n')
   if (ncol(out_jacobian) != nrow(out_mfx)){
     stop('Unusual alignment error between jacobian and marginal effects.')
   }
   out_mfx$t <- out_mfx$est/out_mfx$se
-  
+  out_mfx$p.value <- 2 * pt(-abs(out_mfx$t), df = N_eff)
+
   out <- list(marginal_effects = out_mfx, 
               jacobian = out_jacobian,
               counter = out_counter)
+  if (individual){
+    out_mfx_individual$t <- out_mfx_individual$est/out_mfx_individual$se
+    out_mfx_individual$p.value <- 2 * pt(-abs(out_mfx_individual$t), df = N_eff)
+    out$individual <- out_mfx_individual
+  }
+  out$N_eff <- N_eff
+  out$N <- N
   class(out) <- 'gKRLS_mfx'
   return(out)
 }
 
-#' @export
-print.gKRLS_mfx <- function(x){
-  if (!is.null(x$mfx_type)){
-    print(x$AME_pointwise)
-  }else{
-    print(x$marginal_effects)
-  }
-}
-
-## not export this one
-#' @export
 kernel_interactions <- function(model, 
   variables, QOI = c('AMIE', 'ACE', 'AIE', 'AME'), ...){
   
@@ -592,4 +621,28 @@ gam_terms <- function(model, variables = NULL){
     stop("No variables found in model.")
   }
   return(vars)
+}
+
+#' @rdname calculate_effects
+#' @param x Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}
+#' @method print gKRLS_mfx
+#' @export
+print.gKRLS_mfx <- function(x, ...){
+  
+  if (!is.null(x$mfx_type)){
+
+    summary_pointwise <- apply(x$ME_pointwise, MARGIN = 2, FUN=function(i){quantile(i, c(0.25, 0.5, 0.75))})
+    cat(paste0('Distribution of Pointwise Marginal Effects: N = ', nrow(x$ME_pointwise), '\n'))
+    print(summary_pointwise)
+    
+    out <- data.frame(est = x$AME_pointwise, se = sqrt(x$AME_pointwise_var))
+    
+    out$t.stat <- out$est/out$se
+    out$p.value <- 2 * pt(-abs(out$t.stat), df = x$N_eff)
+    cat('\nSummary of Average Marginal Effects\n')
+    print(out)
+  }else{
+    cat('\nSummary of Average Marginal Effects\n\n')
+    print(x$marginal_effects)
+  }
 }

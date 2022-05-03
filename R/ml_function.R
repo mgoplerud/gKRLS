@@ -19,7 +19,7 @@
 #' @rdname ml_gKRLS
 #' @export
 SL.mgcv <- function(Y, X, newX, formula, family, id, obsWeights, bam = FALSE, ...) {
-  if(!require('mgcv')) {stop("SL.mgcv requires the mgcv package, but it isn't available")} 
+  if(!requireNamespace('mgcv', quietly = TRUE)) {stop("SL.mgcv requires the mgcv package, but it isn't available")} 
   
   if (is.character(formula)){
     formula <- as.formula(formula)
@@ -59,7 +59,7 @@ SL.mgcv <- function(Y, X, newX, formula, family, id, obsWeights, bam = FALSE, ..
 #' @rdname ml_gKRLS
 #' @export
 predict.SL.mgcv <- function(object, newdata, allow_missing_levels = TRUE, ...){
-  if(!require('mgcv')) {stop("SL.mgcv requires the mgcv package, but it isn't available")} 
+  if(!requireNamespace('mgcv', quietly = TRUE)) {stop("SL.mgcv requires the mgcv package, but it isn't available")} 
   
   pred <- predict(object$object, newdata = newdata, allow.new.levels = TRUE, type = 'response', ...)
   return(pred)
@@ -73,6 +73,9 @@ add_bam_to_mlr3 <- function(){
   mlr3::mlr_learners$add('classif.bam', LearnerClassifBam)
   mlr3::mlr_learners$add('regr.bam', LearnerClassifBam)
 }
+
+#' @importFrom R6 R6Class
+test_func <- function(x){x}
 
 #' mlr3 integrations with `bam`
 #' 
