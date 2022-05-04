@@ -105,27 +105,29 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL){
   # All *other* smoothes, e.g. random effects
   Z <- full_lp[, -c(fe_id, kernel_id), drop = F]
   
-  # Get the raw design and UNDO standardization
-  std_X_train <- kern_smooth$X_train
-  raw_X_train <- sweep(std_X_train %*% solve(kern_smooth$std_train$whiten), 
-    2, kern_smooth$std_train$mean, FUN = "+")
-
   standardize <- kern_smooth$xt$standardize  
   
   std_whiten <- kern_smooth$std_train$whiten
   std_mean <- kern_smooth$std_train$mean
   W_Matrix <- kern_smooth$std_train$W_Matrix
   
+  std_X_train <- kern_smooth$X_train
+  # WX_train <- sweep(std_X_train %*% MASS::ginv(as.matrix(kern_smooth$std_train$whiten)), 2,
+  #     kern_smooth$std_train$mean, "+") %*% W_Matrix
+  WX_train <- sweep(std_X_train %*% t(kern_smooth$std_train$whiten), 2,
+      kern_smooth$std_train$mean %*% W_Matrix, "+")
+
   kern_smooth$xt$return_raw <- TRUE
   kern_smooth$std_train <- NULL
   
   raw_X_test <- PredictMat(kern_smooth, data = newdata)
+  WX_test <- raw_X_test %*% W_Matrix
+  
   family <- object$family
   
-  kern_names <- colnames(std_X_train)
   fe_names <- colnames(FE_matrix_test)
-  names_mfx <- c(fe_names, kern_names)
-  if (!identical(kern_smooth$term, colnames(std_X_train))){
+  names_mfx <- c(fe_names, kern_smooth$term)
+  if (!identical(kern_smooth$term, colnames(kern_smooth$X_train))){
     if (standardize != 'Mahalanobis'){
       message('Names of kern and std_X_train seem misaligned...')
       print(kern_smooth$term)
@@ -134,9 +136,7 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL){
     }
   }
   
-  WX_train <- raw_X_train %*% W_Matrix
-  WX_test <- raw_X_test %*% W_Matrix
-  
+
   std_X_test <- sweep(raw_X_test, 2, std_mean, FUN = "-")
   std_X_test <- as.matrix(std_X_test %*% std_whiten)
   
@@ -217,7 +217,7 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL){
     rownames(std_fd_matrix) <- names_mfx
   }
   
-  type_mfx <- c(rep('deriv_FE', ncol(FE_matrix_test)), rep('deriv_Kern', ncol(std_X_test)))
+  type_mfx <- c(rep('deriv_FE', ncol(FE_matrix_test)), rep('deriv_Kern', nrow(std_whiten)))
   type_mfx[which(fd_flag)] <- 'FD'
   mahal <- standardize == 'Mahalanobis'
   std_whiten <- as.matrix(std_whiten)
@@ -228,7 +228,7 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL){
   
   if (!is.null(keep)){
     # Variables to calculate AME for
-    kern_to_fit <- intersect(kern_names, keep)
+    kern_to_fit <- intersect(kern_smooth$term, keep)
     fe_to_fit <- intersect(fe_names, keep)
     missing_provided <- setdiff(setdiff(keep, kern_to_fit), fe_to_fit)
     all_to_fit <- c(fe_to_fit, kern_to_fit)
@@ -244,7 +244,7 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL){
 
   cpp_fit_position <- as.integer(fit_position - 1)
   cpp_mfx_counter <- as.integer(mfx_counter - 1)
-    
+  
   out_ME <- cpp_gkrls_me(std_X_train = std_X_train, std_X_test = std_X_test,
     bandwidth = bandwidth, family = family,
     tZ = t(Z), offset = offset, any_Z = any_Z,

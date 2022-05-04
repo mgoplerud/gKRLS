@@ -1,4 +1,3 @@
-library(mgcv)
 
 test_that("gKRLS agrees with direct solution", {
 
