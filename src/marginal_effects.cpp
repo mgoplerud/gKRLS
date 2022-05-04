@@ -73,7 +73,6 @@ inline double f_double_prime(const double lp, const std::string fmly){
   return x;
 }
 
-//' Internal C++ function to calculate marginal effects
 // [[Rcpp::export]]
 Rcpp::List cpp_gkrls_me(
   const Eigen::MatrixXd std_X_train,

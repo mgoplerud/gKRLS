@@ -17,8 +17,17 @@
 #' argument is mandatory.
 #' 
 #' @rdname ml_gKRLS
+#' @importFrom stats as.formula terms update.formula
+#' @param Y Placeholder.
+#' @param X placeholder.
+#' @param newX placeholder
+#' @param formula placeholder
+#' @param family placeholder
+#' @param obsWeights placeholder
+#' @param bam placeholder
+#' @param ... Additional arguments to gam/bam.
 #' @export
-SL.mgcv <- function(Y, X, newX, formula, family, id, obsWeights, bam = FALSE, ...) {
+SL.mgcv <- function(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...) {
   if(!requireNamespace('mgcv', quietly = TRUE)) {stop("SL.mgcv requires the mgcv package, but it isn't available")} 
   
   if (is.character(formula)){
@@ -57,6 +66,9 @@ SL.mgcv <- function(Y, X, newX, formula, family, id, obsWeights, bam = FALSE, ..
 }
 
 #' @rdname ml_gKRLS
+#' @param object placeholder
+#' @param newdata placeholder
+#' @param allow_missing_levels placeholder.
 #' @export
 predict.SL.mgcv <- function(object, newdata, allow_missing_levels = TRUE, ...){
   if(!requireNamespace('mgcv', quietly = TRUE)) {stop("SL.mgcv requires the mgcv package, but it isn't available")} 

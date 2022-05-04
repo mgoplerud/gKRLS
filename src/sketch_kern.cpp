@@ -6,7 +6,10 @@ using namespace Rcpp;
 // [[Rcpp::depends(RcppEigen)]]
 
 //' Create the sketched kernel
-//' @export
+//' @param X_test Test data
+//' @param X_train Train data
+//' @param tS Transposed sketch matrix
+//' @param bandwidth Kernel bandwidth
 // [[Rcpp::export]]
 Eigen::MatrixXd create_sketched_kernel(
     const Eigen::Map<Eigen::MatrixXd> X_test,

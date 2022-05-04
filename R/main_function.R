@@ -17,7 +17,7 @@
 #'   should be used. Options include ``gaussian'': gaussian kernel approximation,
 #'    ``nystrom'':  Nystrom approximation, ``bernoulli'', and no sketch. The default is
 #'   Nystrom approximation.
-#' @param no.rescale  
+#' @param no.rescale Placeholder.
 #' @param standardize A string vector that specifies which standardization
 #'   method should be used. Must be one of ``scaled'', ``Mahalanobis'', or ``none'', which
 #'   menas no standardization. The default is ``scaled''.
@@ -25,6 +25,7 @@
 #'   kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X
 #'   is kernel matrix. If desires to use a larger matrix, change 5 to a larger number, 
 #'   e.g. 15.
+#' @param no.rescale Avoid rescaling the kernel.
 #' @param remove_instability A logical variable indicates whether 0 should be removed 
 #' from the eigenvector when building the kernel matrix. The default is ``True''
 #' @param truncate.eigen.tol It determines how much eigenvalues should be truncated. 

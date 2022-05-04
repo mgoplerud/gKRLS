@@ -1,4 +1,5 @@
 
+#' @importFrom stats coef vcov na.pass predict
 weighted_mfx <- function(model, data_list, vcov,
                          weights, raw = FALSE, individual = FALSE){
   
@@ -95,6 +96,7 @@ weighted_mfx <- function(model, data_list, vcov,
 #' 
 #' @name calculate_effects
 #' @param model A fitted gKRLS model.
+#' @param object A fitted gKRLS model.
 #' @param data A new data frame that used to calculate the marginal effect, or 
 #' set to ``NULL'', which the data used to estimate the model will be used. The 
 #' default is ``NULL.''
@@ -102,7 +104,8 @@ weighted_mfx <- function(model, data_list, vcov,
 #' effect. The default is ``NULL'', which means calculate marginal effect for all variables.
 #' @param vcov Specify the covariance matrix.It accepts a user-defined covariance 
 #' matrix or clustered covariance matrices using functions from sandwich package. 
-#' @param raw 
+#' @param raw Placeholder.
+#' @param individual Calculate individual effects (i.e. an effect for each observation in the provided data).
 #' @param conditional  This is an analogue of Stata's ``at()'' option and ``at'' argument 
 #' in ``margins'' package. Specify the values at which to calculate the marginal 
 #' effect in a named data from. See an example below.
@@ -135,6 +138,7 @@ weighted_mfx <- function(model, data_list, vcov,
 #' # calculate marginal effect by specifying a factor conditional variable
 #' calculate_effects(gkrls_est, variables = "x1", 
 #' conditional = data.frame(state = c("a", "b", "c")), continuous_type = 'derivative')
+#' @importFrom stats model.frame sd
 #' @export
 calculate_effects <- function(model, data = NULL, 
   variables = NULL, vcov = NULL, raw = FALSE, individual = FALSE,
@@ -233,6 +237,17 @@ calculate_effects <- function(model, data = NULL,
     }
   }
   
+  continuous_f <- function(x, m, s, type){
+    if (type == 'list'){
+      s
+    }else if (type == 'derivative'){
+      x + s
+    }else if (type == 'onesd'){
+      m + s
+    }else if (type %in% c('minmax', 'IQR')){
+      s
+    }else{NA}
+  }
   for (cond_i in seq_len(ncond)){
     if (verbose & cond_i %% ceiling(ncond/ncond) == 0){
       message('|')
@@ -263,35 +278,31 @@ calculate_effects <- function(model, data = NULL,
             r_i <- continuous_type[[v_i]]
             step2 <- c('0' = r_i[1], '1' = r_i[2])
             step <- NULL
-            f <- function(x, m, s){s}
+            ctype <- 'list' 
           }else if (continuous_type == 'derivative'){
             # Closely adapted from "margins" by Thomas Leeper
             step <- max(abs(data[[v_i]]), 1, na.rm=T) * epsilon
             multiplier <- 1/(2 * step)
             step2 <- c('0' = -step, '1' = step)
             step <- NULL
-            f <- function(x, s1, s2){
-              x + s2
-            }
+            ctype <- 'derivative'
           }else if (continuous_type == 'onesd'){
             step <- mean(data[[v_i]], na.rm=T)
             sd_i <- sd(data[[v_i]], na.rm=T)
             step2 <- c('0' = -sd_i, '1' = sd_i)
-            f <- function(x, m, s){
-              m + s
-            }
+            ctype <- 'onesd'
           }else if (continuous_type == 'minmax'){
             r_i <- range(data[[v_i]], na.rm=T)
             names(r_i) <- NULL
             step2 <- c('0' = r_i[1], '1' = r_i[2])
             step <- NULL
-            f <- function(x, m, s){s}
+            ctype <- 'minmax'
           }else if (continuous_type == 'IQR'){
             q_i <- quantile(data[[v_i]], c(0.25, 0.75), na.rm=T)
             names(q_i) <- NULL
             step2 <- c('0' = q_i[1], '1' = q_i[2])
             step <- NULL
-            f <- function(x, m, s){s}
+            ctype <- 'IQR'
           }else{stop('invalid continuous_type')}
           if (v_id == 1){
             packaged_data <- list(list(
@@ -301,14 +312,14 @@ calculate_effects <- function(model, data = NULL,
               type = continuous_type,
               name = v_i
             ))
-            packaged_data[[1]]$data$d0[[v_i]] <- f(packaged_data[[1]]$data$d0[[v_i]], step, step2["0"])
-            packaged_data[[1]]$data$d1[[v_i]] <- f(packaged_data[[1]]$data$d1[[v_i]], step, step2["1"])
+            packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["0"], ctype)
+            packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["1"], ctype)
             names(packaged_data) <- v_i
           }else{
             old_names <- names(packaged_data)
             packaged_data <- lapply(packaged_data, FUN=function(i){
-              i$data$d0[[v_i]] <- f(i$data$d0[[v_i]], step, step2["0"])
-              i$data$d1[[v_i]] <- f(i$data$d1[[v_i]], step, step2["1"])
+              i$data$d0[[v_i]] <- continuous_f(i$data$d0[[v_i]], step, step2["0"], ctype)
+              i$data$d1[[v_i]] <- continuous_f(i$data$d1[[v_i]], step, step2["1"], ctype)
               if (!any(i$type %in% 'derivative')){
                 i$weights <- i$weights * multiplier
               }
@@ -626,6 +637,7 @@ gam_terms <- function(model, variables = NULL){
 #' @rdname calculate_effects
 #' @param x Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}
 #' @method print gKRLS_mfx
+#' @importFrom stats quantile pt
 #' @export
 print.gKRLS_mfx <- function(x, ...){
   
@@ -646,3 +658,9 @@ print.gKRLS_mfx <- function(x, ...){
     print(x$marginal_effects)
   }
 }
+
+#' @rdname calculate_effects
+#' @method summary gKRLS_mfx
+#' @param ... Additional arguments (unused).
+#' @export
+summary.gKRLS_mfx <- function(object, ...){object$marginal_effects}

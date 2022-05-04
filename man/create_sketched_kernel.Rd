@@ -6,6 +6,15 @@
 \usage{
 create_sketched_kernel(X_test, X_train, tS, bandwidth)
 }
+\arguments{
+\item{X_test}{Test data}
+
+\item{X_train}{Train data}
+
+\item{tS}{Transposed sketch matrix}
+
+\item{bandwidth}{Kernel bandwidth}
+}
 \description{
 Create the sketched kernel
 }

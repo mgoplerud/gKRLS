@@ -6,11 +6,34 @@
 \alias{add_bam_to_mlr3}
 \title{Machine Learning with gKRLS}
 \usage{
-SL.mgcv(Y, X, newX, formula, family, id, obsWeights, bam = FALSE, ...)
+SL.mgcv(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...)
 
 \method{predict}{SL.mgcv}(object, newdata, allow_missing_levels = TRUE, ...)
 
 add_bam_to_mlr3()
+}
+\arguments{
+\item{Y}{Placeholder.}
+
+\item{X}{placeholder.}
+
+\item{newX}{placeholder}
+
+\item{formula}{placeholder}
+
+\item{family}{placeholder}
+
+\item{obsWeights}{placeholder}
+
+\item{bam}{placeholder}
+
+\item{...}{Additional arguments to gam/bam.}
+
+\item{object}{placeholder}
+
+\item{newdata}{placeholder}
+
+\item{allow_missing_levels}{placeholder.}
 }
 \description{
 This provides a number of functions to integrate machine learning with gKRLS

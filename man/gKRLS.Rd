@@ -29,7 +29,7 @@ should be used. Options include ``gaussian'': gaussian kernel approximation,
  ``nystrom'':  Nystrom approximation, ``bernoulli'', and no sketch. The default is
 Nystrom approximation.}
 
-\item{no.rescale}{}
+\item{no.rescale}{Avoid rescaling the kernel.}
 
 \item{standardize}{A string vector that specifies which standardization
 method should be used. Must be one of ``scaled'', ``Mahalanobis'', or ``none'', which

@@ -1,3 +1,5 @@
+
+#' @importFrom stats rnorm rbinom 
 create_sketch_matrix <- function(N, sketch_size, sketch_prob = NULL, sketch_method){
   if (sketch_method == 'gaussian'){
     
@@ -18,6 +20,7 @@ create_sketch_matrix <- function(N, sketch_size, sketch_prob = NULL, sketch_meth
   S <- as.matrix(S)  
 }
 
+#' @importFrom stats cov var
 standardize_design <- function(kernel_X, standardize){
 
   names_kx <- colnames(kernel_X)

@@ -3,6 +3,7 @@
 \name{calculate_effects}
 \alias{calculate_effects}
 \alias{print.gKRLS_mfx}
+\alias{summary.gKRLS_mfx}
 \title{Marginal Effects by Numerical Derivatives}
 \usage{
 calculate_effects(
@@ -19,6 +20,8 @@ calculate_effects(
 )
 
 \method{print}{gKRLS_mfx}(x, ...)
+
+\method{summary}{gKRLS_mfx}(object, ...)
 }
 \arguments{
 \item{model}{A fitted gKRLS model.}
@@ -33,7 +36,9 @@ effect. The default is ``NULL'', which means calculate marginal effect for all v
 \item{vcov}{Specify the covariance matrix.It accepts a user-defined covariance 
 matrix or clustered covariance matrices using functions from sandwich package.}
 
-\item{raw}{}
+\item{raw}{Placeholder.}
+
+\item{individual}{Calculate individual effects (i.e. an effect for each observation in the provided data).}
 
 \item{conditional}{This is an analogue of Stata's ``at()'' option and ``at'' argument 
 in ``margins'' package. Specify the values at which to calculate the marginal 
@@ -52,6 +57,10 @@ change by epsilon defined in the epsilon argument, ``onesd'': variable values
 change by one standard deviation.}
 
 \item{x}{Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}}
+
+\item{...}{Additional arguments (unused).}
+
+\item{object}{A fitted gKRLS model.}
 }
 \description{
 This function calculates the marginal effects using numeric approximations of 

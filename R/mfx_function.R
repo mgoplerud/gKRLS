@@ -31,6 +31,7 @@
 #' gkrls_est <- mgcv::gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
 #' # calculate marginal effect using derivative
 #' legacy_marginal_effect(gkrls_est, newdata = data) 
+#' @importFrom stats plogis dnorm pnorm predict coef
 #' @export
 legacy_marginal_effect <- function(object, newdata, keep = NULL){
   standardize <- object$internal$standardize
