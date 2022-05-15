@@ -18,14 +18,87 @@
 #' 
 #' @rdname ml_gKRLS
 #' @importFrom stats as.formula terms update.formula
-#' @param Y Placeholder.
-#' @param X placeholder.
-#' @param newX placeholder
-#' @param formula placeholder
-#' @param family placeholder
-#' @param obsWeights placeholder
-#' @param bam placeholder
+#' @param Y Specify the outcome variable.
+#' @param X All independent variables include variables in and outside the kernel. 
+#' @param newX A new dataset uses for prediction. If no data provided, the original 
+#' data will be used.
+#' @param formula A gKRLS style formula. See details in the help(gKRLS) and help(gam).
+#' @param family A string variable indicate the distribution and link function to use. 
+#' The default is gaussian distribution. 
+#' @param obsWeights The weights for observations.
+#' @param bam A logical variable indicates whether a gKRLS model is applying to a 
+#' very large dataset. The default is False.
 #' @param ... Additional arguments to gam/bam.
+#' 
+#' @examples 
+#' library(gKRLS)
+#' library(DoubleML)
+#' library(glue)
+#' library(tidyverse)
+#' 
+#' n <- 5000
+#' treatment <- sample(c(0,1), n, replace = T)
+#' x2 <- rnorm(n)
+#' x3 <- rnorm(n)
+#' state <- sample(letters, n, replace = T)
+#' y = 0.3*treatment + 0.4*x2 +0.5*x3 + rnorm(n)
+#' data <- data.frame(y,treatment, x2, x3, state)
+#' data$state <- as.character(data$state)
+#' 
+#' # Double machine learning intergration
+#' 
+#' data_dml <- cbind(data,  model.matrix(~ state, data)[, -1]) %>%
+#'  select(-state) %>% as.data.frame()
+#'  
+#' gkrls_formul <- as.formula(glue("~ {{paste(grep(colnames(data_dml), pattern='state', value = T), collapse = '+')}} + 
+#'                                 s( x2,x3, bs = 'gKRLS')", .open = '{{', .close = '}}'))
+#'                                 
+#' ml_g <- LearnerRegrBam$new()
+#' ml_g$param_set$values$formula <- update.formula(gkrls_formul, as.character(glue('y ~ .')))
+#' ml_m <- LearnerRegrBam$new()
+#' ml_m$param_set$values$formula <- update.formula(gkrls_formul, as.character(glue('treatment ~ .')))
+#' 
+#' ml_g$param_set$values$method <- 'REML'
+#' ml_m$param_set$values$method <- 'REML'
+#' 
+#' data_DML <- double_ml_data_from_data_frame(
+#'  df = data_dml,
+#'  y_col = "y",
+#'  d_cols = 'treatment',
+#'  x_cols = setdiff(names(data_dml), c("y", 'treatment'))
+#' ) 
+#' 
+#' ## Fit Partial Linear Regression
+#' dml_plr <- DoubleMLPLR$new(data_DML, ml_g, ml_m)
+#' dml_plr$fit()
+#' dml_plr
+#' 
+#' ## Fit ATE
+#' ### change treatment formula to classification class.
+#' 
+#' ml_m1 <- LearnerClassifBam$new()
+#' ml_m1$param_set$values$formula <- update.formula(gkrls_formul, as.character(glue('treatment ~ .')))
+#' 
+#' dml_ATE <- DoubleMLIRM$new(data_DML, ml_g, ml_m1, 
+#'                           score = 'ATE')
+#' dml_ATE$fit()
+#' dml_ATE
+#' 
+#' # Super learner intergration
+#' 
+#' library(SuperLearner) # need to pre-install and load this package 
+#' 
+#' data$state <- as.factor(data$state)
+#' 
+#' gkrls_sl <- function(...){SL.mgcv(..., bam = TRUE, formula = "~ state + s(treatment, 
+#'                                                          x2, x3, bs = 'gKRLS')")}
+#'                                                          
+#' fit_sl <- SuperLearner(Y = data$y, 
+#'                       X = data, family = 'gaussian',
+#'                       SL.library = 'gkrls_sl',
+#'                       verbose = T)
+#'                       
+#' pred <- predict(fit_sl, newdata = data)
 #' @export
 SL.mgcv <- function(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...) {
   if(!requireNamespace('mgcv', quietly = TRUE)) {stop("SL.mgcv requires the mgcv package, but it isn't available")} 
@@ -48,7 +121,7 @@ SL.mgcv <- function(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...) {
     }
   }
   if ('...Y' %in% names(X)){
-    stop('SL.glmer cannot accept a column in "X" called "...Y". Please rename.')
+    stop('SL.mgcv cannot accept a column in "X" called "...Y". Please rename.')
   }
   X[['...Y']] <- Y
   formula <- update.formula(formula, '`...Y` ~ .')
@@ -61,14 +134,16 @@ SL.mgcv <- function(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...) {
   pred <- predict(fit.mgcv, newdata = newX, allow.new.levels = TRUE, type = 'response')
   fit <- list(object = fit.mgcv)
   out <- list(pred = pred, fit = fit)
-  class(out$fit) <- c("SL.glmer")
+  class(out$fit) <- c("SL.mgcv")
   return(out)
 }
 
 #' @rdname ml_gKRLS
-#' @param object placeholder
-#' @param newdata placeholder
-#' @param allow_missing_levels placeholder.
+#' @param object A gKRLS model. 
+#' @param newdata A new dataset uses for prediction. If no data provided, the original 
+#' data will be used.
+#' @param allow_missing_levels A logical variable indicates whether missing levels are 
+#' allowed for prediction. The default is True. 
 #' @export
 predict.SL.mgcv <- function(object, newdata, allow_missing_levels = TRUE, ...){
   if(!requireNamespace('mgcv', quietly = TRUE)) {stop("SL.mgcv requires the mgcv package, but it isn't available")} 

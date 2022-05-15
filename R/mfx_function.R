@@ -18,6 +18,13 @@
 #' @param keep A character string indicating which variables to calculate marginal 
 #' effects. Default is NULL, which calculates marginal effects for all. 
 #' 
+#' @return The \code{legacy_marginal_effect} returns \code{ME_pointwise}, which is 
+#' the marginal effects for each observations, \code{ME_pointwise_var} is the variance 
+#' for each marginal effects, \code{AME_pointwise} provide the average marginal effects 
+#' for all variables or variables in the keep argument, and \code{AME_pointwise_var} returns 
+#' the variance for average marginal effects. 
+#'  
+#' 
 #' @examples 
 #' n <- 5000
 #' x1 <- rnorm(n)
