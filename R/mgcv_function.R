@@ -1,5 +1,5 @@
 #' @import mgcv
-#' @import Rcpp
+#' @importFrom Rcpp sourceCpp
 #' @export
 smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
   

@@ -9,7 +9,7 @@ Maintainer: Max Goplerud <mgoplerud@pitt.edu>
 Description: Allows estimation of models using generalized KRLS or kernel ridge regression for generalized linear models.
 License: GPL (>= 2)
 Imports: 
-  Rcpp (>= 1.0.1), 
+  Rcpp (>= 1.0.6), 
   RcppEigen (>= 0.3.3.4.0), 
   Matrix, 
   utils,
