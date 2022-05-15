@@ -13,19 +13,22 @@ SL.mgcv(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...)
 add_bam_to_mlr3()
 }
 \arguments{
-\item{Y}{Placeholder.}
+\item{Y}{Specify the outcome variable.}
 
-\item{X}{placeholder.}
+\item{X}{All independent variables include variables in and outside the kernel.}
 
-\item{newX}{placeholder}
+\item{newX}{A new dataset uses for prediction. If no data provided, the original 
+data will be used.}
 
-\item{formula}{placeholder}
+\item{formula}{A gKRLS style formula. See details in the help(gKRLS) and help(gam).}
 
-\item{family}{placeholder}
+\item{family}{A string variable indicate the distribution and link function to use. 
+The default is gaussian distribution.}
 
-\item{obsWeights}{placeholder}
+\item{obsWeights}{The weights for observations.}
 
-\item{bam}{placeholder}
+\item{bam}{A logical variable indicates whether a gKRLS model is applying to a 
+very large dataset. The default is False.}
 
 \item{...}{Additional arguments to gam/bam.}
 
@@ -52,4 +55,24 @@ the `mlr3extralearner` implementation. These can be either manually added to
 the list of `mlr3` learners by calling `add_bam_to_mlr3()` or direct usage.
 Examples are provided below. For `classif.bam` and `regr.bam`, the formula
 argument is mandatory.
+}
+\examples{
+
+  N <- 100
+  x1 <- rnorm(N)
+  x2 <- rbinom(N,size=1,prob=.2)
+  y <- x1^3 - 0.5 *x2 + rnorm(N,0, 1)
+  y <- y * 10
+  X <- cbind(x1, x2, x1 + x2 * 3)
+  
+  sl_m <- function(...){SL.mgcv(formula = ~ x1 + x2, ...)}
+  if (requireNamespace('SuperLearner', quietly = TRUE)){
+    require(SuperLearner)
+    fit_SL <- SuperLearner::SuperLearner(
+      Y = y, obsWeights = rep(1, nrow(X)),
+      X = data.frame(X),
+      SL.library = 'sl_m'
+    )
+ }
+
 }

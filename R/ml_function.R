@@ -18,14 +18,37 @@
 #' 
 #' @rdname ml_gKRLS
 #' @importFrom stats as.formula terms update.formula
-#' @param Y Placeholder.
-#' @param X placeholder.
-#' @param newX placeholder
-#' @param formula placeholder
-#' @param family placeholder
-#' @param obsWeights placeholder
-#' @param bam placeholder
+#' @param Y Specify the outcome variable.
+#' @param X All independent variables include variables in and outside the kernel. 
+#' @param newX A new dataset uses for prediction. If no data provided, the original 
+#' data will be used.
+#' @param formula A gKRLS style formula. See details in the help(gKRLS) and help(gam).
+#' @param family A string variable indicate the distribution and link function to use. 
+#' The default is gaussian distribution. 
+#' @param obsWeights The weights for observations.
+#' @param bam A logical variable indicates whether a gKRLS model is applying to a 
+#' very large dataset. The default is False.
 #' @param ... Additional arguments to gam/bam.
+#' 
+#' @examples 
+#' 
+#'   N <- 100
+#'   x1 <- rnorm(N)
+#'   x2 <- rbinom(N,size=1,prob=.2)
+#'   y <- x1^3 - 0.5 *x2 + rnorm(N,0, 1)
+#'   y <- y * 10
+#'   X <- cbind(x1, x2, x1 + x2 * 3)
+#'   
+#'   sl_m <- function(...){SL.mgcv(formula = ~ x1 + x2, ...)}
+#'   if (requireNamespace('SuperLearner', quietly = TRUE)){
+#'     require(SuperLearner)
+#'     fit_SL <- SuperLearner::SuperLearner(
+#'       Y = y, obsWeights = rep(1, nrow(X)),
+#'       X = data.frame(X),
+#'       SL.library = 'sl_m'
+#'     )
+#'  }
+#' 
 #' @export
 SL.mgcv <- function(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...) {
   if(!requireNamespace('mgcv', quietly = TRUE)) {stop("SL.mgcv requires the mgcv package, but it isn't available")} 
@@ -52,16 +75,34 @@ SL.mgcv <- function(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...) {
   }
   X[['...Y']] <- Y
   formula <- update.formula(formula, '`...Y` ~ .')
+
+  if ('...obsWeights' %in% names(X)){
+    stop('...obsWeights cannot be a column in "X".')
+  }  
+  X[["...obsWeights"]] <- obsWeights
+
+  options <- list(...)
+  
+  if (any(c('formula', 'data', 'weights', 'family') %in% names(options))){
+    stop('... must not contain "formula", "data", "weights", or "family".')
+  }
+  options$formula <- formula
+  options$data <- X
+  options$weights <- X[,'...obsWeights']
+  options$family <- family
   
   if (bam == FALSE){
-    fit.mgcv <- mgcv::gam(formula, data = X, weights = obsWeights, family = family, ...)
+    gam <- mgcv::gam
+    fit.mgcv <- do.call('gam', options)
   }else{
-    fit.mgcv <- mgcv::bam(formula, data = X, weights = obsWeights, family = family, ...)
+    options$id <- NULL
+    bam <- mgcv::bam
+    fit.mgcv <- do.call('bam', options)
   }
   pred <- predict(fit.mgcv, newdata = newX, allow.new.levels = TRUE, type = 'response')
   fit <- list(object = fit.mgcv)
   out <- list(pred = pred, fit = fit)
-  class(out$fit) <- c("SL.glmer")
+  class(out$fit) <- c("SL.mgcv")
   return(out)
 }
 
@@ -198,9 +239,10 @@ LearnerRegrBam <- R6Class("LearnerRegrBam", inherit = LearnerRegr,
        }
        routcome <- getResponseFromFormula(pars$formula, data)
        if (!is.null(routcome)){
-         if (routcome != task$target_names){
-           stop('outcome from task does not align with outcome in formula. Remove outcome from formula.')
-         }          
+         stop('outcome must not be provided in formula to LearnerRegrBam')
+         # if (routcome != task$target_names){
+         #   stop('outcome from task does not align with outcome in formula. Remove outcome from formula.')
+         # }          
        }
        pars$formula <- update.formula(pars$formula, paste0(task$target_names, ' ~ . '))
        
@@ -360,9 +402,10 @@ LearnerClassifBam = R6Class("LearnerClassifBam",
         }
         routcome <- getResponseFromFormula(pars$formula, data)
         if (!is.null(routcome)){
-          if (routcome != task$target_names){
-            stop('outcome from task does not align with outcome in formula. Remove outcome from formula.')
-          }          
+          stop('outcome must not be provided in formula to LearnerClassifBam')
+          # if (routcome != task$target_names){
+          #   stop('outcome from task does not align with outcome in formula. Remove outcome from formula.')
+          # }          
         }
         pars$formula <- update.formula(pars$formula, paste0(task$target_names, ' ~ . '))
       }

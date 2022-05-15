@@ -28,10 +28,9 @@ smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
     }
     X <- do.call('cbind', data[object$term])
   }else{
-    
-    stop('Kernel must consist of multiple variables. The syntax is s(a,b,c,d,...).')
-    X <- data[[object$term]]
+    X <- matrix(data[[object$term]])
   }
+  
   if (NCOL(X) == 1 & is.null(ncol(X))){
     X <- matrix(X)
   }
@@ -159,13 +158,9 @@ Predict.matrix.gKRLS.smooth <- function(object,data) {
   if (length(object$term) > 1){
     X_test <- do.call('cbind', data[object$term])
   }else{
-    stop('Error: Kernel must have multiple variables.')
-    X_test <- data[[object$term]]
+    X_test <- matrix(data[[object$term]])
   }
-  if (NCOL(X_test) == 1 & is.null(ncol(X_test))){
-    X_test <- matrix(X_test)
-  }
-  
+
   if (!is.null(object$std_train)){
     X_test <- sweep(X_test, 2, object$std_train$mean, FUN = "-")
     X_test <- X_test %*% 

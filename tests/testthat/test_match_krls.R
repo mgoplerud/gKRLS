@@ -12,6 +12,10 @@ test_that("gKRLS agrees with direct solution", {
   X_copy <- cbind(X, X, X)
   colnames(X_copy) <- paste0('x', 1:ncol(X_copy))
   
+  est_gKRLS_single <- gam(y ~ s(x1, bs = 'gKRLS'),
+    family = gaussian(), data = data.frame(y, X)
+  )
+  
   est_gKRLS <- gam(y ~ s(x1,x2,x3,x4,x5,x6,x7, bs = 'gKRLS',
    xt = gKRLS(sketch_method = 'none', truncate.eigen.tol = 0)),
    family = gaussian(), data = data.frame(y, X))

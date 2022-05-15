@@ -9,22 +9,22 @@ Maintainer: Max Goplerud <mgoplerud@pitt.edu>
 Description: Allows estimation of models using generalized KRLS or kernel ridge regression for generalized linear models.
 License: GPL (>= 2)
 Imports: 
-  Rcpp (>= 1.0.6), 
+  Rcpp (>= 1.0.1), 
+  RcppEigen (>= 0.3.3.4.0), 
   Matrix, 
-  mgcv,
   utils,
   mlr3, mlr3misc,
   R6
+Depends:
+  mgcv
 Suggests:
-    covr,
-    testthat
-Extends:
   SuperLearner,
-  DoubleML
+  DoubleML,
+  covr,
+  testthat
 LinkingTo: Rcpp, RcppEigen
 SystemRequirements: GNU make
 RoxygenNote: 7.1.2
 NeedsCompilation: yes
-Packaged: 2021-08-17 01:21:58 UTC; changqing
 URL: https://github.com/mgoplerud/gKRLS
 BugReports: https://github.com/mgoplerud/gKRLS/issues
