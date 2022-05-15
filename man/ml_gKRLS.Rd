@@ -32,11 +32,13 @@ very large dataset. The default is False.}
 
 \item{...}{Additional arguments to gam/bam.}
 
-\item{object}{placeholder}
+\item{object}{A gKRLS model.}
 
-\item{newdata}{placeholder}
+\item{newdata}{A new dataset uses for prediction. If no data provided, the original 
+data will be used.}
 
-\item{allow_missing_levels}{placeholder.}
+\item{allow_missing_levels}{A logical variable indicates whether missing levels are 
+allowed for prediction. The default is True.}
 }
 \description{
 This provides a number of functions to integrate machine learning with gKRLS

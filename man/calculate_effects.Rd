@@ -62,6 +62,15 @@ change by one standard deviation.}
 
 \item{object}{A fitted gKRLS model.}
 }
+\value{
+\code{calculate_effects} return a list which contain a data frame for marginal effects. 
+The \code{variable} represents the variable names used to calculate marginal effects. \code{type} 
+indicates the method for calculating marginal effects. It is one of the IQR, minmax, derivative,
+and onesd. The \code{est} represents the marginal effects. The \code{se}, \code{t}, \code{p.value} are 
+standard error, t-value, and p-value for marginal effect. This function also return several information 
+such as Jacobian matrix (\code{jacobian}), how many variables specified to calculate marginal effect (\code{counter}),
+and effective sample size (\code{N_eff}) and sample size (N).
+}
 \description{
 This function calculates the marginal effects using numeric approximations of 
 the partial derivatives. For a description of this method, please see Thomas Leeper's 
@@ -75,16 +84,22 @@ x3 <- rnorm(n)
 state <- sample(letters[1:5], n, replace = TRUE)
 y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
 data <- data.frame(y, x1, x2, x3, state)
+
 # Make character variables into factors for mgcv
 data$state <- factor(data$state)
+
 # A gKRLS model 
 gkrls_est <- mgcv::gam(y ~ state + s(x1,x2,x3, bs="gKRLS"), data = data)
+
 # calculate marginal effect using derivative
 calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative') 
+
 # calculate marginal effect by specifying conditional variables
 calculate_effects(gkrls_est, variables = "x1", 
 conditional = data.frame(x2 = c(0.6, 0.8), x3=0.3))
+
 # calculate marginal effect by specifying a factor conditional variable
 calculate_effects(gkrls_est, variables = "x1", 
 conditional = data.frame(state = c("a", "b", "c")), continuous_type = 'derivative')
+
 }

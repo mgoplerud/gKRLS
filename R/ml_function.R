@@ -71,7 +71,7 @@ SL.mgcv <- function(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...) {
     }
   }
   if ('...Y' %in% names(X)){
-    stop('SL.glmer cannot accept a column in "X" called "...Y". Please rename.')
+    stop('SL.mgcv cannot accept a column in "X" called "...Y". Please rename.')
   }
   X[['...Y']] <- Y
   formula <- update.formula(formula, '`...Y` ~ .')
@@ -107,9 +107,11 @@ SL.mgcv <- function(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...) {
 }
 
 #' @rdname ml_gKRLS
-#' @param object placeholder
-#' @param newdata placeholder
-#' @param allow_missing_levels placeholder.
+#' @param object A gKRLS model. 
+#' @param newdata A new dataset uses for prediction. If no data provided, the original 
+#' data will be used.
+#' @param allow_missing_levels A logical variable indicates whether missing levels are 
+#' allowed for prediction. The default is True. 
 #' @export
 predict.SL.mgcv <- function(object, newdata, allow_missing_levels = TRUE, ...){
   if(!requireNamespace('mgcv', quietly = TRUE)) {stop("SL.mgcv requires the mgcv package, but it isn't available")} 
