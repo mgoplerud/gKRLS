@@ -2,7 +2,7 @@ Package: gKRLS
 Type: Package
 Title: Generalized KRLS
 Version: 1.0
-Date: 2022-04-15
+Date: 2022-05-15
 Encoding: UTF-8
 Author: Qing Chang and Max Goplerud
 Maintainer: Max Goplerud <mgoplerud@pitt.edu>
