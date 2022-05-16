@@ -11,6 +11,8 @@ gKRLS(
   no.rescale = FALSE,
   standardize = "Mahalanobis",
   sketch_size = function(N) {     ceiling(N^(1/3)) * 5 },
+  sketch_prob = NULL,
+  force_base = TRUE,
   remove_instability = TRUE
 )
 }
@@ -39,6 +41,11 @@ menas no standardization. The default is ``scaled''.}
 kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X
 is kernel matrix. If desires to use a larger matrix, change 5 to a larger number, 
 e.g. 15.}
+
+\item{sketch_prob}{For bernoulli sketching, what is probability of "1"?}
+
+\item{force_base}{Force construction of kernel using base R (not Rcpp). Only
+use for debugging.}
 
 \item{remove_instability}{A logical variable indicates whether 0 should be removed 
 from the eigenvector when building the kernel matrix. The default is ``True''}

@@ -80,3 +80,10 @@ standardize_design <- function(kernel_X, standardize){
   
   return(list(std_kernel_X = std_kernel_X, std_train = std_train))
 }
+
+# Calculate kernel in base R
+base_kernel <- function(X,Y){
+  edist <- function(x,y){sum( (x -y)^2 )}
+  out <- outer(1:nrow(X), 1:nrow(Y), FUN =Vectorize(function(x,y){edist(X[x,], Y[y,])}))
+  return(out)
+}

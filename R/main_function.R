@@ -25,6 +25,7 @@
 #'   kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X
 #'   is kernel matrix. If desires to use a larger matrix, change 5 to a larger number, 
 #'   e.g. 15.
+#' @param sketch_prob For bernoulli sketching, what is probability of "1"?
 #' @param no.rescale Avoid rescaling the kernel.
 #' @param remove_instability A logical variable indicates whether 0 should be removed 
 #' from the eigenvector when building the kernel matrix. The default is ``True''
@@ -32,6 +33,8 @@
 #' If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalue greater or 
 #' equal to 1e-6. The default is sqrt(.Machine$double.eps), where .Machine$double.eps 
 #' is the smallest positive floating-point number x such that 1 + x != 1.
+#' @param force_base Force construction of kernel using base R (not Rcpp). Only
+#'   use for debugging.
 #' @useDynLib gKRLS
 #' @import Matrix
 #' @export
@@ -62,14 +65,15 @@
 #' calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative')
 #' 
 gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
-                              demean_kernel = FALSE,
-                              sketch_method = 'nystrom',
-                              no.rescale = FALSE, standardize = 'Mahalanobis',
-                              sketch_size = function(N){ceiling(N^(1/3)) * 5},
-                              remove_instability = TRUE){
+    demean_kernel = FALSE,
+    sketch_method = 'nystrom', 
+    no.rescale = FALSE, standardize = 'Mahalanobis',
+    sketch_size = function(N){ceiling(N^(1/3)) * 5},
+    sketch_prob = NULL, force_base = FALSE,
+    remove_instability = TRUE){
+  
   sketch_method <- match.arg(sketch_method, c('nystrom', 'gaussian', 'bernoulli', 'none'))
   standardize <- match.arg(standardize, c('Mahalanobis', 'scaled', 'none'))
-  
   
   return(mget(ls()))
 }

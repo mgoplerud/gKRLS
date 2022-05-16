@@ -1,4 +1,5 @@
 #' @import mgcv
+#' @import RcppEigen
 #' @importFrom Rcpp sourceCpp
 #' @export
 smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
@@ -80,10 +81,13 @@ smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
     }
     
   }
-  
-  KS <- create_sketched_kernel(X_test = X, 
-    X_train = X_train, tS = t(sketch_matrix), bandwidth = bandwidth)
-  
+  if (object$xt$force_base){
+    KS <- exp(-base_kernel(X, X_train)/bandwidth) %*% sketch_matrix
+  }else{
+    KS <- create_sketched_kernel(X_test = X, 
+      X_train = X_train, tS = t(sketch_matrix), bandwidth = bandwidth)
+  }
+
   if (!object$fixed){
     
     if (!is.na(sketch_size) & object$xt$sketch_method == 'nystrom'){
@@ -99,10 +103,14 @@ smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
       old_size_S <- ncol(KS)
       
       truncate_eigen_penalty <- object$xt$truncate.eigen.tol
+      
       eigen_sketch <- eigen(Penalty, symmetric = TRUE)
       eigen_sketch$values <- ifelse(eigen_sketch$values < truncate_eigen_penalty, 0, eigen_sketch$values)
       nonzero <- which(eigen_sketch$values != 0)
       
+      if (length(nonzero) == 0){
+        stop('After truncation, all eigenvectors are removed. Decrease "truncate.eigen.tol" or set "remove_instability" = FALSE to proceed.')
+      }
       KS <- as.matrix(KS %*% (eigen_sketch$vectors[,nonzero] %*% 
                                 Diagonal(x = 1/sqrt(eigen_sketch$values[nonzero]))))
       sketch_matrix <- sketch_matrix %*% as.matrix(eigen_sketch$vectors[,nonzero] %*% 
@@ -114,8 +122,8 @@ smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
       
     }
     
+    object$S <- list()
     object$S[[1]] <- Penalty
-    
   }else{
     object$S <- NULL
     warning('fx=TRUE may result in severe overfitting. Use with caution.')
@@ -148,6 +156,7 @@ smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
   object$te.ok <- 0
   object$plot.me <- FALSE
   object$C <- matrix(nrow = 0, ncol = ncol(KS))
+  
   class(object) <-"gKRLS.smooth"  # Give object a class
   object
 }
@@ -171,9 +180,13 @@ Predict.matrix.gKRLS.smooth <- function(object,data) {
   
   if (object$xt$return_raw){return(X_test)}
   
-  KS_test <- create_sketched_kernel(X_test = X_test, X_train = object$X_train, 
-                                    tS = t(object$sketch_matrix),
-                                    bandwidth = object$bandwidth)
+  if (object$xt$force_base){
+    KS_test <- exp(-base_kernel(X_test, object$X_train)/object$bandwidth) %*% object$sketch_matrix
+  }else{
+    KS_test <- create_sketched_kernel(X_test = X_test, X_train = object$X_train, 
+                                      tS = t(object$sketch_matrix),
+                                      bandwidth = object$bandwidth)
+  }
   KS_test <- sweep(KS_test, 2, object$KS_mean, FUN = "-")
 
   return(KS_test)

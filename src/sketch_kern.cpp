@@ -22,11 +22,15 @@ Eigen::MatrixXd create_sketched_kernel(
   int N_train = X_train.rows();
   int M = tS.rows();
   
+  if (N_train != tS.cols()){
+    Rcpp::stop("ncol(tS) must equal nrow(X_train)");
+  }
+  
   Eigen::MatrixXd KS(N_test, M);
   
   // Loop over every row of the test data.
   for (int i = 0; i < N_test; i++){
-    // Get the N \times 1 K(x_i, x_j) for x_j \in {1, \cdots, N\}
+    // Get the N_train \times 1 K(x_i, x_j) for x_j \in {1, \cdots, N_train\}
     Eigen::VectorXd kern_i(N_train);
     Eigen::VectorXd X_i = X_test.row(i);
     

@@ -8,11 +8,11 @@ Author: Qing Chang and Max Goplerud
 Maintainer: Max Goplerud <mgoplerud@pitt.edu>
 Description: Allows estimation of models using generalized KRLS or kernel ridge regression for generalized linear models.
 License: GPL (>= 2)
+LinkingTo: Rcpp, RcppEigen
 Imports: 
   Rcpp (>= 1.0.6), 
   RcppEigen (>= 0.3.3.4.0), 
   Matrix, 
-  utils,
   mlr3, mlr3misc,
   R6
 Depends:
@@ -22,7 +22,6 @@ Suggests:
   DoubleML,
   covr,
   testthat
-LinkingTo: Rcpp, RcppEigen
 SystemRequirements: GNU make
 RoxygenNote: 7.1.2
 NeedsCompilation: yes

@@ -59,7 +59,9 @@ test_that("Test SuperLearner", {
       SL.library = 'sl_m'
     )
     expect_s3_class(fit_SL, 'SuperLearner')
-    
+   
+    pred <- predict(fit_SL, newdata = data.frame(X))
+    expect_length(pred, n = 2)  
   }
   
 })

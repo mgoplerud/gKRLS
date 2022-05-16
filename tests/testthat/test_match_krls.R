@@ -102,7 +102,8 @@ test_that("Logistic KRLS Tests", {
   
   bin_y <- rbinom(nrow(X), 1, plogis(scale(y)))
   
-  fit_binary_gKRLS <- gam(bin_y ~ s(x1, x2, bs = 'gKRLS'), data = data.frame(X, bin_y),
+  fit_binary_gKRLS <- gam(bin_y ~ s(x1, x2, xt = gKRLS(sketch_method = 'gaussian'),
+                                    bs = 'gKRLS'), data = data.frame(X, bin_y),
                           family = binomial())
   
   mfx_logit <- legacy_marginal_effect(fit_binary_gKRLS, newdata = data.frame(X))
@@ -121,4 +122,7 @@ test_that("Logistic KRLS Tests", {
     do.call('rbind', split(mfx_logit_num$individual$se^2, mfx_logit_num$individual$obs)),
     mfx_logit$ME_pointwise_var[,-1], tol = 1e-4
   )
+  
+  test_print <- print(mfx_logit)
+  test_print <- print(mfx_logit_num)
 })

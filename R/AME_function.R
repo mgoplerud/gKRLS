@@ -1,93 +1,3 @@
-
-#' @importFrom stats coef vcov na.pass predict
-weighted_mfx <- function(model, data_list, vcov,
-                         weights, raw = FALSE, individual = FALSE){
-  
-  model_coef <- coef(model)
-  
-  if (missing(vcov)){
-    vcov <- vcov(model)
-  }else if (identical(vcov, 'none')){
-    vcov <- NULL
-  }else{
-    if (nrow(vcov) != length(coef(model))){
-      stop('If vcov is provided manually, it must be the same size as the coefficient vector.')
-    }
-  }
-  
-  if (missing(weights)){
-    stop('weights may not be null..')
-  }else{
-    if (any(lengths(weights) != length(data_list))){
-      stop('"weights" must be list of vectors, each with the same length as "data_list".')
-    }
-  }
-  weights <- do.call('cbind', weights)
-  if (raw){
-    add_cols <- diag(length(data_list))
-    colnames(add_cols) <- paste0('raw_', 1:length(data_list))
-    weights <- cbind(weights, add_cols)
-  }
-  
-  # Get the predictions for each covariate profile provided
-  raw_predictions <- lapply(data_list, FUN=function(data_i){
-    # Get the design
-    matrix_i <- predict(model, newdata = data_i, na.action = na.pass, type = 'lpmatrix')
-    lp_i <- as.vector(matrix_i %*% model_coef)
-    e_i <- model$family$linkinv(lp_i)
-    ex <- mean(e_i, na.rm=T)
-    if (individual){
-      jacob_i <- Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i
-      jacob <- colMeans(jacob_i, na.rm=T)
-      nrow_valid <- sum(!is.na(lp_i))
-    }else{
-      se_i <- NULL
-      e_i <- NULL
-      jacob_i <- NULL
-      nrow_valid <- NULL
-      jacob <- colMeans(Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i, na.rm=T)
-    }
-    return(list(
-      expectation = ex,
-      expectation_i = e_i,
-      jacobian_i = jacob_i,
-      jacobian = jacob,
-      nrow_valid = nrow_valid
-    ))
-  })
-  # Get the jacobian/gradient for each weighted average
-  jacobian_net <- sapply(raw_predictions, FUN=function(i){i$jacobian}) %*% weights
-  
-  out_se <- sqrt(apply(jacobian_net, MARGIN = 2, FUN=function(i){as.vector(t(i) %*% vcov %*% i)}))
-  out_est <- as.numeric(sapply(raw_predictions, FUN=function(i){i$expectation}) %*% weights)
-  
-  out_aggregate <- data.frame(name = colnames(weights), est = out_est, se = out_se)  
-  
-  if (individual){
-    checksum_ind <- length(unique(sapply(raw_predictions, FUN=function(i){i$nrow_valid})))
-    if (checksum_ind != 1){
-      stop('individual=TRUE requires same pattern of missing data across all elements of data_list.')
-    }
-    jacob_net_i <- Reduce('+', mapply(sapply(raw_predictions, FUN=function(i){i$jacobian_i}), weights, FUN=function(i,j){i * j}))
-    # out_se_i <- apply(jacob_net_i, MARGIN = 1, FUN=function(i){sqrt(as.numeric(t(i) %*% vcov %*% i))})
-    out_se_i <- sqrt(rowSums( (jacob_net_i %*% vcov) * jacob_net_i ))
-    names(out_se_i) <- NULL
-    out_est <- as.vector(sapply(raw_predictions, FUN=function(i){i$expectation_i}) %*% weights)
-    names(out_se) <- NULL
-    out_individual <- data.frame(est = out_est, se = out_se_i, obs = 1:length(out_est))
-  }else{
-    out_individual <- NULL
-  }
-  
-  return(list(
-    aggregate = out_aggregate,
-    individual = out_individual,
-    jacobian = jacobian_net
-  ))
-}
-
-
-
 #' Marginal Effects by Numerical Derivatives
 #' 
 #' This function calculates the marginal effects using numeric approximations of 
@@ -126,8 +36,6 @@ weighted_mfx <- function(model, data_list, vcov,
 #' standard error, t-value, and p-value for marginal effect. This function also return several information 
 #' such as Jacobian matrix (\code{jacobian}), how many variables specified to calculate marginal effect (\code{counter}),
 #' and effective sample size (\code{N_eff}) and sample size (N). 
-#'     
-#' 
 #' 
 #' @examples
 #' n <- 50
@@ -681,3 +589,90 @@ print.gKRLS_mfx <- function(x, ...){
 #' @param ... Additional arguments (unused).
 #' @export
 summary.gKRLS_mfx <- function(object, ...){object$marginal_effects}
+
+#' @importFrom stats coef vcov na.pass predict
+weighted_mfx <- function(model, data_list, vcov,
+                         weights, raw = FALSE, individual = FALSE){
+  
+  model_coef <- coef(model)
+  
+  if (missing(vcov)){
+    vcov <- vcov(model)
+  }else if (identical(vcov, 'none')){
+    vcov <- NULL
+  }else{
+    if (nrow(vcov) != length(coef(model))){
+      stop('If vcov is provided manually, it must be the same size as the coefficient vector.')
+    }
+  }
+  
+  if (missing(weights)){
+    stop('weights may not be null..')
+  }else{
+    if (any(lengths(weights) != length(data_list))){
+      stop('"weights" must be list of vectors, each with the same length as "data_list".')
+    }
+  }
+  weights <- do.call('cbind', weights)
+  if (raw){
+    add_cols <- diag(length(data_list))
+    colnames(add_cols) <- paste0('raw_', 1:length(data_list))
+    weights <- cbind(weights, add_cols)
+  }
+  
+  # Get the predictions for each covariate profile provided
+  raw_predictions <- lapply(data_list, FUN=function(data_i){
+    # Get the design
+    matrix_i <- predict(model, newdata = data_i, na.action = na.pass, type = 'lpmatrix')
+    lp_i <- as.vector(matrix_i %*% model_coef)
+    e_i <- model$family$linkinv(lp_i)
+    ex <- mean(e_i, na.rm=T)
+    if (individual){
+      jacob_i <- Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i
+      jacob <- colMeans(jacob_i, na.rm=T)
+      nrow_valid <- sum(!is.na(lp_i))
+    }else{
+      se_i <- NULL
+      e_i <- NULL
+      jacob_i <- NULL
+      nrow_valid <- NULL
+      jacob <- colMeans(Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i, na.rm=T)
+    }
+    return(list(
+      expectation = ex,
+      expectation_i = e_i,
+      jacobian_i = jacob_i,
+      jacobian = jacob,
+      nrow_valid = nrow_valid
+    ))
+  })
+  # Get the jacobian/gradient for each weighted average
+  jacobian_net <- sapply(raw_predictions, FUN=function(i){i$jacobian}) %*% weights
+  
+  out_se <- sqrt(apply(jacobian_net, MARGIN = 2, FUN=function(i){as.vector(t(i) %*% vcov %*% i)}))
+  out_est <- as.numeric(sapply(raw_predictions, FUN=function(i){i$expectation}) %*% weights)
+  
+  out_aggregate <- data.frame(name = colnames(weights), est = out_est, se = out_se)  
+  
+  if (individual){
+    checksum_ind <- length(unique(sapply(raw_predictions, FUN=function(i){i$nrow_valid})))
+    if (checksum_ind != 1){
+      stop('individual=TRUE requires same pattern of missing data across all elements of data_list.')
+    }
+    jacob_net_i <- Reduce('+', mapply(sapply(raw_predictions, FUN=function(i){i$jacobian_i}), weights, FUN=function(i,j){i * j}))
+    # out_se_i <- apply(jacob_net_i, MARGIN = 1, FUN=function(i){sqrt(as.numeric(t(i) %*% vcov %*% i))})
+    out_se_i <- sqrt(rowSums( (jacob_net_i %*% vcov) * jacob_net_i ))
+    names(out_se_i) <- NULL
+    out_est <- as.vector(sapply(raw_predictions, FUN=function(i){i$expectation_i}) %*% weights)
+    names(out_se) <- NULL
+    out_individual <- data.frame(est = out_est, se = out_se_i, obs = 1:length(out_est))
+  }else{
+    out_individual <- NULL
+  }
+  
+  return(list(
+    aggregate = out_aggregate,
+    individual = out_individual,
+    jacobian = jacobian_net
+  ))
+}
