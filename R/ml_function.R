@@ -161,18 +161,12 @@ add_bam_to_mlr3 <- function() {
   mlr3::mlr_learners$add("regr.bam", LearnerClassifBam)
 }
 
-#' @importFrom R6 R6Class
-test_func <- function(x) {
-  x
-}
-
 #' mlr3 integrations with `bam`
 #'
 #' This contains the integration of `mgcv::bam` into `mlr3` without requiring
 #' explicit loading of `mlr3extralearners.`
 #' @rdname mlr3_gKRLS
 #' @importFrom mlr3 LearnerRegr
-#' @importFrom mlr3misc invoke
 #' @importFrom R6 R6Class
 #' @export
 LearnerRegrBam <- R6Class("LearnerRegrBam",
@@ -184,6 +178,9 @@ LearnerRegrBam <- R6Class("LearnerRegrBam",
     initialize = function() {
       if (!requireNamespace("paradox", quietly = TRUE)) {
         stop("paradox must be installed.")
+      }
+      if (!requireNamespace("mlr3misc", quietly = TRUE)) {
+        stop("mlr3misc must be installed.")
       }
       ps <- paradox::ps(
         family = paradox::p_fct(default = "gaussian", levels = c("gaussian", "poisson"), tags = "train"),
