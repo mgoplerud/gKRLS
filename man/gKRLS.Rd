@@ -12,7 +12,7 @@ gKRLS(
   standardize = "Mahalanobis",
   sketch_size = function(N) {     ceiling(N^(1/3)) * 5 },
   sketch_prob = NULL,
-  force_base = TRUE,
+  force_base = FALSE,
   remove_instability = TRUE
 )
 }
