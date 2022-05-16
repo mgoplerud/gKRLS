@@ -26,34 +26,34 @@ calculate_effects(
 \arguments{
 \item{model}{A fitted gKRLS model.}
 
-\item{data}{A new data frame that used to calculate the marginal effect, or 
-set to ``NULL'', which the data used to estimate the model will be used. The 
+\item{data}{A new data frame that used to calculate the marginal effect, or
+set to ``NULL'', which the data used to estimate the model will be used. The
 default is ``NULL.''}
 
-\item{variables}{Specify the variable names that need to calculate marginal 
+\item{variables}{Specify the variable names that need to calculate marginal
 effect. The default is ``NULL'', which means calculate marginal effect for all variables.}
 
-\item{vcov}{Specify the covariance matrix.It accepts a user-defined covariance 
+\item{vcov}{Specify the covariance matrix.It accepts a user-defined covariance
 matrix or clustered covariance matrices using functions from sandwich package.}
 
 \item{raw}{Placeholder.}
 
 \item{individual}{Calculate individual effects (i.e. an effect for each observation in the provided data).}
 
-\item{conditional}{This is an analogue of Stata's ``at()'' option and ``at'' argument 
-in ``margins'' package. Specify the values at which to calculate the marginal 
+\item{conditional}{This is an analogue of Stata's ``at()'' option and ``at'' argument
+in ``margins'' package. Specify the values at which to calculate the marginal
 effect in a named data from. See an example below.}
 
-\item{epsilon}{A numerical value to define the step when calculating numerical 
+\item{epsilon}{A numerical value to define the step when calculating numerical
 derivatives. See Leeper's articel for details.}
 
-\item{verbose}{A logical value indicates whether to report the current stage 
+\item{verbose}{A logical value indicates whether to report the current stage
 when calculating the marginal effects.}
 
-\item{continuous_type}{A character string indicating the type of marginal effects 
-to estimate. Options are ``IQR'': variable values change from 25% to 75%, ``minmax'': 
-variable values changes from minimum to maximum, ``derivative'': variable values 
-change by epsilon defined in the epsilon argument, ``onesd'': variable values 
+\item{continuous_type}{A character string indicating the type of marginal effects
+to estimate. Options are ``IQR'': variable values change from 25% to 75%, ``minmax'':
+variable values changes from minimum to maximum, ``derivative'': variable values
+change by epsilon defined in the epsilon argument, ``onesd'': variable values
 change by one standard deviation.}
 
 \item{x}{Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}}
@@ -63,17 +63,17 @@ change by one standard deviation.}
 \item{object}{A fitted gKRLS model.}
 }
 \value{
-\code{calculate_effects} return a list which contain a data frame for marginal effects. 
-The \code{variable} represents the variable names used to calculate marginal effects. \code{type} 
+\code{calculate_effects} return a list which contain a data frame for marginal effects.
+The \code{variable} represents the variable names used to calculate marginal effects. \code{type}
 indicates the method for calculating marginal effects. It is one of the IQR, minmax, derivative,
-and onesd. The \code{est} represents the marginal effects. The \code{se}, \code{t}, \code{p.value} are 
-standard error, t-value, and p-value for marginal effect. This function also return several information 
+and onesd. The \code{est} represents the marginal effects. The \code{se}, \code{t}, \code{p.value} are
+standard error, t-value, and p-value for marginal effect. This function also return several information
 such as Jacobian matrix (\code{jacobian}), how many variables specified to calculate marginal effect (\code{counter}),
 and effective sample size (\code{N_eff}) and sample size (N).
 }
 \description{
-This function calculates the marginal effects using numeric approximations of 
-the partial derivatives. For a description of this method, please see Thomas Leeper's 
+This function calculates the marginal effects using numeric approximations of
+the partial derivatives. For a description of this method, please see Thomas Leeper's
 article "Interpreting Regression Results using Average Marginal Effects with R’s margins."
 }
 \examples{
@@ -82,24 +82,27 @@ x1 <- rnorm(n)
 x2 <- rnorm(n)
 x3 <- rnorm(n)
 state <- sample(letters[1:5], n, replace = TRUE)
-y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
+y <- 0.3 * x1 + 0.4 * x2 + 0.5 * x3 + rnorm(n)
 data <- data.frame(y, x1, x2, x3, state)
 
 # Make character variables into factors for mgcv
 data$state <- factor(data$state)
 
-# A gKRLS model 
-gkrls_est <- mgcv::gam(y ~ state + s(x1,x2,x3, bs="gKRLS"), data = data)
+# A gKRLS model
+gkrls_est <- mgcv::gam(y ~ state + s(x1, x2, x3, bs = "gKRLS"), data = data)
 
 # calculate marginal effect using derivative
-calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative') 
+calculate_effects(gkrls_est, variables = "x1", continuous_type = "derivative")
 
 # calculate marginal effect by specifying conditional variables
-calculate_effects(gkrls_est, variables = "x1", 
-conditional = data.frame(x2 = c(0.6, 0.8), x3=0.3))
+calculate_effects(gkrls_est,
+  variables = "x1",
+  conditional = data.frame(x2 = c(0.6, 0.8), x3 = 0.3)
+)
 
 # calculate marginal effect by specifying a factor conditional variable
-calculate_effects(gkrls_est, variables = "x1", 
-conditional = data.frame(state = c("a", "b", "c")), continuous_type = 'derivative')
-
+calculate_effects(gkrls_est,
+  variables = "x1",
+  conditional = data.frame(state = c("a", "b", "c")), continuous_type = "derivative"
+)
 }

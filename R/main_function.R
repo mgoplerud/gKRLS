@@ -1,17 +1,17 @@
 #' gKRLS
-#' 
+#'
 #' Fit a generalized KRLS model using mgcv
-#' 
+#'
 #' The function `gKRLS` should be given as a control argument to any relevant
 #' function for fitting a generalized additive model from `mgcv` (e.g. `bam`,
 #' `gam`, `gamm4`). Its arguments are described below with a simple example.
-#' 
+#'
 #' A kernel can be specified by `s(..., bs = "gKRLS")`.
-#' 
-#' NOTE: Variables must be separated by commas inside of the `s(..)`. 
-#' 
-#' @param demean_kernel A logical variable ``True'' or ``False'' indicates whether 
-#' the kernel should be demeaned. The default is False. If True is given, column mean 
+#'
+#' NOTE: Variables must be separated by commas inside of the `s(..)`.
+#'
+#' @param demean_kernel A logical variable ``True'' or ``False'' indicates whether
+#' the kernel should be demeaned. The default is False. If True is given, column mean
 #' will be used to calculate the demean kernel matrix.
 #' @param sketch_method String vector that specifies which kernel sketch method
 #'   should be used. Options include ``gaussian'': gaussian kernel approximation,
@@ -28,60 +28,63 @@
 #'   of N). Exactly one of this or sketch_multiplier must be NULL.
 #' @param sketch_prob For bernoulli sketching, what is probability of "1"?
 #' @param no.rescale Avoid rescaling the kernel.
-#' @param remove_instability A logical variable indicates whether 0 should be removed 
+#' @param remove_instability A logical variable indicates whether 0 should be removed
 #' from the eigenvector when building the kernel matrix. The default is ``True''
-#' @param truncate.eigen.tol It determines how much eigenvalues should be truncated. 
-#' If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalue greater or 
-#' equal to 1e-6. The default is sqrt(.Machine$double.eps), where .Machine$double.eps 
+#' @param truncate.eigen.tol It determines how much eigenvalues should be truncated.
+#' If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalue greater or
+#' equal to 1e-6. The default is sqrt(.Machine$double.eps), where .Machine$double.eps
 #' is the smallest positive floating-point number x such that 1 + x != 1.
 #' @param force_base Force construction of kernel using base R (not Rcpp). Only
 #'   use for debugging.
 #' @useDynLib gKRLS
 #' @import Matrix
 #' @export
-#' 
+#'
 #' @examples
 #' n <- 100
 #' x1 <- rnorm(n)
 #' x2 <- rnorm(n)
 #' x3 <- rnorm(n)
 #' state <- sample(letters[1:5], n, replace = TRUE)
-#' y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
+#' y <- 0.3 * x1 + 0.4 * x2 + 0.5 * x3 + rnorm(n)
 #' data <- data.frame(y, x1, x2, x3, state)
 #' data$state <- factor(data$state)
 #' # A gKRLS model without fixed effects
-#' gkrls_est <- mgcv::gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
+#' gkrls_est <- mgcv::gam(y ~ s(x1, x2, x3, bs = "gKRLS"), data = data)
 #' summary(gkrls_est)
 #' # A gKRLS model with fixed effects
-#' gkrls_fx <- mgcv::gam(y ~ state + s(x1,x2,x3, bs="gKRLS"), data = data)
+#' gkrls_fx <- mgcv::gam(y ~ state + s(x1, x2, x3, bs = "gKRLS"), data = data)
 #' # Change default standardization to Mahalanobis, sketch method to Gaussian,
 #' # and alter sketching multiplier
-#' gkrls_mah <- mgcv::gam(y ~ s(x1,x2,x3, bs="gKRLS",
-#'   xt = gKRLS(standardize = 'Mahalanobis',
-#'        sketch_method = "gaussian",
-#'        sketch_multiplier = 2)),
-#'   data = data)
-#' 
+#' gkrls_mah <- mgcv::gam(y ~ s(x1, x2, x3,
+#'   bs = "gKRLS",
+#'   xt = gKRLS(
+#'     standardize = "Mahalanobis",
+#'     sketch_method = "gaussian",
+#'     sketch_multiplier = 2
+#'   )
+#' ),
+#' data = data
+#' )
+#'
 #' # calculate marginal effect
-#' calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative')
-#' 
+#' calculate_effects(gkrls_est, variables = "x1", continuous_type = "derivative")
 gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
-    demean_kernel = FALSE,
-    sketch_method = 'nystrom', 
-    no.rescale = FALSE, standardize = 'Mahalanobis',
-    sketch_multiplier = 5,
-    sketch_size_raw = NULL,
-    sketch_prob = NULL, force_base = FALSE,
-    remove_instability = TRUE){
-  
-  sketch_method <- match.arg(sketch_method, c('nystrom', 'gaussian', 'bernoulli', 'none'))
-  standardize <- match.arg(standardize, c('Mahalanobis', 'scaled', 'none'))
-  
-  if (!is.null(sketch_size_raw) & !is.null(sketch_multiplier)){
+                  demean_kernel = FALSE,
+                  sketch_method = "nystrom",
+                  no.rescale = FALSE, standardize = "Mahalanobis",
+                  sketch_multiplier = 5,
+                  sketch_size_raw = NULL,
+                  sketch_prob = NULL, force_base = FALSE,
+                  remove_instability = TRUE) {
+  sketch_method <- match.arg(sketch_method, c("nystrom", "gaussian", "bernoulli", "none"))
+  standardize <- match.arg(standardize, c("Mahalanobis", "scaled", "none"))
+
+  if (!is.null(sketch_size_raw) & !is.null(sketch_multiplier)) {
     stop('Only one of "sketch_size_raw" or "sketch_multiplier" may be provided.')
-  }else if (is.null(sketch_size_raw) & is.null(sketch_multiplier)){
+  } else if (is.null(sketch_size_raw) & is.null(sketch_multiplier)) {
     stop('One of "sketch_size_raw" or "sketch_multiplier" must be provided.')
   }
-  
+
   return(mget(ls()))
 }

@@ -17,27 +17,27 @@ add_bam_to_mlr3()
 
 \item{X}{All independent variables include variables in and outside the kernel.}
 
-\item{newX}{A new dataset uses for prediction. If no data provided, the original 
+\item{newX}{A new dataset uses for prediction. If no data provided, the original
 data will be used.}
 
 \item{formula}{A gKRLS style formula. See details in the help(gKRLS) and help(gam).}
 
-\item{family}{A string variable indicate the distribution and link function to use. 
+\item{family}{A string variable indicate the distribution and link function to use.
 The default is gaussian distribution.}
 
 \item{obsWeights}{The weights for observations.}
 
-\item{bam}{A logical variable indicates whether a gKRLS model is applying to a 
+\item{bam}{A logical variable indicates whether a gKRLS model is applying to a
 very large dataset. The default is False.}
 
 \item{...}{Additional arguments to gam/bam.}
 
 \item{object}{A gKRLS model.}
 
-\item{newdata}{A new dataset uses for prediction. If no data provided, the original 
+\item{newdata}{A new dataset uses for prediction. If no data provided, the original
 data will be used.}
 
-\item{allow_missing_levels}{A logical variable indicates whether missing levels are 
+\item{allow_missing_levels}{A logical variable indicates whether missing levels are
 allowed for prediction. The default is True.}
 }
 \description{
@@ -60,41 +60,49 @@ argument is mandatory.
 }
 \examples{
 
-  N <- 100
-  x1 <- rnorm(N)
-  x2 <- rbinom(N,size=1,prob=.2)
-  y <- x1^3 - 0.5 *x2 + rnorm(N,0, 1)
-  y <- y * 10
-  X <- cbind(x1, x2, x1 + x2 * 3)
-  X <- cbind(X, 'x3' = rexp(nrow(X)))
-  
- # Estimate Ensemble with SuperLearner
- sl_m <- function(...){SL.mgcv(formula = ~ x1 + x2 + x3, ...)}
- if (requireNamespace('SuperLearner', quietly = TRUE)){
+N <- 100
+x1 <- rnorm(N)
+x2 <- rbinom(N, size = 1, prob = .2)
+y <- x1^3 - 0.5 * x2 + rnorm(N, 0, 1)
+y <- y * 10
+X <- cbind(x1, x2, x1 + x2 * 3)
+X <- cbind(X, "x3" = rexp(nrow(X)))
+
+# Estimate Ensemble with SuperLearner
+sl_m <- function(...) {
+  SL.mgcv(formula = ~ x1 + x2 + x3, ...)
+}
+if (requireNamespace("SuperLearner", quietly = TRUE)) {
   require(SuperLearner)
   fit_SL <- SuperLearner::SuperLearner(
-      Y = y, X = data.frame(X),
-      SL.library = 'sl_m'
-   )
+    Y = y, X = data.frame(X),
+    SL.library = "sl_m"
+  )
   pred <- predict(fit_SL, newdata = data.frame(X))
- }
- # Estimate Double/Debiased Machine Learning
- if (requireNamespace('DoubleML', quietly = TRUE)){
+}
+# Estimate Double/Debiased Machine Learning
+if (requireNamespace("DoubleML", quietly = TRUE)) {
   require(DoubleML)
   # Load the models; for testing *ONLY* have multiplier of 2
   double_bam_1 <- LearnerRegrBam$new()
-  double_bam_1$param_set$values$formula <- ~ s(x1, x3, bs = 'gKRLS', xt = gKRLS(sketch_multiplier = NULL, sketch_size_raw = 2))
+  double_bam_1$param_set$values$formula <- ~ s(x1, x3, bs = "gKRLS", 
+    xt = gKRLS(sketch_multiplier = NULL, sketch_size_raw = 2))
   double_bam_2 <- LearnerClassifBam$new()
-  double_bam_2$param_set$values$formula <- ~ s(x1, x3, bs = 'gKRLS', xt = gKRLS(sketch_multiplier = NULL, sketch_size_raw = 2))
-  
+  double_bam_2$param_set$values$formula <- ~ s(x1, x3, bs = "gKRLS", 
+    xt = gKRLS(sketch_multiplier = NULL, sketch_size_raw = 2))
+
   # Create data
-  dml_data <- DoubleMLData$new(data = data.frame(X, y), 
-    x_cols =  c('x1', 'x3'), y_col = 'y',
-    d_cols = 'x2')
+  dml_data <- DoubleMLData$new(
+    data = data.frame(X, y),
+    x_cols = c("x1", "x3"), y_col = "y",
+    d_cols = "x2"
+  )
   # Fit ATE for binary treatment (works for other DoubleML methods)
-    dml_est <- DoubleMLIRM$new(data = dml_data, 
-     n_folds = 2,
-     ml_g = double_bam_1, 
-     ml_m = double_bam_2)$fit()
- }
+  dml_est <- DoubleMLIRM$new(
+    data = dml_data,
+    n_folds = 2,
+    ml_g = double_bam_1,
+    ml_m = double_bam_2
+  )$fit()
+}
 }

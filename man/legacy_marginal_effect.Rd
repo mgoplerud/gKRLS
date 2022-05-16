@@ -11,14 +11,14 @@ legacy_marginal_effect(object, newdata, keep = NULL)
 
 \item{newdata}{A new data frame that used to calculate the marginal effect.}
 
-\item{keep}{A character string indicating which variables to calculate marginal 
+\item{keep}{A character string indicating which variables to calculate marginal
 effects. Default is NULL, which calculates marginal effects for all.}
 }
 \value{
-The \code{legacy_marginal_effect} returns \code{ME_pointwise}, which is 
-the marginal effects for each observations, \code{ME_pointwise_var} is the variance 
-for each marginal effects, \code{AME_pointwise} provide the average marginal effects 
-for all variables or variables in the keep argument, and \code{AME_pointwise_var} returns 
+The \code{legacy_marginal_effect} returns \code{ME_pointwise}, which is
+the marginal effects for each observations, \code{ME_pointwise_var} is the variance
+for each marginal effects, \code{AME_pointwise} provide the average marginal effects
+for all variables or variables in the keep argument, and \code{AME_pointwise_var} returns
 the variance for average marginal effects.
 }
 \description{
@@ -41,11 +41,11 @@ x1 <- rnorm(n)
 x2 <- rnorm(n)
 x3 <- rnorm(n)
 state <- sample(letters, n, replace = TRUE)
-y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
+y <- 0.3 * x1 + 0.4 * x2 + 0.5 * x3 + rnorm(n)
 data <- data.frame(y, x1, x2, x3, state)
 
-# A gKRLS model 
-gkrls_est <- mgcv::gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
+# A gKRLS model
+gkrls_est <- mgcv::gam(y ~ s(x1, x2, x3, bs = "gKRLS"), data = data)
 # calculate marginal effect using derivative
-legacy_marginal_effect(gkrls_est, newdata = data) 
+legacy_marginal_effect(gkrls_est, newdata = data)
 }

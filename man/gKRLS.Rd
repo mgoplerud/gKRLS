@@ -18,13 +18,13 @@ gKRLS(
 )
 }
 \arguments{
-\item{truncate.eigen.tol}{It determines how much eigenvalues should be truncated. 
-If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalue greater or 
-equal to 1e-6. The default is sqrt(.Machine$double.eps), where .Machine$double.eps 
+\item{truncate.eigen.tol}{It determines how much eigenvalues should be truncated.
+If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalue greater or
+equal to 1e-6. The default is sqrt(.Machine$double.eps), where .Machine$double.eps
 is the smallest positive floating-point number x such that 1 + x != 1.}
 
-\item{demean_kernel}{A logical variable ``True'' or ``False'' indicates whether 
-the kernel should be demeaned. The default is False. If True is given, column mean 
+\item{demean_kernel}{A logical variable ``True'' or ``False'' indicates whether
+the kernel should be demeaned. The default is False. If True is given, column mean
 will be used to calculate the demean kernel matrix.}
 
 \item{sketch_method}{String vector that specifies which kernel sketch method
@@ -50,7 +50,7 @@ of N). Exactly one of this or sketch_multiplier must be NULL.}
 \item{force_base}{Force construction of kernel using base R (not Rcpp). Only
 use for debugging.}
 
-\item{remove_instability}{A logical variable indicates whether 0 should be removed 
+\item{remove_instability}{A logical variable indicates whether 0 should be removed
 from the eigenvector when building the kernel matrix. The default is ``True''}
 }
 \description{
@@ -71,23 +71,27 @@ x1 <- rnorm(n)
 x2 <- rnorm(n)
 x3 <- rnorm(n)
 state <- sample(letters[1:5], n, replace = TRUE)
-y = 0.3*x1 + 0.4*x2 +0.5*x3 + rnorm(n)
+y <- 0.3 * x1 + 0.4 * x2 + 0.5 * x3 + rnorm(n)
 data <- data.frame(y, x1, x2, x3, state)
 data$state <- factor(data$state)
 # A gKRLS model without fixed effects
-gkrls_est <- mgcv::gam(y ~ s(x1,x2,x3, bs="gKRLS"), data = data)
+gkrls_est <- mgcv::gam(y ~ s(x1, x2, x3, bs = "gKRLS"), data = data)
 summary(gkrls_est)
 # A gKRLS model with fixed effects
-gkrls_fx <- mgcv::gam(y ~ state + s(x1,x2,x3, bs="gKRLS"), data = data)
+gkrls_fx <- mgcv::gam(y ~ state + s(x1, x2, x3, bs = "gKRLS"), data = data)
 # Change default standardization to Mahalanobis, sketch method to Gaussian,
 # and alter sketching multiplier
-gkrls_mah <- mgcv::gam(y ~ s(x1,x2,x3, bs="gKRLS",
-  xt = gKRLS(standardize = 'Mahalanobis',
-       sketch_method = "gaussian",
-       sketch_multiplier = 2)),
-  data = data)
+gkrls_mah <- mgcv::gam(y ~ s(x1, x2, x3,
+  bs = "gKRLS",
+  xt = gKRLS(
+    standardize = "Mahalanobis",
+    sketch_method = "gaussian",
+    sketch_multiplier = 2
+  )
+),
+data = data
+)
 
 # calculate marginal effect
-calculate_effects(gkrls_est, variables = "x1", continuous_type = 'derivative')
-
+calculate_effects(gkrls_est, variables = "x1", continuous_type = "derivative")
 }
