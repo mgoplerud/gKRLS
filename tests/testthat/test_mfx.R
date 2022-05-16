@@ -56,6 +56,7 @@ test_that("Test MFX", {
 })
 
 test_that("test 'calculate_effects'", {
+  
   N <- 100
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)
@@ -64,8 +65,8 @@ test_that("test 'calculate_effects'", {
   s <- sample(letters[1:5], N, replace = T)
   X <- data.frame(x1, x2, s = factor(s), 
     l = sample(c(TRUE,FALSE), N, replace = T), stringsAsFactors = F)
-
   colnames(X) <- paste0("x", 1:ncol(X))
+  X$x4 <- factor(X$x4)
   fit_gKRLS <- gam(y ~ s(x1, x2, x3, x4, bs = "gKRLS"),
     family = gaussian(), method = "REML", data = data.frame(y, X)
   )
@@ -82,7 +83,7 @@ test_that("test 'calculate_effects'", {
   logical_test <- calculate_effects(model = fit_gKRLS, variables = "x4")
   custom_cont_test <- calculate_effects(
     model = fit_gKRLS, variables = "x1",
-      continuous_type = list(c(-1, 1)))
+      continuous_type = list('x1' = c(-1, 1)))
   
   fit_inter <- kernel_interactions(
     fit_gKRLS,
