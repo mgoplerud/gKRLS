@@ -38,7 +38,10 @@ test_that("Test everything works when kernel has limited columns", {
   y <- rpois(length(y), exp(y))
   
   fit_gam <- suppressWarnings(gam(y ~ s(X1, X2, X3, bs = 'gKRLS',
-    xt = gKRLS(standardize = 'Mahalanobis', truncate.eigen.tol = 1e-4, sketch_prob = 0.2, sketch_size = N, sketch_method = 'bernoulli')), data = data.frame(X, y),
+    xt = gKRLS(standardize = 'Mahalanobis', truncate.eigen.tol = 1e-4, 
+              sketch_prob = 0.2, sketch_multiplier = NULL, 
+              sketch_size_raw = N, 
+              sketch_method = 'bernoulli')), data = data.frame(X, y),
     family = poisson()))
   
   expect_equal(length(coef(fit_gam)) - 1, ncol(fit_gam$smooth[[1]]$sketch_matrix))
@@ -51,3 +54,25 @@ test_that("Test everything works when kernel has limited columns", {
   expect_equal(length(coef(fit_single)), 2)
   
 })
+
+
+test_that("Test sketch size options work as anticipated", {
+  
+  N <- 50
+  X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
+  y <- X %*% rnorm(ncol(X))
+  fit_one <- gam(y ~ s(X1, X2, X3, bs = 'gKRLS',
+            xt = gKRLS(sketch_multiplier = 3.255, remove_instability = FALSE)), data = data.frame(X,y)
+  )
+  expect_equal(floor(ceiling(N^(1/3)) * 3.255), nrow(fit_one$smooth[[1]]$sketch_matrix))
+  expect_s3_class(fit_one, 'gam')
+  expect_error(
+    gam(y ~ s(X1, X2, X3, bs = 'gKRLS',
+      xt = gKRLS(sketch_size_raw = 1)), data = data.frame(X,y)
+  ))
+  fit_two <- gam(y ~ s(X1, X2, X3, bs = 'gKRLS',
+    xt = gKRLS(sketch_size_raw = 3, sketch_multiplier = NULL)), data = data.frame(X,y)
+  )
+  expect_equal(nrow(fit_two$smooth[[1]]$sketch_matrix), 3)
+})
+  

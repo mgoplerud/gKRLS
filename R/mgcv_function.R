@@ -53,13 +53,15 @@ smooth.construct.gKRLS.smooth.spec<-function(object,data,knots) {
   # Create the Kernel
   N <- nrow(X)
   
-  sketch_size <- object$xt$sketch_size
-  if (is.function(sketch_size)){
-    sketch_size <- sketch_size(N)
-  }else if (!is.numeric(sketch_size) & !is.na(sketch_size)){
-    stop('sketch_size must be a function, numeric, or NA')
+  sketch_size_raw <- object$xt$sketch_size_raw
+  sketch_multiplier <- object$xt$sketch_multiplier
+  # Either multiply N^(1/3) by multiplier *or* use raw value
+  if (!is.null(sketch_multiplier)){
+    sketch_size <- floor(ceiling(N^(1/3)) * sketch_multiplier)
+  }else{
+    sketch_size <- sketch_size_raw
   }
-  
+
   
   X_train <- X
   

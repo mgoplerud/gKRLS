@@ -90,6 +90,7 @@ test_that("Legacy Agrees with Numerical", {
 
 test_that("Logistic KRLS Tests", {
 
+  skip_on_cran()
   
   N <- 200
   x1 <- rnorm(N)
@@ -110,17 +111,17 @@ test_that("Logistic KRLS Tests", {
   mfx_logit_num <- calculate_effects(fit_binary_gKRLS, data = data.frame(X), 
         continuous_type = 'deriv', individual = TRUE)
   
-  expect_equivalent(mfx_logit$AME_pointwise[-1], mfx_logit_num$marginal_effects$est, tol = 1e-5)
-  expect_equivalent(mfx_logit$AME_pointwise_var[-1], mfx_logit_num$marginal_effects$se^2, tol = 1e-5)
+  expect_equivalent(mfx_logit$AME_pointwise[-1], mfx_logit_num$marginal_effects$est, tol = 1e-3)
+  expect_equivalent(mfx_logit$AME_pointwise_var[-1], mfx_logit_num$marginal_effects$se^2, tol = 1e-3)
   
   expect_equivalent(
     do.call('rbind', split(mfx_logit_num$individual$est, mfx_logit_num$individual$obs)),
-    mfx_logit$ME_pointwise[,-1], tol = 1e-4
+    mfx_logit$ME_pointwise[,-1], tol = 1e-3
   )
   
   expect_equivalent(
     do.call('rbind', split(mfx_logit_num$individual$se^2, mfx_logit_num$individual$obs)),
-    mfx_logit$ME_pointwise_var[,-1], tol = 1e-4
+    mfx_logit$ME_pointwise_var[,-1], tol = 1e-3
   )
   
   test_print <- print(mfx_logit)

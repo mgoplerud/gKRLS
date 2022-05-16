@@ -53,11 +53,11 @@
 #'  # Estimate Double/Debiased Machine Learning
 #'  if (requireNamespace('DoubleML', quietly = TRUE)){
 #'   require(DoubleML)
-#'   # Load the models
+#'   # Load the models; for testing *ONLY* have multiplier of 2
 #'   double_bam_1 <- LearnerRegrBam$new()
-#'   double_bam_1$param_set$values$formula <- ~ s(x1, x3, bs = 'gKRLS', xt = gKRLS(sketch_size = 2))
+#'   double_bam_1$param_set$values$formula <- ~ s(x1, x3, bs = 'gKRLS', xt = gKRLS(sketch_multiplier = NULL, sketch_size_raw = 2))
 #'   double_bam_2 <- LearnerClassifBam$new()
-#'   double_bam_2$param_set$values$formula <- ~ s(x1, x3, bs = 'gKRLS', xt = gKRLS(sketch_size = 2))
+#'   double_bam_2$param_set$values$formula <- ~ s(x1, x3, bs = 'gKRLS', xt = gKRLS(sketch_multiplier = NULL, sketch_size_raw = 2))
 #'   
 #'   # Create data
 #'   dml_data <- DoubleMLData$new(data = data.frame(X, y), 

@@ -1,4 +1,3 @@
-
 #' Marginal Effects by Derivative
 #' 
 #' Find the (average) marginal effect and standard error by taking the
@@ -26,7 +25,7 @@
 #'  
 #' 
 #' @examples 
-#' n <- 5000
+#' n <- 500
 #' x1 <- rnorm(n)
 #' x2 <- rnorm(n)
 #' x3 <- rnorm(n)
@@ -46,44 +45,6 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL){
   N_eff <- length(object$y) - sum(object$edf)
   N <- length(object$y)
   
-  f <- function(x,family){
-    if (family == 'logit'){
-      return(plogis(x))
-    }else if (family == 'gaussian'){
-      return(x)
-    }else if (family == 'probit'){
-      return(pnorm(x))
-    }else if (family == 'poisson'){
-      return(exp(x))
-    }else{stop('Invalid family.')}
-  }
-  
-  f_prime <- function(x,family){
-    if (family == 'logit'){
-      p <- plogis(x)
-      return(p * (1-p))
-    }else if (family == 'gaussian'){
-      return(rep(1, length(x)))
-    }else if (family == 'probit'){
-      return(dnorm(x))
-    }else if (family == 'poisson'){
-      return(exp(x))
-    }else{stop('Invalid family.')}
-  }
-  
-  f_double_prime <- function(x,family){
-    if (family == 'logit'){
-      p <- plogis(x)
-      return(p * (1-p) * (1-2 * p))
-    }else if (family == 'gaussian'){
-      return(rep(0, length(x)))
-    }else if (family == 'probit'){
-      return(dnorm(x) * -x)
-    }else if (family == 'poisson'){
-      return(exp(x))
-    }else{stop('Invalid family.')}
-  }
-
   full_lp <- predict(object, newdata = newdata, type = 'lpmatrix')
   model_offset <- attr(full_lp, 'model.offset')
   
@@ -193,7 +154,7 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL){
     family <- 'gaussian'
   }else if (family$family == 'poisson'){
     family <- 'poisson'
-  }else{stop('Invalid family!')}
+  }else{stop('Invalid family for legacy; use "calculate_effects"!')}
   
   
   ME_pointwise <- ME_pointwise_var <- matrix(NA, nrow(std_X_test), 

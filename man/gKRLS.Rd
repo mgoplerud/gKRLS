@@ -10,7 +10,8 @@ gKRLS(
   sketch_method = "nystrom",
   no.rescale = FALSE,
   standardize = "Mahalanobis",
-  sketch_size = function(N) {     ceiling(N^(1/3)) * 5 },
+  sketch_multiplier = 5,
+  sketch_size_raw = NULL,
   sketch_prob = NULL,
   force_base = FALSE,
   remove_instability = TRUE
@@ -37,10 +38,12 @@ Nystrom approximation.}
 method should be used. Must be one of ``scaled'', ``Mahalanobis'', or ``none'', which
 menas no standardization. The default is ``scaled''.}
 
-\item{sketch_size}{Specify the dimension of the randomized sketches of the
-kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X
-is kernel matrix. If desires to use a larger matrix, change 5 to a larger number, 
-e.g. 15.}
+\item{sketch_multiplier}{By default, sketching size increases with c ``ceiling(nrow(X)^(1/3)''
+where c is the "multiplier". By default, set to 5; if results seem
+unstable, try increasing to around 15.}
+
+\item{sketch_size_raw}{If desired, set the exact sketching size (independent
+of N). Exactly one of this or sketch_multiplier must be NULL.}
 
 \item{sketch_prob}{For bernoulli sketching, what is probability of "1"?}
 
@@ -81,7 +84,7 @@ gkrls_fx <- mgcv::gam(y ~ state + s(x1,x2,x3, bs="gKRLS"), data = data)
 gkrls_mah <- mgcv::gam(y ~ s(x1,x2,x3, bs="gKRLS",
   xt = gKRLS(standardize = 'Mahalanobis',
        sketch_method = "gaussian",
-       sketch_size = function(N) {ceiling(N^(1/3)) * 2 })),
+       sketch_multiplier = 2)),
   data = data)
 
 # calculate marginal effect

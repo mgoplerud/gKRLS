@@ -21,10 +21,11 @@
 #' @param standardize A string vector that specifies which standardization
 #'   method should be used. Must be one of ``scaled'', ``Mahalanobis'', or ``none'', which
 #'   menas no standardization. The default is ``scaled''.
-#' @param sketch_size Specify the dimension of the randomized sketches of the
-#'   kernel matrix. The default size is ``ceiling(nrow(X)^(1/3)) * 5,'' where X
-#'   is kernel matrix. If desires to use a larger matrix, change 5 to a larger number, 
-#'   e.g. 15.
+#' @param sketch_multiplier By default, sketching size increases with c ``ceiling(nrow(X)^(1/3)''
+#'   where c is the "multiplier". By default, set to 5; if results seem
+#'   unstable, try increasing to around 15.
+#' @param sketch_size_raw If desired, set the exact sketching size (independent
+#'   of N). Exactly one of this or sketch_multiplier must be NULL.
 #' @param sketch_prob For bernoulli sketching, what is probability of "1"?
 #' @param no.rescale Avoid rescaling the kernel.
 #' @param remove_instability A logical variable indicates whether 0 should be removed 
@@ -58,7 +59,7 @@
 #' gkrls_mah <- mgcv::gam(y ~ s(x1,x2,x3, bs="gKRLS",
 #'   xt = gKRLS(standardize = 'Mahalanobis',
 #'        sketch_method = "gaussian",
-#'        sketch_size = function(N) {ceiling(N^(1/3)) * 2 })),
+#'        sketch_multiplier = 2)),
 #'   data = data)
 #' 
 #' # calculate marginal effect
@@ -68,12 +69,19 @@ gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
     demean_kernel = FALSE,
     sketch_method = 'nystrom', 
     no.rescale = FALSE, standardize = 'Mahalanobis',
-    sketch_size = function(N){ceiling(N^(1/3)) * 5},
+    sketch_multiplier = 5,
+    sketch_size_raw = NULL,
     sketch_prob = NULL, force_base = FALSE,
     remove_instability = TRUE){
   
   sketch_method <- match.arg(sketch_method, c('nystrom', 'gaussian', 'bernoulli', 'none'))
   standardize <- match.arg(standardize, c('Mahalanobis', 'scaled', 'none'))
+  
+  if (!is.null(sketch_size_raw) & !is.null(sketch_multiplier)){
+    stop('Only one of "sketch_size_raw" or "sketch_multiplier" may be provided.')
+  }else if (is.null(sketch_size_raw) & is.null(sketch_multiplier)){
+    stop('One of "sketch_size_raw" or "sketch_multiplier" must be provided.')
+  }
   
   return(mget(ls()))
 }

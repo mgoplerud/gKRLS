@@ -36,7 +36,7 @@ desired, this can be approximated as described in the `calculate_effects`
 documentation.
 }
 \examples{
-n <- 5000
+n <- 500
 x1 <- rnorm(n)
 x2 <- rnorm(n)
 x3 <- rnorm(n)
