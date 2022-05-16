@@ -21,8 +21,8 @@ test_that("mfx with degenerate Mahalanobis", {
   mfx_legacy <- legacy_marginal_effect(fit_gKRLS, newdata = data.frame(X),
                          keep = c('x1', 'x2', 'x3'))
   
-  expect_equivalent(mfx_num$marginal_effects$est, mfx_legacy$AME_pointwise, tol = 1e-5)
-  expect_equivalent(mfx_num$marginal_effects$se, sqrt(mfx_legacy$AME_pointwise_var), tol = 1e-5)
+  expect_equivalent(mfx_num$marginal_effects$est, mfx_legacy$AME_pointwise, tol = 1e-3)
+  expect_equivalent(mfx_num$marginal_effects$se, sqrt(mfx_legacy$AME_pointwise_var), tol = 1e-3)
   
 })
 
@@ -46,8 +46,8 @@ test_that('Test MFX', {
   mfx_legacy <- legacy_marginal_effect(fit_gKRLS, newdata = data.frame(X),
                                        keep = c('x1', 'x2', 'x3'))
   
-  expect_equivalent(mfx_num$marginal_effects$est, mfx_legacy$AME_pointwise, tol = 1e-5)
-  expect_equivalent(mfx_num$marginal_effects$se, sqrt(mfx_legacy$AME_pointwise_var), tol = 1e-5)
+  expect_equivalent(mfx_num$marginal_effects$est, mfx_legacy$AME_pointwise, tol = 1e-3)
+  expect_equivalent(mfx_num$marginal_effects$se, sqrt(mfx_legacy$AME_pointwise_var), tol = 1e-3)
   
 })
 
@@ -67,5 +67,13 @@ test_that("test 'calculate_effects'", {
   )
   
   factor_test <- calculate_effects(model = fit_gKRLS, variables = 'x3')
+  expect_null(factor_test$individual)
+  factor_test <- calculate_effects(model = fit_gKRLS, variables = 'x3',
+      individual = TRUE, conditional = data.frame(x1 = c(-1, 1)))
+  expect_false(is.null(factor_test$individual))
+  expect_equal(nrow(factor_test$marginal_effects), 8)
   
+  fit_inter <- kernel_interactions(
+    fit_gKRLS, variables = list(c('x1', 'x3')))
+  # TO DO: tests for this
 })
