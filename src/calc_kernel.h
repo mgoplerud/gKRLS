@@ -1,8 +1,8 @@
 #ifndef calc_kernel
 #define calc_kernel
 
-double kern_gauss(Eigen::MatrixXd X_one, 
-                  Eigen::MatrixXd X_two, 
+double kern_gauss(Eigen::VectorXd X_one, 
+                  Eigen::VectorXd X_two, 
                   double bandwidth);
 
 #endif

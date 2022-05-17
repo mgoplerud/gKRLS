@@ -7,13 +7,13 @@
 using namespace Rcpp;
 
 // kern_gauss
-double kern_gauss(const Eigen::MatrixXd X_one, const Eigen::MatrixXd X_two, const double bandwidth);
+double kern_gauss(const Eigen::VectorXd X_one, const Eigen::VectorXd X_two, const double bandwidth);
 RcppExport SEXP _gKRLS_kern_gauss(SEXP X_oneSEXP, SEXP X_twoSEXP, SEXP bandwidthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type X_one(X_oneSEXP);
-    Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type X_two(X_twoSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd >::type X_one(X_oneSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd >::type X_two(X_twoSEXP);
     Rcpp::traits::input_parameter< const double >::type bandwidth(bandwidthSEXP);
     rcpp_result_gen = Rcpp::wrap(kern_gauss(X_one, X_two, bandwidth));
     return rcpp_result_gen;

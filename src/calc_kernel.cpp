@@ -7,11 +7,11 @@ using namespace Rcpp;
 
 // [[Rcpp::export]]
 double kern_gauss(
-    const Eigen::MatrixXd X_one,
-    const Eigen::MatrixXd X_two,
+    const Eigen::VectorXd X_one,
+    const Eigen::VectorXd X_two,
     const double bandwidth
 ){
   double dist = (X_one - X_two).squaredNorm();
-  double out = exp(-dist/bandwidth);
+  double out = std::exp(-dist/bandwidth);
   return out;
 }
