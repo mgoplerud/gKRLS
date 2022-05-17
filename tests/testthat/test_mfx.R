@@ -11,7 +11,7 @@ test_that("mfx with degenerate Mahalanobis", {
   colnames(X) <- paste0("x", 1:ncol(X))
   fit_gKRLS <- gam(y ~ 0 + s(x1, x2, x3,
     bs = "gKRLS",
-    xt = gKRLS(force_base = TRUE, standardize = "Mahalanobis")
+    xt = gKRLS(standardize = "Mahalanobis")
   ),
   family = gaussian(), method = "REML", data = data.frame(y, X)
   )
@@ -38,7 +38,7 @@ test_that("Test MFX", {
   colnames(X) <- paste0("x", 1:ncol(X))
   fit_gKRLS <- gam(y ~ 0 + s(x1, x2, x3,
     bs = "gKRLS",
-    xt = gKRLS(force_base = TRUE, standardize = "scaled", sketch_method = "gaussian")
+    xt = gKRLS(standardize = "scaled", sketch_method = "gaussian")
   ),
   family = gaussian(), method = "REML", data = data.frame(y, X)
   )

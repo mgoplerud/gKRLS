@@ -1,5 +1,6 @@
 
 test_that("gKRLS agrees with direct solution", {
+  
   N <- 200
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)
@@ -35,7 +36,7 @@ test_that("gKRLS agrees with direct solution", {
   fit_gKRLS <- gam(y ~ 0 + s(x1, x2, x3, x4, x5, x6, x7,
     bs = "gKRLS",
     xt = gKRLS(
-      standardize = "scaled", no.rescale = TRUE, truncate.eigen.tol = 0,
+      standardize = "scaled", truncate.eigen.tol = 0,
       sketch_method = "none", remove_instability = TRUE
     )
   ),
@@ -64,6 +65,7 @@ test_that("gKRLS agrees with direct solution", {
 
 
 test_that("Legacy Agrees with Numerical", {
+  
   N <- 200
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)

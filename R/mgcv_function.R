@@ -88,15 +88,12 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
       sketch_matrix <- create_sketch_matrix(N, sketch_size, object$xt$sketch_prob, object$xt$sketch_method)
     }
   }
-  if (object$xt$force_base) {
-    KS <- exp(-base_kernel(X, X_train) / bandwidth) %*% sketch_matrix
-  } else {
-    KS <- create_sketched_kernel(
-      X_test = X,
-      X_train = X_train, tS = t(sketch_matrix), bandwidth = bandwidth
-    )
-  }
-
+  
+  KS <- create_sketched_kernel(
+    X_test = X,
+    X_train = X_train, tS = t(sketch_matrix), bandwidth = bandwidth
+  )
+  
   if (!object$fixed) {
     if (!is.na(sketch_size) & object$xt$sketch_method == "nystrom") {
       Penalty <- t(KS[nystrom_id, ]) %*% sketch_matrix
@@ -158,7 +155,9 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   object$rank <- ncol(KS)
   object$null.space.dim <- 0
   object$df <- ncol(KS)
-  if (object$xt$no.rescale) {
+  # If rescale_penalty is NOT true, then set "no.rescale" to TRUE, i.e. to not rescale.
+  # otherwise, leave null.
+  if (!object$xt$rescale_penalty) {
     object$no.rescale <- TRUE
   }
   object$te.ok <- 0
@@ -189,15 +188,12 @@ Predict.matrix.gKRLS.smooth <- function(object, data) {
     return(X_test)
   }
 
-  if (object$xt$force_base) {
-    KS_test <- exp(-base_kernel(X_test, object$X_train) / object$bandwidth) %*% object$sketch_matrix
-  } else {
-    KS_test <- create_sketched_kernel(
-      X_test = X_test, X_train = object$X_train,
-      tS = t(object$sketch_matrix),
-      bandwidth = object$bandwidth
-    )
-  }
+  KS_test <- create_sketched_kernel(
+    X_test = X_test, X_train = object$X_train,
+    tS = t(object$sketch_matrix),
+    bandwidth = object$bandwidth
+  )
+  
   KS_test <- sweep(KS_test, 2, object$KS_mean, FUN = "-")
 
   return(KS_test)

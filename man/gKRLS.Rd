@@ -8,20 +8,18 @@ gKRLS(
   truncate.eigen.tol = sqrt(.Machine$double.eps),
   demean_kernel = FALSE,
   sketch_method = "nystrom",
-  no.rescale = FALSE,
   standardize = "Mahalanobis",
   sketch_multiplier = 5,
   sketch_size_raw = NULL,
   sketch_prob = NULL,
-  force_base = FALSE,
+  rescale_penalty = TRUE,
   remove_instability = TRUE
 )
 }
 \arguments{
 \item{truncate.eigen.tol}{It determines how much eigenvalues should be truncated.
-If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalue greater or
-equal to 1e-6. The default is sqrt(.Machine$double.eps), where .Machine$double.eps
-is the smallest positive floating-point number x such that 1 + x != 1.}
+If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalues greater or
+equal to 1e-6 in the penalty. The default is sqrt(.Machine$double.eps).}
 
 \item{demean_kernel}{A logical variable ``True'' or ``False'' indicates whether
 the kernel should be demeaned. The default is False. If True is given, column mean
@@ -31,8 +29,6 @@ will be used to calculate the demean kernel matrix.}
 should be used. Options include ``gaussian'': gaussian kernel approximation,
  ``nystrom'':  Nystrom approximation, ``bernoulli'', and no sketch. The default is
 Nystrom approximation.}
-
-\item{no.rescale}{Avoid rescaling the kernel.}
 
 \item{standardize}{A string vector that specifies which standardization
 method should be used. Must be one of ``scaled'', ``Mahalanobis'', or ``none'', which
@@ -47,11 +43,12 @@ of N). Exactly one of this or sketch_multiplier must be NULL.}
 
 \item{sketch_prob}{For bernoulli sketching, what is probability of "1"?}
 
-\item{force_base}{Force construction of kernel using base R (not Rcpp). Only
-use for debugging.}
+\item{rescale_penalty}{Rescale penalty for numerical stability; see documentation for
+\code{mgcv::smooth.spec} on the meaning of this term. Default of "TRUE".}
 
-\item{remove_instability}{A logical variable indicates whether 0 should be removed
-from the eigenvector when building the kernel matrix. The default is ``True''}
+\item{remove_instability}{A logical variable indicates whether numerical
+zeros (set via truncate.eigen.tol) should be removed when building the
+penalty matrix. The default is ``true''.}
 }
 \description{
 Fit a generalized KRLS model using mgcv

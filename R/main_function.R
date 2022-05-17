@@ -17,7 +17,6 @@
 #'   should be used. Options include ``gaussian'': gaussian kernel approximation,
 #'    ``nystrom'':  Nystrom approximation, ``bernoulli'', and no sketch. The default is
 #'   Nystrom approximation.
-#' @param no.rescale Placeholder.
 #' @param standardize A string vector that specifies which standardization
 #'   method should be used. Must be one of ``scaled'', ``Mahalanobis'', or ``none'', which
 #'   menas no standardization. The default is ``scaled''.
@@ -27,15 +26,14 @@
 #' @param sketch_size_raw If desired, set the exact sketching size (independent
 #'   of N). Exactly one of this or sketch_multiplier must be NULL.
 #' @param sketch_prob For bernoulli sketching, what is probability of "1"?
-#' @param no.rescale Avoid rescaling the kernel.
-#' @param remove_instability A logical variable indicates whether 0 should be removed
-#' from the eigenvector when building the kernel matrix. The default is ``True''
+#' @param rescale_penalty Rescale penalty for numerical stability; see documentation for
+#'   \code{mgcv::smooth.spec} on the meaning of this term. Default of "TRUE".
+#' @param remove_instability A logical variable indicates whether numerical
+#'   zeros (set via truncate.eigen.tol) should be removed when building the
+#'   penalty matrix. The default is ``true''.
 #' @param truncate.eigen.tol It determines how much eigenvalues should be truncated.
-#' If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalue greater or
-#' equal to 1e-6. The default is sqrt(.Machine$double.eps), where .Machine$double.eps
-#' is the smallest positive floating-point number x such that 1 + x != 1.
-#' @param force_base Force construction of kernel using base R (not Rcpp). Only
-#'   use for debugging.
+#' If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalues greater or
+#' equal to 1e-6 in the penalty. The default is sqrt(.Machine$double.eps).
 #' @useDynLib gKRLS
 #' @import Matrix
 #' @export
@@ -72,14 +70,17 @@
 gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                   demean_kernel = FALSE,
                   sketch_method = "nystrom",
-                  no.rescale = FALSE, standardize = "Mahalanobis",
+                  standardize = "Mahalanobis",
                   sketch_multiplier = 5,
                   sketch_size_raw = NULL,
-                  sketch_prob = NULL, force_base = FALSE,
+                  sketch_prob = NULL, 
+                  rescale_penalty = TRUE,
                   remove_instability = TRUE) {
   sketch_method <- match.arg(sketch_method, c("nystrom", "gaussian", "bernoulli", "none"))
   standardize <- match.arg(standardize, c("Mahalanobis", "scaled", "none"))
-
+  if (!(rescale_penalty %in% c(TRUE, FALSE))){
+    stop('rescale_penalty must be TRUE or FALSE.')
+  }
   if (!is.null(sketch_size_raw) & !is.null(sketch_multiplier)) {
     stop('Only one of "sketch_size_raw" or "sketch_multiplier" may be provided.')
   } else if (is.null(sketch_size_raw) & is.null(sketch_multiplier)) {
