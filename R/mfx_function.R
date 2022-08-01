@@ -40,6 +40,7 @@
 #' @importFrom stats plogis dnorm pnorm predict coef
 #' @export
 legacy_marginal_effect <- function(object, newdata, keep = NULL) {
+  
   standardize <- object$internal$standardize
 
   N_eff <- length(object$y) - sum(object$edf)
@@ -104,12 +105,19 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL) {
 
   fe_names <- colnames(FE_matrix_test)
   names_mfx <- c(fe_names, kern_smooth$term)
+  
   if (!identical(kern_smooth$term, colnames(kern_smooth$X_train))) {
     if (standardize != "Mahalanobis") {
       message("Names of kern and std_X_train seem misaligned...")
-      print(kern_smooth$term)
-      print(colnames(std_X_train))
-      stop()
+      message('Names from mgcv')
+      message(paste0(kern_smooth$term, collapse=', '))
+      message('Names from std_x_train')
+      message(paste0(colnames(std_X_train), collapse=', '))
+      stop('Error in legacy_predict. This usually occurs when factors are provided to mgcv.\n"calculate_effects" should work as expected.')
+    }else{
+      if (any(!sapply(kern_smooth$term_levels, is.null))){
+        stop('Error in legacy_predict. This usually occurs when factors are provided to mgcv.\n"calculate_effects" should work as expected.')
+      }
     }
   }
 
@@ -186,7 +194,6 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL) {
   fd_matrix[fd_flag, 1] <- 0
   fd_matrix[fd_flag, 2] <- 1
   fd_flag <- (rownames(fd_matrix) %in% fd_flag)
-
 
   std_fd_matrix <- sweep(t(fd_matrix), 2, c(rep(0, SIZE_FE), std_mean), FUN = "-")
   std_fd_matrix <- std_fd_matrix %*%

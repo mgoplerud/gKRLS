@@ -1,4 +1,3 @@
-
 #' @importFrom stats rnorm rbinom
 create_sketch_matrix <- function(N, sketch_size, sketch_prob = NULL, sketch_method) {
   if (sketch_method == "gaussian") {

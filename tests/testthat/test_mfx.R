@@ -2,6 +2,7 @@
 context("Marginal Effects Tests")
 
 test_that("mfx with degenerate Mahalanobis", {
+  
   N <- 100
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)

@@ -1,7 +1,64 @@
+
+#' @importFrom Matrix sparseMatrix
+create_data_gKRLS <- function(term_levels, term_class, data_term, terms, allow.missing.levels = FALSE){
+
+  out <- mapply(term_levels, term_class, data_term, terms, SIMPLIFY = FALSE, 
+    FUN=function(l_i, c_i, d_i, n_i){
+    if (is.null(l_i)){
+      if (!(c_i %in% c('numeric', 'integer'))){
+        warning(paste0(n_i, ' is neither numeric nor integer but is not a factor. Check that it is parsed correctly.'))
+      }
+      d_i <- as.numeric(d_i)
+      if (any(is.na(d_i))){
+        stop(paste0('Coercing ', n_i, ' to numeric induced NAs.'))
+      }
+      return(d_i)
+    }else{
+      if (!any(c_i %in% 'factor')){
+        warning(paste0(n_i, ' has levels but does not have a factor class. Check that it is parsed correctly or convert to factor.'))
+      }
+      d_i_j <- match(d_i, l_i)
+      d_i_i <- seq_len(length(d_i))
+      if (allow.missing.levels){
+        new_levels_ij <- which(is.na(d_i_j))
+        if (length(new_levels_ij) > 0){
+          d_i_j <- d_i_j[-new_levels_ij]
+          d_i_i <- d_i_i[-new_levels_ij]
+          message(paste0('New levels found in factor ', n_i,'. See warnings from mgcv.\nGiving a zero value in the kernel.'))
+        }
+      }else{
+        if (any(is.na(d_i_j))){
+          stop(paste0('Missing values found in ', n_i,' when looking at levels.'))
+        }
+      }
+      transf_d_i <- as.matrix(sparseMatrix(i = d_i_i, 
+                                           j = d_i_j, 
+                                           x = 1, 
+                                           dims = c(length(d_i), length(l_i))
+      ))
+      colnames(transf_d_i) <- paste0(n_i, l_i)
+      return(transf_d_i)
+    }
+  })
+  out <- do.call('cbind', out)
+  return(out)
+  
+}
+
+#' Constructor for gKRLS smooth
 #' @import mgcv
 #' @importFrom Rcpp sourceCpp
+#' @keywords internal
+#' 
+#' See \link{gKRLS} for details.
+#' @param object a smooth object; see documentation for other methods in
+#'   \code{mgcv}.
+#' @param data a data.frame; see documentation for other methods in
+#'   \code{mgcv}.
+#' @param knots not used
 #' @export
 smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
+  
   if (is.null(object$xt)) {
     object$xt <- gKRLS()
   }
@@ -23,15 +80,20 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
     stop('k should not be modified directly. Set sketch size via "xt"')
   }
 
+  term_levels <- lapply(data[object$term], levels)
+  term_class <- lapply(data[object$term], class)
+  
   if (length(object$term) > 1) {
     length_data <- sapply(data, length)
     if (length(unique(length_data)) != 1) {
       stop("Error: All input variables should have same length. The syntax is s(a,b,c,d)")
     }
-    X <- do.call("cbind", data[object$term])
-  } else {
-    X <- matrix(data[[object$term]])
   }
+  
+  X <- create_data_gKRLS(term_levels = term_levels, 
+    term_class = term_class, data_term = data[object$term],
+    terms = object$term)
+    
 
   if (NCOL(X) == 1 & is.null(ncol(X))) {
     X <- matrix(X)
@@ -150,7 +212,9 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   object$sketch_matrix <- sketch_matrix
   object$std_train <- std_train
   object$fd_flag <- fd_flag
-
+  object$term_levels <- term_levels
+  object$term_class <- term_class
+  
   # Required elements for "gam"
   object$rank <- ncol(KS)
   object$null.space.dim <- 0
@@ -168,13 +232,21 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   object
 }
 
+#' Predict Methods for gKRLS smooth
+#' @keywords internal
+#' @param object a smooth object; see documentation for other methods in
+#'   \code{mgcv}.
+#' @param data a data.frame; see documentation for other methods in
+#'   \code{mgcv}.
 #' @export
 Predict.matrix.gKRLS.smooth <- function(object, data) {
-  if (length(object$term) > 1) {
-    X_test <- do.call("cbind", data[object$term])
-  } else {
-    X_test <- matrix(data[[object$term]])
-  }
+  
+  X_test <- create_data_gKRLS(
+    term_levels = object$term_levels, 
+    term_class = object$term_class, 
+    data_term = data[object$term], 
+    terms = object$term, 
+    allow.missing.levels = TRUE)
 
   if (!is.null(object$std_train)) {
     X_test <- sweep(X_test, 2, object$std_train$mean, FUN = "-")

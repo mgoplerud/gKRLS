@@ -119,7 +119,7 @@ SL.mgcv <- function(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...) {
   }
   options$formula <- formula
   options$data <- X
-  options$weights <- X[, "...obsWeights"]
+  options$weights <- X[["...obsWeights"]]
   options$family <- family
 
   if (bam == FALSE) {
