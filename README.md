@@ -1,4 +1,4 @@
-# gKRLS [![R-CMD-check](https://github.com/mgoplerud/gKRLS/workflows/R-CMD-check/badge.svg)](https://github.com/mgoplerud/gKRLS/actions) [![Codecov test coverage](https://codecov.io/gh/mgoplerud/gKRLS/branch/cran/graph/badge.svg)](https://app.codecov.io/gh/mgoplerud/gKRLS?branch=cran)
+# gKRLS [![R-CMD-check](https://github.com/mgoplerud/gKRLS/workflows/R-CMD-check/badge.svg)](https://github.com/mgoplerud/gKRLS/actions) [![codecov](https://codecov.io/gh/mgoplerud/gKRLS/branch/cran/graph/badge.svg?token=U22YCB3LPU)](https://codecov.io/gh/mgoplerud/gKRLS)
 
 This package implements Chang and Goplerud (2022)'s generalization of Kernel Regularized Least Squares (gKRLS), also known as kernel ridge regression. This reformulates [g]KRLS as a hierarchical model. Estimation proceeds using `mgcv` and associated functions such as `gam`, `bam`, or `gamm4`. Thus, it can be used for any outcome implemented in that software as well as including multiple smooth terms, non-penalized covariates, etc.
 
