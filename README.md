@@ -7,7 +7,7 @@ We also provide an implementation of random sketching or projection following [Y
 The syntax is straightforward to users of \texttt{mgcv}. The following example estimates a Poisson regression with an intercept and a flexible kernel term.
 
 ```
-gam(y ~ s(x1, x2, bs = "kern"), data = data, family = poisson())
+gam(y ~ s(x1, x2, bs = "gKRLS"), data = data, family = poisson())
  ```
 
 Sketching is automatically applied such that the dimensionality of the sketched problem is `5 * ceiling(N^(1/3))`. This can be modified directly by the user with the `xt = gKRLS(...)` arguments.
