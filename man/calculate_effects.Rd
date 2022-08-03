@@ -4,7 +4,7 @@
 \alias{calculate_effects}
 \alias{print.gKRLS_mfx}
 \alias{summary.gKRLS_mfx}
-\title{Marginal Effects by Numerical Derivatives}
+\title{Marginal Effects}
 \usage{
 calculate_effects(
   model,
@@ -24,43 +24,46 @@ calculate_effects(
 \method{summary}{gKRLS_mfx}(object, ...)
 }
 \arguments{
-\item{model}{A fitted gKRLS model.}
+\item{model}{A model estimated from \code{mgcv}.}
 
 \item{data}{A new data frame that used to calculate the marginal effect, or
-set to ``NULL'', which the data used to estimate the model will be used. The
-default is ``NULL.''}
+set to ``NULL'', which the data used to estimate the model will be used.
+The default is ``NULL.''}
 
 \item{variables}{Specify the variable names that need to calculate marginal
-effect. The default is ``NULL'', which means calculate marginal effect for all variables.}
+effect. The default is ``NULL'', which means calculate marginal effect for
+all variables.}
 
-\item{vcov}{Specify the covariance matrix.It accepts a user-defined covariance
-matrix or clustered covariance matrices using functions from sandwich package.}
+\item{vcov}{Specify the covariance matrix.It accepts a user-defined
+covariance matrix or clustered covariance matrices using functions from
+sandwich package.}
 
-\item{raw}{Placeholder.}
+\item{raw}{Argument used for internal functions only. Default of \code{FALSE}.}
 
-\item{individual}{Calculate individual effects (i.e. an effect for each observation in the provided data).}
+\item{individual}{Calculate individual effects (i.e. an effect for each
+observation in the provided data).}
 
-\item{conditional}{This is an analogue of Stata's ``at()'' option and ``at'' argument
-in ``margins'' package. Specify the values at which to calculate the marginal
-effect in a named data from. See an example below.}
+\item{conditional}{This is an analogue of Stata's ``at()'' option and ``at''
+argument in ``margins'' package. Specify the values at which to calculate
+the marginal effect in a named data from. See an example below.}
 
-\item{epsilon}{A numerical value to define the step when calculating numerical
-derivatives. See Leeper's articel for details.}
+\item{epsilon}{A numerical value to define the step when calculating
+numerical derivatives. See Leeper (2016) for details.}
 
 \item{verbose}{A logical value indicates whether to report the current stage
 when calculating the marginal effects.}
 
-\item{continuous_type}{A character string indicating the type of marginal effects
-to estimate. Options are ``IQR'': variable values change from 25% to 75%, ``minmax'':
-variable values changes from minimum to maximum, ``derivative'': variable values
-change by epsilon defined in the epsilon argument, ``onesd'': variable values
-change by one standard deviation.}
+\item{continuous_type}{A character string indicating the type of marginal
+effects to estimate. Options are ``IQR'': variable values change from 25%
+to 75%, ``minmax'': variable values changes from minimum to maximum,
+``derivative'': variable values change by epsilon defined in the epsilon
+argument, ``onesd'': variable values change by one standard deviation.}
 
 \item{x}{Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}}
 
 \item{...}{Additional arguments (unused).}
 
-\item{object}{A fitted gKRLS model.}
+\item{object}{A model estimated from \code{mgcv}.}
 }
 \value{
 \code{calculate_effects} return a list which contain a data frame for marginal effects.
@@ -72,9 +75,9 @@ such as Jacobian matrix (\code{jacobian}), how many variables specified to calcu
 and effective sample size (\code{N_eff}) and sample size (N).
 }
 \description{
-This function calculates the marginal effects using numeric approximations of
-the partial derivatives. For a description of this method, please see Thomas Leeper's
-article "Interpreting Regression Results using Average Marginal Effects with R’s margins."
+This function calculates the marginal effects after estimating a model with
+\code{gam} or \code{bam}. For continuous predictors, a numerical
+approximation of the partial derivative is available following Leeper (2016).
 }
 \examples{
 n <- 50
@@ -105,4 +108,9 @@ calculate_effects(gkrls_est,
   variables = "x1",
   conditional = data.frame(state = c("a", "b", "c")), continuous_type = "derivative"
 )
+}
+\references{
+Leeper, Thomas J. 2016. "Interpreting Regression Results using Average
+Marginal Effects with R's \code{margins}." Working paper available at
+\url{https://s3.us-east-2.amazonaws.com/tjl-sharing/assets/AverageMarginalEffects.pdf}.
 }

@@ -1,39 +1,66 @@
-#' gKRLS
+#' Generalized Kernel Regularized Least Squares
 #'
-#' Fit a generalized KRLS model using mgcv
+#' This page documents how to estimate \code{gKRLS} using \code{mgcv}'s
+#' functions, e.g. \code{bam} or \code{gam}. \code{gKRLS} can be specified as
+#' shown in the accompanying examples. Post-estimation functions to calculate
+#' marginal effects are documented elsewhere, e.g. \link{calculate_effects}. 
+#' 
+#' @details 
+#' 
+#' The \code{gKRLS} function should not be called directly and is a control
+#' argument to the smoother in \code{mgcv}, i.e. \code{s(..., bs = "gKRLS", xt =
+#' gKRLS(...)}. Its arguments are described below. Multiple kernels can be
+#' included alongside other smooth arguments specified via \code{s(...)}.
+#' 
+#' \bold{Note:} Variables must be separated with commas inside of \code{s(...)}.
 #'
-#' The function `gKRLS` should be given as a control argument to any relevant
-#' function for fitting a generalized additive model from `mgcv` (e.g. `bam`,
-#' `gam`, `gamm4`). Its arguments are described below with a simple example.
-#'
-#' A kernel can be specified by `s(..., bs = "gKRLS")`.
-#'
-#' NOTE: Variables must be separated by commas inside of the `s(..)`.
-#'
-#' @param demean_kernel A logical variable ``True'' or ``False'' indicates whether
-#' the kernel should be demeaned. The default is False. If True is given, column mean
-#' will be used to calculate the demean kernel matrix.
-#' @param sketch_method String vector that specifies which kernel sketch method
-#'   should be used. Options include ``gaussian'': gaussian kernel approximation,
-#'    ``nystrom'':  Nystrom approximation, ``bernoulli'', and no sketch. The default is
-#'   Nystrom approximation.
-#' @param standardize A string vector that specifies which standardization
-#'   method should be used. Must be one of ``scaled'', ``Mahalanobis'', or ``none'', which
-#'   menas no standardization. The default is ``scaled''.
-#' @param sketch_multiplier By default, sketching size increases with c ``ceiling(nrow(X)^(1/3)''
-#'   where c is the "multiplier". By default, set to 5; if results seem
-#'   unstable, try increasing to around 15.
-#' @param sketch_size_raw If desired, set the exact sketching size (independent
-#'   of N). Exactly one of this or sketch_multiplier must be NULL.
-#' @param sketch_prob For bernoulli sketching, what is probability of "1"?
-#' @param rescale_penalty Rescale penalty for numerical stability; see documentation for
-#'   \code{mgcv::smooth.spec} on the meaning of this term. Default of "TRUE".
-#' @param remove_instability A logical variable indicates whether numerical
-#'   zeros (set via truncate.eigen.tol) should be removed when building the
-#'   penalty matrix. The default is ``true''.
-#' @param truncate.eigen.tol It determines how much eigenvalues should be truncated.
-#' If truncate.eigen.tol set to 1e-6, this means we only keep eigenvalues greater or
-#' equal to 1e-6 in the penalty. The default is sqrt(.Machine$double.eps).
+#' @encoding UTF-8
+#' @param demean_kernel A logical variable \code{TRUE} indicates whether columns
+#'   of the (sketched) kernel should be demeaned before estimation. The default
+#'   is \code{FALSE}.
+#' @param sketch_method A string that specifies which kernel sketch method should
+#'   be used. Options include \code{"nystrom"} (Nyström), \code{"gaussian"},
+#'   \code{"bernoulli"}, or \code{"none"} (no sketching). Default is
+#'   \code{"nystrom"}. See Drineas et al. (2005) and Yang et al. (2017) for details.
+#' @param standardize A string that specifies how the data is standardized
+#'   before distance between observations is calculated. The default is
+#'   \code{"Mahalanobis"}. Other options are \code{"scaled"} (ensure all
+#'   non-constant columns are mean zero and variance one) or \code{"none"} (no
+#'   standardization).
+#' @param sketch_multiplier By default, sketching size increases with \code{c *
+#'   ceiling(nrow(X)^(1/3))} where \code{c} is the "multiplier". Default of 5;
+#'   if results seems unstable, Chang and Goplerud (2022) find that 15 works
+#'   well.
+#' @param sketch_size_raw Set the exact sketching size (independent of N).
+#'   Exactly one of this or sketch_multiplier must be \code{NULL}.
+#' @param sketch_prob For bernoulli sketching, what is probability of "1"? See
+#'   Yang et al. (2017) for details.
+#' @param rescale_penalty Rescale penalty for numerical stability; see
+#'   documentation for \code{mgcv::smooth.spec} on the meaning of this term.
+#'   Default of \code{TRUE}.
+#' @param remove_instability A logical variable that indicates whether numerical
+#'   zeros (set via \code{truncate.eigen.tol}) should be removed when building
+#'   the penalty matrix. The default is \code{TRUE}.
+#' @param truncate.eigen.tol Remove columns of the penalty, i.e. \code{S^T K S},
+#'   whose eigenvalue is below \code{truncate.eigen.tol}. This ensures a
+#'   numerically positive-definite penalty. These columns are also removed from
+#'   the sketched kernel. Default is `sqrt(.Machine$double.eps)`. Setting to 0
+#'   retains all numerically non-negative eigenvalues. This helps with the
+#'   numerical stability of the algorithm. Removal can be disabled using
+#'   \code{remove_instability}.
+#' @references 
+#' 
+#' Chang, Qing and Max Goplerud. 2022. "Generalized Kernel Regularized Least
+#' Squares".
+#' 
+#' Drineas, Petros and Mahoney, Michael W and Nello Cristianini. 2005. "On the
+#' Nyström Method for Approximating a Gram Matrix For Improved Kernel-Based
+#' Learning". \emph{Journal of Machine Learning Research} 6(12):2153-2175.
+#' 
+#' Yang, Yun and Pilanci, Mert and Martin J. Wainwright. 2017. "Randomized
+#' Sketches for Kernels: Fast and Optimal Nonparametric Regression".
+#' \emph{Annals of Statistics} 45(3):991-1023.
+#' 
 #' @useDynLib gKRLS
 #' @import Matrix
 #' @export

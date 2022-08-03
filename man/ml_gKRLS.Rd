@@ -42,21 +42,22 @@ allowed for prediction. The default is True.}
 }
 \description{
 This provides a number of functions to integrate machine learning with gKRLS
-(and more generally `mgcv`). Integrations into `SuperLearner` and `DoubleML`
-(via `mlr3`) are provided below.
+(and more generally \code{mgcv}). Integrations into \code{SuperLearner} and \code{DoubleML}
+(via \code{mlr3}) are provided below.
 }
 \details{
-SuperLearner integration is provided by `SL.mgcv` and the corresponding
-predict method. `mgcv::bam` can be enabled by using `bam = TRUE`. Note that a
-formula must be explicitly provided as a *character*, e.g. " ~ X1 + X2".
+\code{SuperLearner} integration is provided by \code{SL.mgcv} and
+  the corresponding predict method. `mgcv::bam` can be enabled by using
+  \code{bam = TRUE}. Note that a formula must be explicitly provided as a
+  \bold{character}, e.g. " ~ X1 + X2".
 
-`DoubleML` integration is provided in two ways. First, one could load
-`mlr3extralearners` to access `regr.gam` and `classif.gam`. Second, this
-package provides `mgcv::bam` integration directly with a slight adaption of
-the `mlr3extralearner` implementation. These can be either manually added to
-the list of `mlr3` learners by calling `add_bam_to_mlr3()` or direct usage.
-Examples are provided below. For `classif.bam` and `regr.bam`, the formula
-argument is mandatory.
+\code{DoubleML} integration is provided in two ways. First, one could load
+\code{mlr3extralearners} to access \code{regr.gam} and \code{classif.gam}.
+Second, this package provides \code{mgcv::bam} integration directly with a
+slight adaption of the \code{mlr3extralearner} implementation. These can be
+either manually added to the list of \code{mlr3} learners by calling
+\code{add_bam_to_mlr3()} or direct usage. Examples are provided below. For
+\code{classif.bam} and \code{regr.bam}, the formula argument is mandatory.
 }
 \examples{
 

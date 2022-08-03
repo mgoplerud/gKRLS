@@ -18,3 +18,4 @@ create_sketched_kernel(X_test, X_train, tS, bandwidth)
 \description{
 Create the sketched kernel
 }
+\keyword{internal}

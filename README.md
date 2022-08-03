@@ -13,3 +13,5 @@ gam(y ~ s(x1, x2, bs = "kern"), data = data, family = poisson())
 Sketching is automatically applied such that the dimensionality of the sketched problem is `5 * ceiling(N^(1/3))`. This can be modified directly by the user with the `xt = gKRLS(...)` arguments.
 
 Functions are also available to implement `gKRLS` in an ensemble using `SuperLearner` and in debiased/double machine learning using `DoubleML'.
+
+Marginal effects can be calculated using the `calculate_effects` function. Please see the documentation for details.

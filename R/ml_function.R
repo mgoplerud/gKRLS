@@ -1,20 +1,21 @@
 #' Machine Learning with gKRLS
 #'
-#' This provides a number of functions to integrate machine learning with gKRLS
-#' (and more generally `mgcv`). Integrations into `SuperLearner` and `DoubleML`
-#' (via `mlr3`) are provided below.
+#' @description This provides a number of functions to integrate machine learning with gKRLS
+#' (and more generally \code{mgcv}). Integrations into \code{SuperLearner} and \code{DoubleML}
+#' (via \code{mlr3}) are provided below.
 #'
-#' SuperLearner integration is provided by `SL.mgcv` and the corresponding
-#' predict method. `mgcv::bam` can be enabled by using `bam = TRUE`. Note that a
-#' formula must be explicitly provided as a *character*, e.g. " ~ X1 + X2".
+#' @details \code{SuperLearner} integration is provided by \code{SL.mgcv} and
+#'   the corresponding predict method. `mgcv::bam` can be enabled by using
+#'   \code{bam = TRUE}. Note that a formula must be explicitly provided as a
+#'   \bold{character}, e.g. " ~ X1 + X2".
 #'
-#' `DoubleML` integration is provided in two ways. First, one could load
-#' `mlr3extralearners` to access `regr.gam` and `classif.gam`. Second, this
-#' package provides `mgcv::bam` integration directly with a slight adaption of
-#' the `mlr3extralearner` implementation. These can be either manually added to
-#' the list of `mlr3` learners by calling `add_bam_to_mlr3()` or direct usage.
-#' Examples are provided below. For `classif.bam` and `regr.bam`, the formula
-#' argument is mandatory.
+#' \code{DoubleML} integration is provided in two ways. First, one could load
+#' \code{mlr3extralearners} to access \code{regr.gam} and \code{classif.gam}.
+#' Second, this package provides \code{mgcv::bam} integration directly with a
+#' slight adaption of the \code{mlr3extralearner} implementation. These can be
+#' either manually added to the list of \code{mlr3} learners by calling
+#' \code{add_bam_to_mlr3()} or direct usage. Examples are provided below. For
+#' \code{classif.bam} and \code{regr.bam}, the formula argument is mandatory.
 #'
 #' @rdname ml_gKRLS
 #' @importFrom stats as.formula terms update.formula
@@ -161,11 +162,14 @@ add_bam_to_mlr3 <- function() {
   mlr3::mlr_learners$add("regr.bam", LearnerClassifBam)
 }
 
-#' mlr3 integrations with `bam`
+#' mlr3 integration
+#' 
+#' @description This documents \code{LearnerRegrBam} and \code{LearnerClassifBam} that allow for
+#' \code{mgcv::bam} to be used in \code{mlr3} without explicitly loading
+#' \code{mlr3extralearners}. See \link{ml_gKRLS} for discussion of how to use this
+#' and \code{mlr3} for discussion of the `Learner` objects.
 #'
-#' This contains the integration of `mgcv::bam` into `mlr3` without requiring
-#' explicit loading of `mlr3extralearners.`
-#' @rdname mlr3_gKRLS
+#' @name mlr3_gKRLS
 #' @importFrom mlr3 LearnerRegr
 #' @importFrom R6 R6Class
 #' @export
@@ -323,7 +327,7 @@ LearnerRegrBam <- R6Class("LearnerRegrBam",
     }
   )
 )
-#'
+
 #' @rdname mlr3_gKRLS
 #' @importFrom mlr3 LearnerClassif
 #' @export

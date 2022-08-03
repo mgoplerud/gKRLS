@@ -22,6 +22,8 @@ create_sketch_matrix <- function(N, sketch_size, sketch_prob = NULL, sketch_meth
 standardize_design <- function(kernel_X, standardize) {
   names_kx <- colnames(kernel_X)
 
+  zero_columns <- NULL
+  
   if (standardize == "Mahalanobis") {
     std_mean_X <- colMeans(kernel_X)
     # var(X) = A -> var(X A) = A^T var(X) A
@@ -78,7 +80,9 @@ standardize_design <- function(kernel_X, standardize) {
 
   colnames(std_kernel_X) <- names_kx
 
-  return(list(std_kernel_X = std_kernel_X, std_train = std_train))
+  return(list(std_kernel_X = std_kernel_X, 
+              std_train = std_train,
+              zero_columns = zero_columns))
 }
 
 # Calculate kernel in base R

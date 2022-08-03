@@ -1,33 +1,36 @@
-#' Marginal Effects by Numerical Derivatives
+#' Marginal Effects
 #'
-#' This function calculates the marginal effects using numeric approximations of
-#' the partial derivatives. For a description of this method, please see Thomas Leeper's
-#' article "Interpreting Regression Results using Average Marginal Effects with R’s margins."
+#' This function calculates the marginal effects after estimating a model with
+#' \code{gam} or \code{bam}. For continuous predictors, a numerical
+#' approximation of the partial derivative is available following Leeper (2016).
 #'
 #' @name calculate_effects
-#' @param model A fitted gKRLS model.
-#' @param object A fitted gKRLS model.
+#' @param model A model estimated from \code{mgcv}.
+#' @param object A model estimated from \code{mgcv}.
 #' @param data A new data frame that used to calculate the marginal effect, or
-#' set to ``NULL'', which the data used to estimate the model will be used. The
-#' default is ``NULL.''
+#'   set to ``NULL'', which the data used to estimate the model will be used.
+#'   The default is ``NULL.''
 #' @param variables Specify the variable names that need to calculate marginal
-#' effect. The default is ``NULL'', which means calculate marginal effect for all variables.
-#' @param vcov Specify the covariance matrix.It accepts a user-defined covariance
-#' matrix or clustered covariance matrices using functions from sandwich package.
-#' @param raw Placeholder.
-#' @param individual Calculate individual effects (i.e. an effect for each observation in the provided data).
-#' @param conditional  This is an analogue of Stata's ``at()'' option and ``at'' argument
-#' in ``margins'' package. Specify the values at which to calculate the marginal
-#' effect in a named data from. See an example below.
-#' @param epsilon A numerical value to define the step when calculating numerical
-#' derivatives. See Leeper's articel for details.
+#'   effect. The default is ``NULL'', which means calculate marginal effect for
+#'   all variables.
+#' @param vcov Specify the covariance matrix.It accepts a user-defined
+#'   covariance matrix or clustered covariance matrices using functions from
+#'   sandwich package.
+#' @param raw Argument used for internal functions only. Default of \code{FALSE}.
+#' @param individual Calculate individual effects (i.e. an effect for each
+#'   observation in the provided data).
+#' @param conditional  This is an analogue of Stata's ``at()'' option and ``at''
+#'   argument in ``margins'' package. Specify the values at which to calculate
+#'   the marginal effect in a named data from. See an example below.
+#' @param epsilon A numerical value to define the step when calculating
+#'   numerical derivatives. See Leeper (2016) for details.
 #' @param verbose A logical value indicates whether to report the current stage
-#' when calculating the marginal effects.
-#' @param continuous_type A character string indicating the type of marginal effects
-#' to estimate. Options are ``IQR'': variable values change from 25% to 75%, ``minmax'':
-#' variable values changes from minimum to maximum, ``derivative'': variable values
-#' change by epsilon defined in the epsilon argument, ``onesd'': variable values
-#' change by one standard deviation.
+#'   when calculating the marginal effects.
+#' @param continuous_type A character string indicating the type of marginal
+#'   effects to estimate. Options are ``IQR'': variable values change from 25%
+#'   to 75%, ``minmax'': variable values changes from minimum to maximum,
+#'   ``derivative'': variable values change by epsilon defined in the epsilon
+#'   argument, ``onesd'': variable values change by one standard deviation.
 #'
 #' @return  \code{calculate_effects} return a list which contain a data frame for marginal effects.
 #' The \code{variable} represents the variable names used to calculate marginal effects. \code{type}
@@ -37,6 +40,12 @@
 #' such as Jacobian matrix (\code{jacobian}), how many variables specified to calculate marginal effect (\code{counter}),
 #' and effective sample size (\code{N_eff}) and sample size (N).
 #'
+#' @references 
+#' 
+#' Leeper, Thomas J. 2016. "Interpreting Regression Results using Average
+#' Marginal Effects with R's \code{margins}." Working paper available at
+#' \url{https://s3.us-east-2.amazonaws.com/tjl-sharing/assets/AverageMarginalEffects.pdf}.
+#' 
 #' @examples
 #' n <- 50
 #' x1 <- rnorm(n)

@@ -106,6 +106,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   std_X <- standardize_design(kernel_X = X, standardize = object$xt$standardize)
   X <- std_X$std_kernel_X
   std_train <- std_X$std_train
+  std_X_zero <- std_X$zero_columns
   rm(std_X)
   gc()
 

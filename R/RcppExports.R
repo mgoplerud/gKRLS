@@ -14,6 +14,7 @@ cpp_gkrls_me <- function(std_X_train, std_X_test, bandwidth, family, mahal, sd_y
 #' @param X_train Train data
 #' @param tS Transposed sketch matrix
 #' @param bandwidth Kernel bandwidth
+#' @keywords internal
 create_sketched_kernel <- function(X_test, X_train, tS, bandwidth) {
     .Call('_gKRLS_create_sketched_kernel', PACKAGE = 'gKRLS', X_test, X_train, tS, bandwidth)
 }
