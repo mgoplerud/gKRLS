@@ -17,7 +17,7 @@
 #' \code{add_bam_to_mlr3()} or direct usage. Examples are provided below. For
 #' \code{classif.bam} and \code{regr.bam}, the formula argument is mandatory.
 #'
-#' @rdname ml_gKRLS
+#' @name ml_gKRLS
 #' @importFrom stats as.formula terms update.formula
 #' @param Y Specify the outcome variable.
 #' @param X All independent variables include variables in and outside the kernel.
