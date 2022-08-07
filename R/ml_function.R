@@ -1,8 +1,8 @@
 #' Machine Learning with gKRLS
 #'
 #' @description This provides a number of functions to integrate machine learning with gKRLS
-#' (and more generally \code{mgcv}). Integrations into \code{SuperLearner} and \code{DoubleML}
-#' (via \code{mlr3}) are provided below.
+#' (and more generally \code{mgcv}). Integration into \code{SuperLearner} and \code{DoubleML}
+#' (via \code{mlr3}) is described below.
 #'
 #' @details \code{SuperLearner} integration is provided by \code{SL.mgcv} and
 #'   the corresponding predict method. `mgcv::bam` can be enabled by using
@@ -19,18 +19,27 @@
 #'
 #' @name ml_gKRLS
 #' @importFrom stats as.formula terms update.formula
-#' @param Y Specify the outcome variable.
-#' @param X All independent variables include variables in and outside the kernel.
-#' @param newX A new dataset uses for prediction. If no data provided, the original
-#' data will be used.
-#' @param formula A gKRLS style formula. See details in the help(gKRLS) and help(gam).
-#' @param family A string variable indicate the distribution and link function to use.
-#' The default is gaussian distribution.
-#' @param obsWeights The weights for observations.
-#' @param bam A logical variable indicates whether a gKRLS model is applying to a
-#' very large dataset. The default is False.
-#' @param ... Additional arguments to gam/bam.
+#' @param Y The outcome variable.
+#' @param X All predictors used in the model, including those inside and outside
+#'   of the kernel.
+#' @param newX A new dataset used for prediction; if nothing is provided, the
+#'   original data will be used. See the documentation in \code{SuperLearner}
+#'   for details.
+#' @param formula The formula used for \code{mgcv}.
+#' @param family A string variable passed to \code{SL.mgcv}. See
+#'   \code{SuperLearner} documentation for details on valid options.
+#' @param obsWeights A vector of numeric weights for each observation. See
+#'   \code{SuperLearner} documentation for details on valid options.
+#' @param bam A logical value for whether \code{mgcv::bam} should be used
+#'   instead of \code{mgcv::gam}. Default is \code{FALSE}. For large datasets,
+#'   this can dramatically improve estimation time. See Wood et al. (2015) for
+#'   details on \code{bam}.
+#' @param ... Additional arguments to \code{mgcv::gam} and \code{mgcv::bam}.
 #'
+#' @references 
+#' Wood, Simon N and Goude, Yannig and Simon Shaw. 2015. "Generalized Additive
+#' Models for Large Data Sets." \emph{Journal of the Royal Statistical Society:
+#' Series C (Applied Statistics)} 64(1):139-155.
 #' @examples
 #'
 #' N <- 100
@@ -70,7 +79,7 @@
 #'     x_cols = c("x1", "x3"), y_col = "y",
 #'     d_cols = "x2"
 #'   )
-#'   # Fit ATE for binary treatment (works for other DoubleML methods)
+#'   # Estimate effects treatment (works for other DoubleML methods)
 #'   dml_est <- DoubleMLIRM$new(
 #'     data = dml_data,
 #'     n_folds = 2,
@@ -164,14 +173,19 @@ add_bam_to_mlr3 <- function() {
 
 #' mlr3 integration
 #' 
-#' @description This documents \code{LearnerRegrBam} and \code{LearnerClassifBam} that allow for
-#' \code{mgcv::bam} to be used in \code{mlr3} without explicitly loading
-#' \code{mlr3extralearners}. See \link{ml_gKRLS} for discussion of how to use this
-#' and \code{mlr3} for discussion of the `Learner` objects.
-#'
+#' @description This documents \code{LearnerRegrBam} and
+#'   \code{LearnerClassifBam} that allow for \code{mgcv::bam} to be used in
+#'   \code{mlr3} without explicitly loading \code{mlr3extralearners}. See
+#'   \link{ml_gKRLS} for discussion of how to use this and \code{mlr3} for
+#'   discussion of the "Learner" objects. See Wood et al. (2015) for a
+#'   discussion of \code{bam}.
 #' @name mlr3_gKRLS
 #' @importFrom mlr3 LearnerRegr
 #' @importFrom R6 R6Class
+#' @references 
+#' Wood, Simon N and Goude, Yannig and Simon Shaw. 2015. "Generalized Additive
+#' Models for Large Data Sets." \emph{Journal of the Royal Statistical Society:
+#' Series C (Applied Statistics)} 64(1):139-155.
 #' @export
 LearnerRegrBam <- R6Class("LearnerRegrBam",
   inherit = LearnerRegr,

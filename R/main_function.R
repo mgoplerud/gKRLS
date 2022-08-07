@@ -9,19 +9,20 @@
 #' 
 #' The \code{gKRLS} function should not be called directly and is a control
 #' argument to the smoother in \code{mgcv}, i.e. \code{s(..., bs = "gKRLS", xt =
-#' gKRLS(...)}. Its arguments are described below. Multiple kernels can be
+#' gKRLS(...)}. Its arguments are described above Multiple kernels can be
 #' included alongside other smooth arguments specified via \code{s(...)}.
-#' 
+#'
 #' \bold{Note:} Variables must be separated with commas inside of \code{s(...)}.
 #'
 #' @encoding UTF-8
-#' @param demean_kernel A logical variable \code{TRUE} indicates whether columns
-#'   of the (sketched) kernel should be demeaned before estimation. The default
-#'   is \code{FALSE}.
-#' @param sketch_method A string that specifies which kernel sketch method should
-#'   be used. Options include \code{"nystrom"} (Nyström), \code{"gaussian"},
-#'   \code{"bernoulli"}, or \code{"none"} (no sketching). Default is
-#'   \code{"nystrom"}. See Drineas et al. (2005) and Yang et al. (2017) for details.
+#' @param demean_kernel A logical value that indicates whether columns of the
+#'   (sketched) kernel should be demeaned before estimation. The default is
+#'   \code{FALSE}.
+#' @param sketch_method A string that specifies which kernel sketching method
+#'   should be used. Options include \code{"nystrom"} (Nyström),
+#'   \code{"gaussian"}, \code{"bernoulli"}, or \code{"none"} (no sketching).
+#'   Default is \code{"nystrom"}. See Drineas et al. (2005) and Yang et al.
+#'   (2017) for details.
 #' @param standardize A string that specifies how the data is standardized
 #'   before distance between observations is calculated. The default is
 #'   \code{"Mahalanobis"}. Other options are \code{"scaled"} (ensure all
@@ -30,24 +31,25 @@
 #' @param sketch_multiplier By default, sketching size increases with \code{c *
 #'   ceiling(nrow(X)^(1/3))} where \code{c} is the "multiplier". Default of 5;
 #'   if results seems unstable, Chang and Goplerud (2022) find that 15 works
-#'   well.
+#'   well. See \code{sketch_size_raw} to directly set the sketching size.
 #' @param sketch_size_raw Set the exact sketching size (independent of N).
-#'   Exactly one of this or sketch_multiplier must be \code{NULL}.
-#' @param sketch_prob For bernoulli sketching, what is probability of "1"? See
-#'   Yang et al. (2017) for details.
-#' @param rescale_penalty Rescale penalty for numerical stability; see
-#'   documentation for \code{mgcv::smooth.spec} on the meaning of this term.
-#'   Default of \code{TRUE}.
-#' @param remove_instability A logical variable that indicates whether numerical
+#'   Exactly one of this or \code{sketch_multiplier} must be \code{NULL}.
+#' @param sketch_prob For Bernoulli sketching, this sets the probability of
+#'   \code{1}. See Yang et al. (2017) for details on this method.
+#' @param rescale_penalty A logical value for whether the penalty should be
+#'   rescaled for numerical stability. See documentation for
+#'   \code{mgcv::smooth.spec} on the meaning of this term. The default is
+#'   \code{TRUE}.
+#' @param remove_instability A logical value that indicates whether numerical
 #'   zeros (set via \code{truncate.eigen.tol}) should be removed when building
 #'   the penalty matrix. The default is \code{TRUE}.
 #' @param truncate.eigen.tol Remove columns of the penalty, i.e. \code{S^T K S},
 #'   whose eigenvalue is below \code{truncate.eigen.tol}. This ensures a
 #'   numerically positive-definite penalty. These columns are also removed from
-#'   the sketched kernel. Default is `sqrt(.Machine$double.eps)`. Setting to 0
-#'   retains all numerically non-negative eigenvalues. This helps with the
+#'   the sketched kernel. Default is \code{sqrt(.Machine$double.eps)}. Setting
+#'   to 0 retains all numerically non-negative eigenvalues. This helps with the
 #'   numerical stability of the algorithm. Removal can be disabled using
-#'   \code{remove_instability}.
+#'   \code{remove_instability = FALSE}.
 #' @references 
 #' 
 #' Chang, Qing and Max Goplerud. 2022. "Generalized Kernel Regularized Least
@@ -91,7 +93,8 @@
 #' ),
 #' data = data
 #' )
-#'
+#' # A model with multiple kernels
+#' gkrls_multiple <- mgcv::gam(y ~ s(x1, x2, bs = 'gKRLS') + s(x1, x3, bs = 'gKRLS'), data = data)
 #' # calculate marginal effect
 #' calculate_effects(gkrls_est, variables = "x1", continuous_type = "derivative")
 gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),

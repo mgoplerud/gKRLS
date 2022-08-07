@@ -8,37 +8,57 @@
 #' @param model A model estimated from \code{mgcv}.
 #' @param object A model estimated from \code{mgcv}.
 #' @param data A new data frame that used to calculate the marginal effect, or
-#'   set to ``NULL'', which the data used to estimate the model will be used.
-#'   The default is ``NULL.''
-#' @param variables Specify the variable names that need to calculate marginal
-#'   effect. The default is ``NULL'', which means calculate marginal effect for
-#'   all variables.
-#' @param vcov Specify the covariance matrix.It accepts a user-defined
-#'   covariance matrix or clustered covariance matrices using functions from
-#'   sandwich package.
-#' @param raw Argument used for internal functions only. Default of \code{FALSE}.
-#' @param individual Calculate individual effects (i.e. an effect for each
-#'   observation in the provided data).
-#' @param conditional  This is an analogue of Stata's ``at()'' option and ``at''
-#'   argument in ``margins'' package. Specify the values at which to calculate
-#'   the marginal effect in a named data from. See an example below.
+#'   set to \code{NULL}, which the data used to estimate the model will be used.
+#'   The default is \code{NULL}.
+#' @param variables A character vector that specifies the variables for which to
+#'   calculate effects. The default, \code{NULL}, calculates marginal effects
+#'   for all variables.
+#' @param vcov A matrix that specifies the covariance matrix on the parameters.
+#'   The default, \code{NULL}, uses the standard covariance matrix from
+#'   \code{mgcv}. This can be used to specify clustered or robust matrices
+#'   using, e.g., the \code{sandwich} package.
+#' @param raw Argument used for internal functions only. Default is \code{FALSE}.
+#' @param individual A value of \code{TRUE} calculates individual effects (i.e.
+#'   an effect for each observation in the provided data). The default is
+#'   \code{FALSE}.
+#' @param conditional This is an analogue of Stata's \code{at()} option and the
+#'   \code{at} argument in the \code{margins}  package. For a marginal effect on
+#'   some variable \code{"a"}, this can specify the values for other covariates,
+#'   e.g. \code{"b"}, to be held at. Examples are provided below. This should be
+#'   either \code{NULL} (default) or a data.frame where one marginal effect (per
+#'   variable) is provided for each row of \code{conditional}.
 #' @param epsilon A numerical value to define the step when calculating
 #'   numerical derivatives. See Leeper (2016) for details.
-#' @param verbose A logical value indicates whether to report the current stage
-#'   when calculating the marginal effects.
+#' @param verbose A logical value indicates whether to report progress when
+#'   calculating the marginal effects.
 #' @param continuous_type A character string indicating the type of marginal
-#'   effects to estimate. Options are ``IQR'': variable values change from 25%
-#'   to 75%, ``minmax'': variable values changes from minimum to maximum,
-#'   ``derivative'': variable values change by epsilon defined in the epsilon
-#'   argument, ``onesd'': variable values change by one standard deviation.
+#'   effects to estimate when the variable is continuous (i.e. not binary,
+#'   logical, factor, or character). Options are \code{"IQR"} (compares the
+#'   variable at its 25\% and 75\% percentile), \code{"minmax"} (compares the
+#'   variable at its minimum and maximum), \code{"derivative"} (numerically
+#'   approximates the derivative at each observed value), \code{"onesd"}
+#'   (compares one standard deviation below and one standard deviation above).
+#'   It may also accepted a \bold{named list} where each named element
+#'   corresponds to a numeric variable and has a two-length vector as each
+#'   element. The two values are then compared.
 #'
-#' @return  \code{calculate_effects} return a list which contain a data frame for marginal effects.
-#' The \code{variable} represents the variable names used to calculate marginal effects. \code{type}
-#' indicates the method for calculating marginal effects. It is one of the IQR, minmax, derivative,
-#' and onesd. The \code{est} represents the marginal effects. The \code{se}, \code{t}, \code{p.value} are
-#' standard error, t-value, and p-value for marginal effect. This function also return several information
-#' such as Jacobian matrix (\code{jacobian}), how many variables specified to calculate marginal effect (\code{counter}),
-#' and effective sample size (\code{N_eff}) and sample size (N).
+#' @return  \code{calculate_effects} returns a list of class \code{"gKRLS_mfx"}
+#'   that contains the following elements.
+#'   \itemize{
+#'   \item{"marginal_effects": } A data.frame containing the estimated marginal
+#'   effects. \code{"type"} reports the type of marginal effect calculated. The
+#'   estimates, standard errors, t-statistics, and p-values are also reported.
+#'   \item{"jacobian": } This reports the corresponding Jacobian used to
+#'   calculate the standard error (via the delta method) for the estimate. There
+#'   is one row for each row in "marginal_effects". This can be used to, for
+#'   example, calculate a standard error on the difference between two estimated
+#'   marginal effects.
+#'   \item{"counter": } A placeholder for the number of marginal effects calculated.
+#'   \item{"N_eff": The number of observations (in the estimation data) minus
+#'   the effective degrees of freedom. This is used when calculating p-values as
+#'   the degrees of freedom for the t-distribution.}
+#'   \item{"N": The number of observations.}
+#'   }
 #'
 #' @references 
 #' 
