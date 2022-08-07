@@ -14,24 +14,29 @@ SL.mgcv(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...)
 add_bam_to_mlr3()
 }
 \arguments{
-\item{Y}{Specify the outcome variable.}
+\item{Y}{The outcome variable.}
 
-\item{X}{All independent variables include variables in and outside the kernel.}
+\item{X}{All predictors used in the model, including those inside and outside
+of the kernel.}
 
-\item{newX}{A new dataset uses for prediction. If no data provided, the original
-data will be used.}
+\item{newX}{A new dataset used for prediction; if nothing is provided, the
+original data will be used. See the documentation in \code{SuperLearner}
+for details.}
 
-\item{formula}{A gKRLS style formula. See details in the help(gKRLS) and help(gam).}
+\item{formula}{The formula used for \code{mgcv}.}
 
-\item{family}{A string variable indicate the distribution and link function to use.
-The default is gaussian distribution.}
+\item{family}{A string variable passed to \code{SL.mgcv}. See
+\code{SuperLearner} documentation for details on valid options.}
 
-\item{obsWeights}{The weights for observations.}
+\item{obsWeights}{A vector of numeric weights for each observation. See
+\code{SuperLearner} documentation for details on valid options.}
 
-\item{bam}{A logical variable indicates whether a gKRLS model is applying to a
-very large dataset. The default is False.}
+\item{bam}{A logical value for whether \code{mgcv::bam} should be used
+instead of \code{mgcv::gam}. Default is \code{FALSE}. For large datasets,
+this can dramatically improve estimation time. See Wood et al. (2015) for
+details on \code{bam}.}
 
-\item{...}{Additional arguments to gam/bam.}
+\item{...}{Additional arguments to \code{mgcv::gam} and \code{mgcv::bam}.}
 
 \item{object}{A gKRLS model.}
 
@@ -43,8 +48,8 @@ allowed for prediction. The default is True.}
 }
 \description{
 This provides a number of functions to integrate machine learning with gKRLS
-(and more generally \code{mgcv}). Integrations into \code{SuperLearner} and \code{DoubleML}
-(via \code{mlr3}) are provided below.
+(and more generally \code{mgcv}). Integration into \code{SuperLearner} and \code{DoubleML}
+(via \code{mlr3}) is described below.
 }
 \details{
 \code{SuperLearner} integration is provided by \code{SL.mgcv} and
@@ -99,7 +104,7 @@ if (requireNamespace("DoubleML", quietly = TRUE)) {
     x_cols = c("x1", "x3"), y_col = "y",
     d_cols = "x2"
   )
-  # Fit ATE for binary treatment (works for other DoubleML methods)
+  # Estimate effects treatment (works for other DoubleML methods)
   dml_est <- DoubleMLIRM$new(
     data = dml_data,
     n_folds = 2,
@@ -107,4 +112,9 @@ if (requireNamespace("DoubleML", quietly = TRUE)) {
     ml_m = double_bam_2
   )$fit()
 }
+}
+\references{
+Wood, Simon N and Goude, Yannig and Simon Shaw. 2015. "Generalized Additive
+Models for Large Data Sets." \emph{Journal of the Royal Statistical Society:
+Series C (Applied Statistics)} 64(1):139-155.
 }

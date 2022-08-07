@@ -1,29 +1,32 @@
 #' Marginal Effects by Derivative
 #'
-#' Find the (average) marginal effect and standard error by taking the
+#' @description Find the (average) marginal effect and standard error by taking the
 #' analytical derivative of the conditional expectation function. This method is
-#' designed to provide comparability with `KRLS` but is limited in the scenarios
-#' where it can be applied. Specifically, it can only compute effects with a
-#' single kernel and where variables are not both in the kernel and outside the
-#' kernel.
+#' designed to provide comparability with the original \code{KRLS} package, but
+#' is rather limited in the scenarios where it can be applied. Specifically, it can
+#' only compute effects with a single kernel and where variables are not both in
+#' the kernel and outside the kernel.
 #'
-#' Because of these restrictions, users should rely on `calculate_effects` and
-#' this function may be removed in future updates. If a derivative is really
-#' desired, this can be approximated as described in the `calculate_effects`
-#' documentation.
+#' Because of these restrictions, users should rely on \code{calculate_effects}
+#' and this function may be removed in future updates. If a derivative is really
+#' desired, this can be approximated as described in the
+#' \link{calculate_effects} documentation.
 #'
 #' @param object A fitted gKRLS model.
 #' @param newdata A new data frame that used to calculate the marginal effect.
 #' @param keep A character string indicating which variables to calculate marginal
-#' effects. Default is NULL, which calculates marginal effects for all.
+#' effects. Default is \code{NULL}, which calculates marginal effects for all.
 #'
-#' @return The \code{legacy_marginal_effect} returns \code{ME_pointwise}, which is
-#' the marginal effects for each observations, \code{ME_pointwise_var} is the variance
-#' for each marginal effects, \code{AME_pointwise} provide the average marginal effects
-#' for all variables or variables in the keep argument, and \code{AME_pointwise_var} returns
-#' the variance for average marginal effects.
-#'
-#'
+#' @return The \code{legacy_marginal_effect} a list that contains the following elements:
+#' \itemize{
+#' \item{"ME_pointwise": } The marginal effects for each observation.
+#' \item{"ME_pointwise_var": } The variance for each pointwise maringal effect
+#' in "ME_pointwise".
+#' \item{"AME_pointwise": } The average marginal effect, i.e. the column
+#' averages of "ME_pointwise".
+#' \item{"AME_pointwise_var": } The variance of each average marginal effect.
+#' }
+#' 
 #' @examples
 #' n <- 500
 #' x1 <- rnorm(n)
