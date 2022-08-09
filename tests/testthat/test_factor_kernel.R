@@ -91,14 +91,16 @@ test_that("Test that factor vs dummies is equivalent", {
   
   mfx_direct <- calculate_effects(fit_direct, variables = 'X1', continuous_type = 'derivative')
   mfx_factor <- calculate_effects(fit_factor, variables = 'X1', continuous_type = 'derivative')
-  expect_equivalent(mfx_direct, mfx_factor)
+  expect_equivalent(mfx_direct, mfx_factor, tol = 1e-6, scale = 1)
   legacy_direct <- legacy_marginal_effect(fit_direct, newdata = df, keep = 'X1')
   expect_equivalent(
     legacy_direct$AME_pointwise,
-    mfx_direct$marginal_effects$est
+    mfx_direct$marginal_effects$est,
+    tol = 1e-6, scale = 1
   )
   expect_equivalent(
     sqrt(legacy_direct$AME_pointwise_var),
-    mfx_direct$marginal_effects$se
+    mfx_direct$marginal_effects$se,
+    tol = 1e-6, scale = 1
   )
 })
