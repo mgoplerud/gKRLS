@@ -98,9 +98,9 @@
 #' @importFrom stats model.frame sd
 #' @export
 calculate_effects <- function(model, data = NULL,
-                              variables = NULL, vcov = NULL, raw = FALSE, individual = FALSE,
-                              conditional = NULL, epsilon = 1e-7, verbose = FALSE,
-                              continuous_type = c("IQR", "minmax", "derivative", "onesd")) {
+    variables = NULL, vcov = NULL, raw = FALSE, individual = FALSE,
+    conditional = NULL, epsilon = 1e-7, verbose = FALSE,
+    continuous_type = c("IQR", "minmax", "derivative", "onesd")) {
   if (!is.list(continuous_type)) {
     continuous_type <- match.arg(continuous_type)
   }
@@ -450,7 +450,7 @@ calculate_effects <- function(model, data = NULL,
       out_mfx_individual <- rbind(out_mfx_individual, out_mfx_i_ind)
     }
   }
-  cat("\n")
+  
   if (ncol(out_jacobian) != nrow(out_mfx)) {
     stop("Unusual alignment error between jacobian and marginal effects.")
   }
@@ -677,7 +677,8 @@ weighted_mfx <- function(model, data_list, vcov,
   # Get the predictions for each covariate profile provided
   raw_predictions <- lapply(data_list, FUN = function(data_i) {
     # Get the design
-    matrix_i <- predict(model, newdata = data_i, na.action = na.pass, type = "lpmatrix")
+    matrix_i <- predict(model, newdata = data_i, 
+      na.action = na.pass, type = "lpmatrix")
     lp_i <- as.vector(matrix_i %*% model_coef)
     e_i <- model$family$linkinv(lp_i)
     ex <- mean(e_i, na.rm = T)
@@ -705,9 +706,10 @@ weighted_mfx <- function(model, data_list, vcov,
     i$jacobian
   }) %*% weights
 
-  out_se <- sqrt(apply(jacobian_net, MARGIN = 2, FUN = function(i) {
-    as.vector(t(i) %*% vcov %*% i)
-  }))
+  out_se <- sqrt(rowSums( (t(jacobian_net) %*% vcov) * t(jacobian_net) ))
+  # out_se <- sqrt(apply(jacobian_net, MARGIN = 2, FUN = function(i) {
+  #   as.vector(t(i) %*% vcov %*% i)
+  # }))
   out_est <- as.numeric(sapply(raw_predictions, FUN = function(i) {
     i$expectation
   }) %*% weights)
