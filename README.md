@@ -10,7 +10,7 @@ The syntax is straightforward to users of `mgcv`. The following example estimate
 gam(y ~ s(x1, x2, bs = "gKRLS"), data = data, family = poisson())
  ```
 
-Sketching is automatically applied such that the dimensionality of the sketched problem is `5 * ceiling(N^(1/3))`. This can be modified directly by the user with the `xt = gKRLS(...)` arguments.
+Sketching is automatically applied such that the dimensionality of the sketched problem is `5 * ceiling(N^(1/3))`. This can be modified directly by the user with the `xt = gKRLS(...)` arguments. Please see the documentation for details.
 
 Functions are also available to implement `gKRLS` in an ensemble using `SuperLearner` and in debiased/double machine learning using `DoubleML`.
 
