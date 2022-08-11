@@ -2,6 +2,9 @@
 context("Test basic kernel operations and edge cases")
 
 test_that("Check kernel CPP aligns with direct", {
+  
+  set.seed(132)
+  
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
   y <- X %*% rnorm(ncol(X))
@@ -30,11 +33,14 @@ test_that("Check kernel CPP aligns with direct", {
     X_train = X, tS = t(S),
     bandwidth = 2
   )
-  expect_equivalent(K_cpp, exp(-base_kernel(X, X) / 2) %*% S)
-  expect_equivalent(K_cpp, exp(-as.matrix(dist(X)^2) / 2) %*% S)
+  expect_equivalent(K_cpp, exp(-base_kernel(X, X) / 2) %*% S, tolerance = 1e-6)
+  expect_equivalent(K_cpp, exp(-as.matrix(dist(X)^2) / 2) %*% S, tolerance = 1e-6)
 })
 
 test_that("Test everything works when kernel has limited columns", {
+  
+  set.seed(1561)
+  
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
   y <- X %*% rnorm(ncol(X))
@@ -71,6 +77,9 @@ test_that("Test everything works when kernel has limited columns", {
 
 
 test_that("Test sketch size options work as anticipated", {
+  
+  set.seed(1245)
+  
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
   y <- X %*% rnorm(ncol(X))

@@ -2,6 +2,9 @@
 context("Marginal Effects Tests")
 
 test_that("Test DoubleML", {
+  
+  set.seed(5146)
+  
   N <- 100
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)
@@ -35,6 +38,8 @@ test_that("Test DoubleML", {
 })
 
 test_that("Test SuperLearner", {
+  
+  set.seed(5610)
   N <- 100
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)

@@ -3,6 +3,8 @@ context("Marginal Effects Tests")
 
 test_that("mfx with degenerate Mahalanobis", {
   
+  set.seed(9999)
+  
   N <- 100
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)
@@ -33,6 +35,9 @@ test_that("mfx with degenerate Mahalanobis", {
 })
 
 test_that("Test MFX", {
+  
+  set.seed(91850)
+  
   N <- 100
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)
@@ -60,6 +65,8 @@ test_that("Test MFX", {
 })
 
 test_that("test 'calculate_effects'", {
+  
+  set.seed(9111)
   
   N <- 100
   x1 <- rnorm(N)

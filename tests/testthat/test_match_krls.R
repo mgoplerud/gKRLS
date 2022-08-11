@@ -1,6 +1,8 @@
 
 test_that("gKRLS agrees with direct solution", {
   
+  set.seed(7777)
+  
   N <- 200
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)
@@ -66,6 +68,8 @@ test_that("gKRLS agrees with direct solution", {
 
 test_that("Legacy Agrees with Numerical", {
   
+  set.seed(7510)
+  
   N <- 200
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)
@@ -102,6 +106,9 @@ test_that("Legacy Agrees with Numerical", {
 
 
 test_that("Logistic KRLS Tests", {
+  
+  set.seed(7581)
+  
   skip_on_cran()
 
   N <- 200

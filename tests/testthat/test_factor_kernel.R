@@ -1,5 +1,7 @@
 test_that("Test everything runs when kernel has categorical/factor variables", {
   
+  set.seed(4161)
+  
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
   y <- X %*% rnorm(ncol(X))
@@ -22,7 +24,7 @@ test_that("Test everything runs when kernel has categorical/factor variables", {
                      data = df,
                      contrasts.arg = contrast_mm)
   # Check the data aligns (no dropped levels), factors expanded correctly
-  expect_equivalent(mm, fit_gam$smooth[[1]]$X_train)
+  expect_equivalent(mm, fit_gam$smooth[[1]]$X_train, tolerance = 1e-6)
   
   
   v1 <- predict(fit_gam, 
@@ -33,7 +35,7 @@ test_that("Test everything runs when kernel has categorical/factor variables", {
                 newdata = data.frame(X1 = -5:5, X2 = 0:10,
                                      X3 = 2, X4 = 'a', X5 = 'South', X6 = 'CA',
                                      X7 = 1.5, stringsAsFactors = T))
-  expect_equal(v1, v2)
+  expect_equal(v1, v2, tolerance = 1e-6)
   mfx_calc <- calculate_effects(fit_gam)
   expect_error(
     legacy_marginal_effect(fit_gam, newdata = df), 
@@ -53,7 +55,7 @@ test_that("Test everything runs when kernel has categorical/factor variables", {
                                                   newdata = data.frame(X1 = -5:5, X2 = 0:10,
                                                                        X3 = 2, X4 = 'a', X5 = 'NEW', X6 = 'CA',
                                                                        X7 = 1.5, stringsAsFactors = T))))
-  expect_equal(v1, v2)
+  expect_equal(v1, v2, tolerance = 1e-6)
   
   fit_gam2 <- gam(y ~ 1 +
                     s(X1, X2, X3, X4, X5, X6, X7, bs = "gKRLS"), 
@@ -67,6 +69,7 @@ test_that("Test everything runs when kernel has categorical/factor variables", {
 
 test_that("Test that factor vs dummies is equivalent", {
   
+  set.seed(4999)
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
   y <- X %*% rnorm(ncol(X))
@@ -86,21 +89,21 @@ test_that("Test that factor vs dummies is equivalent", {
   fit_direct <-  gam(
     fmla, data = df
   )
-  expect_equivalent(coef(fit_factor), coef(fit_direct))
-  expect_equivalent(fitted(fit_factor), fitted(fit_direct))
+  expect_equivalent(coef(fit_factor), coef(fit_direct), tolerance = 1e-6)
+  expect_equivalent(fitted(fit_factor), fitted(fit_direct), tolerance = 1e-6)
   
   mfx_direct <- calculate_effects(fit_direct, variables = 'X1', continuous_type = 'derivative')
   mfx_factor <- calculate_effects(fit_factor, variables = 'X1', continuous_type = 'derivative')
-  expect_equivalent(mfx_direct, mfx_factor, tol = 1e-6, scale = 1)
+  expect_equivalent(mfx_direct, mfx_factor, tol = 1e-6)
   legacy_direct <- legacy_marginal_effect(fit_direct, newdata = df, keep = 'X1')
   expect_equivalent(
     legacy_direct$AME_pointwise,
     mfx_direct$marginal_effects$est,
-    tol = 1e-6, scale = 1
+    tol = 1e-6,
   )
   expect_equivalent(
     sqrt(legacy_direct$AME_pointwise_var),
     mfx_direct$marginal_effects$se,
-    tol = 1e-6, scale = 1
+    tol = 1e-6,
   )
 })
