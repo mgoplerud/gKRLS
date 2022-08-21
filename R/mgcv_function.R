@@ -56,6 +56,7 @@ create_data_gKRLS <- function(term_levels, term_class, data_term, terms, allow.m
 #' @param data a data.frame; see documentation for other methods in
 #'   \code{mgcv}.
 #' @param knots not used
+#' @importFrom stats runif
 #' @export
 smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   
@@ -159,6 +160,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
       }
       leverage_dim <- min(c(nrow(X), 10 * sketch_size))
       message(paste0('Computing leverage scores with rank ', leverage_dim))
+      leverage_scores <- function(X, bandwidth, k){stop('SET UP LEVERAGE SCORES')}
       lscores <- leverage_scores(X = X, bandwidth = bandwidth, k = leverage_dim)
       nystrom_id <- which(sketch_size * lscores >= runif(nrow(X)))
       message(paste0(length(nystrom_id), ' sampled using leverage scores: ', sketch_size, ' was requested.'))
@@ -184,13 +186,15 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
     X_train = X_train, tS = t(sketch_matrix), bandwidth = bandwidth
   )
   
+  ev_orig <- NULL
+  P_orig <- NULL
   if (!object$fixed) {
     if (!is.na(sketch_size) & object$xt$sketch_method %in% c("custom", "nystrom", "nystrom_leverage") ) {
       Penalty <- t(KS[nystrom_id, ]) %*% sketch_matrix
     } else {
       Penalty <- t(KS) %*% sketch_matrix
     }
-
+    P_orig <- Penalty
     # Penalty <- Penalty/sum(Penalty^2)
 
     if (object$xt$remove_instability) {
@@ -199,9 +203,10 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
       truncate_eigen_penalty <- object$xt$truncate.eigen.tol
 
       eigen_sketch <- eigen(Penalty, symmetric = TRUE)
+      ev_orig <- eigen_sketch$values
       eigen_sketch$values <- ifelse(eigen_sketch$values < truncate_eigen_penalty, 0, eigen_sketch$values)
       nonzero <- which(eigen_sketch$values != 0)
-
+    
       if (length(nonzero) == 0) {
         stop('After truncation, all eigenvectors are removed. Decrease "truncate.eigen.tol" or set "remove_instability" = FALSE to proceed.')
       }
@@ -232,6 +237,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   }
 
   # Required elements for kernel prediction
+  object$ev_orig <- P_orig
   object$KS_mean <- KS_mean
   object$X <- KS
   object$copy <- KS
@@ -301,17 +307,17 @@ Predict.matrix.gKRLS.smooth <- function(object, data) {
   return(KS_test)
 }
 
-leverage_scores <- function(X, bandwidth, k){
-  
-  kern_prod <- function(x, args){
-    create_sketched_kernel(X_test = args$X, X_train = args$X, tS = t(x), bandwidth = args$bandwidth)
-  }
-  
-  eig_func <- RSpectra::eigs_sym(
-    kern_prod, k = k, 
-    which = 'LM', n = nrow(X),
-    args = list(X = X, bandwidth = bandwidth))
-  
-  leverage <- rowMeans(eig_func$vectors^2)
-  return(leverage)
-}
+# leverage_scores <- function(X, bandwidth, k){
+#   
+#   kern_prod <- function(x, args){
+#     create_sketched_kernel(X_test = args$X, X_train = args$X, tS = t(x), bandwidth = args$bandwidth)
+#   }
+#   
+#   eig_func <- RSpectra::eigs_sym(
+#     kern_prod, k = k, 
+#     which = 'LM', n = nrow(X),
+#     args = list(X = X, bandwidth = bandwidth))
+#   
+#   leverage <- rowMeans(eig_func$vectors^2)
+#   return(leverage)
+# }

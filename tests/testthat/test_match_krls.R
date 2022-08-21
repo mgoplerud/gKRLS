@@ -18,7 +18,7 @@ test_that("gKRLS agrees with direct solution", {
 
   est_gKRLS <- gam(y ~ s(x1, x2, x3, x4, x5, x6, x7,
     bs = "gKRLS",
-    xt = gKRLS(sketch_method = "none", truncate.eigen.tol = 0)
+    xt = gKRLS(sketch_method = "none")
   ),
   family = gaussian(), data = data.frame(y, X)
   )
@@ -26,7 +26,7 @@ test_that("gKRLS agrees with direct solution", {
   est_copy <- gam(y ~ s(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13,
     x14, x15, x16, x17, x18, x19, x20, x21,
     bs = "gKRLS",
-    xt = gKRLS(sketch_method = "none", truncate.eigen.tol = 0)
+    xt = gKRLS(sketch_method = "none")
   ),
   family = gaussian(), data = data.frame(y, X_copy)
   )
@@ -36,8 +36,8 @@ test_that("gKRLS agrees with direct solution", {
   fit_gKRLS <- gam(y ~ 0 + s(x1, x2, x3, x4, x5, x6, x7,
     bs = "gKRLS",
     xt = gKRLS(
-      standardize = "scaled", truncate.eigen.tol = 0,
-      sketch_method = "none", remove_instability = TRUE
+      standardize = "scaled", 
+      sketch_method = "none",
     )
   ),
   family = gaussian(), method = "REML", data = data.frame(y, X)

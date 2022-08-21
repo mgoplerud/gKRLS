@@ -40,6 +40,8 @@
 #'   rescaled for numerical stability. See documentation for
 #'   \code{mgcv::smooth.spec} on the meaning of this term. The default is
 #'   \code{TRUE}.
+#' @param bandwidth The bandwidth for the kernel \eqn{D} where each element of
+#'   the kernel is defined by \eqn{\exp(-||x_i - x_j||^2_2/D)}.
 #' @param remove_instability A logical value that indicates whether numerical
 #'   zeros (set via \code{truncate.eigen.tol}) should be removed when building
 #'   the penalty matrix. The default is \code{TRUE}.
