@@ -93,8 +93,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   X <- create_data_gKRLS(term_levels = term_levels, 
     term_class = term_class, data_term = data[object$term],
     terms = object$term)
-    
-
+  
   if (NCOL(X) == 1 & is.null(ncol(X))) {
     X <- matrix(X)
   }
@@ -110,46 +109,74 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   rm(std_X)
   gc()
 
-  bandwidth <- object$xt$bandwith
+  bandwidth <- object$xt$bandwidth
   if (is.null(bandwidth)) {
     bandwidth <- ncol(X)
   }
-
+  
   # Create the Kernel
   N <- nrow(X)
 
-  sketch_size_raw <- object$xt$sketch_size_raw
-  sketch_multiplier <- object$xt$sketch_multiplier
-  # Either multiply N^(1/3) by multiplier *or* use raw value
-  if (!is.null(sketch_multiplier)) {
-    sketch_size <- floor(ceiling(N^(1 / 3)) * sketch_multiplier)
-  } else {
-    sketch_size <- sketch_size_raw
+  if (object$xt$sketch_method != 'custom'){
+    sketch_size_raw <- object$xt$sketch_size_raw
+    sketch_multiplier <- object$xt$sketch_multiplier
+    # Either multiply N^(1/3) by multiplier *or* use raw value
+    if (!is.null(sketch_multiplier)) {
+      sketch_size <- floor(ceiling(N^(1 / 3)) * sketch_multiplier)
+    } else {
+      sketch_size <- sketch_size_raw
+    }
+  }else{
+    sketch_size <- sketch_size_raw <- NA
   }
 
 
   X_train <- X
 
-  if (is.na(sketch_size)) {
+  nystrom_id <- NULL
+  if (is.na(sketch_size) & object$xt$sketch_method != 'custom') {
     sketch_matrix <- diag(N)
   } else {
-    if (sketch_size >= N) {
-      warning("Sketch size exceeds size of data")
+    
+    if (object$xt$sketch_method != 'custom'){
+      if (sketch_size >= N) {
+        warning("Sketch size exceeds size of data")
+      }
+      if (sketch_size < 0) { # Do N - s
+        sketch_size <- N + sketch_size
+      }
     }
-    if (sketch_size < 0) { # Do N - s
-      sketch_size <- N + sketch_size
-    }
-
-    if (object$xt$sketch_method == "nystrom") {
+    
+    if (object$xt$sketch_method == 'custom'){
+      nystrom_id <- object$xt$sketch_vector
+      X_train <- X[nystrom_id, , drop = F]
+      sketch_size <- length(nystrom_id)
+      sketch_matrix <- diag(length(nystrom_id)) * sqrt(N/sketch_size)
+    }else if (object$xt$sketch_method == 'nystrom_leverage'){
+      
+      if (sketch_size > N) {
+        stop("Nystrom requires sketch_size < N.")
+      }
+      leverage_dim <- min(c(nrow(X), 10 * sketch_size))
+      message(paste0('Computing leverage scores with rank ', leverage_dim))
+      lscores <- leverage_scores(X = X, bandwidth = bandwidth, k = leverage_dim)
+      nystrom_id <- which(sketch_size * lscores >= runif(nrow(X)))
+      message(paste0(length(nystrom_id), ' sampled using leverage scores: ', sketch_size, ' was requested.'))
+      X_train <- X[nystrom_id, , drop = F]
+      sketch_matrix <- diag(length(nystrom_id)) * sqrt(N/sketch_size)
+      
+    }else if (object$xt$sketch_method == "nystrom") {
       if (sketch_size > N) {
         stop("Nystrom requires sketch_size < N.")
       }
       nystrom_id <- sample(1:N, sketch_size)
       X_train <- X[nystrom_id, , drop = F]
-      sketch_matrix <- diag(length(nystrom_id))
+      sketch_matrix <- diag(length(nystrom_id)) * sqrt(N/sketch_size)
+      
     } else {
       sketch_matrix <- create_sketch_matrix(N, sketch_size, object$xt$sketch_prob, object$xt$sketch_method)
     }
+    
   }
   
   KS <- create_sketched_kernel(
@@ -158,7 +185,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   )
   
   if (!object$fixed) {
-    if (!is.na(sketch_size) & object$xt$sketch_method == "nystrom") {
+    if (!is.na(sketch_size) & object$xt$sketch_method %in% c("custom", "nystrom", "nystrom_leverage") ) {
       Penalty <- t(KS[nystrom_id, ]) %*% sketch_matrix
     } else {
       Penalty <- t(KS) %*% sketch_matrix
@@ -215,7 +242,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   object$fd_flag <- fd_flag
   object$term_levels <- term_levels
   object$term_class <- term_class
-  
+  object$nystrom_id <- nystrom_id
   # Required elements for "gam"
   object$rank <- ncol(KS)
   object$null.space.dim <- 0
@@ -267,7 +294,24 @@ Predict.matrix.gKRLS.smooth <- function(object, data) {
     bandwidth = object$bandwidth
   )
   
-  KS_test <- sweep(KS_test, 2, object$KS_mean, FUN = "-")
-
+  if (object$xt$demean_kernel) {
+    KS_test <- sweep(KS_test, 2, object$KS_mean, FUN = "-")
+  }
+  
   return(KS_test)
+}
+
+leverage_scores <- function(X, bandwidth, k){
+  
+  kern_prod <- function(x, args){
+    create_sketched_kernel(X_test = args$X, X_train = args$X, tS = t(x), bandwidth = args$bandwidth)
+  }
+  
+  eig_func <- RSpectra::eigs_sym(
+    kern_prod, k = k, 
+    which = 'LM', n = nrow(X),
+    args = list(X = X, bandwidth = bandwidth))
+  
+  leverage <- rowMeans(eig_func$vectors^2)
+  return(leverage)
 }

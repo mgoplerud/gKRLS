@@ -105,8 +105,14 @@ gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                   sketch_size_raw = NULL,
                   sketch_prob = NULL, 
                   rescale_penalty = TRUE,
+                  bandwidth = NULL,
                   remove_instability = TRUE) {
-  sketch_method <- match.arg(sketch_method, c("nystrom", "gaussian", "bernoulli", "none"))
+  if (length(sketch_method) == 1){
+    sketch_method <- match.arg(sketch_method, c("nystrom", "gaussian", "bernoulli", "none"))
+  }else{
+    sketch_vector <- sketch_method
+    sketch_method <- 'custom'
+  }
   standardize <- match.arg(standardize, c("Mahalanobis", "scaled", "none"))
   if (!(rescale_penalty %in% c(TRUE, FALSE))){
     stop('rescale_penalty must be TRUE or FALSE.')
