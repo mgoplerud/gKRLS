@@ -40,6 +40,8 @@
 #'   rescaled for numerical stability. See documentation for
 #'   \code{mgcv::smooth.spec} on the meaning of this term. The default is
 #'   \code{TRUE}.
+#' @param bandwidth The bandwidth for the kernel \eqn{D} where each element of
+#'   the kernel is defined by \eqn{\exp(-||x_i - x_j||^2_2/D)}.
 #' @param remove_instability A logical value that indicates whether numerical
 #'   zeros (set via \code{truncate.eigen.tol}) should be removed when building
 #'   the penalty matrix. The default is \code{TRUE}.
@@ -105,8 +107,14 @@ gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                   sketch_size_raw = NULL,
                   sketch_prob = NULL, 
                   rescale_penalty = TRUE,
+                  bandwidth = NULL,
                   remove_instability = TRUE) {
-  sketch_method <- match.arg(sketch_method, c("nystrom", "gaussian", "bernoulli", "none"))
+  if (length(sketch_method) == 1){
+    sketch_method <- match.arg(sketch_method, c("nystrom", "gaussian", "bernoulli", "none"))
+  }else{
+    sketch_vector <- sketch_method
+    sketch_method <- 'custom'
+  }
   standardize <- match.arg(standardize, c("Mahalanobis", "scaled", "none"))
   if (!(rescale_penalty %in% c(TRUE, FALSE))){
     stop('rescale_penalty must be TRUE or FALSE.')

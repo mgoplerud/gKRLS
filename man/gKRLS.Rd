@@ -14,6 +14,7 @@ gKRLS(
   sketch_size_raw = NULL,
   sketch_prob = NULL,
   rescale_penalty = TRUE,
+  bandwidth = NULL,
   remove_instability = TRUE
 )
 }
@@ -57,6 +58,9 @@ Exactly one of this or \code{sketch_multiplier} must be \code{NULL}.}
 rescaled for numerical stability. See documentation for
 \code{mgcv::smooth.spec} on the meaning of this term. The default is
 \code{TRUE}.}
+
+\item{bandwidth}{The bandwidth for the kernel \eqn{D} where each element of
+the kernel is defined by \eqn{\exp(-||x_i - x_j||^2_2/D)}.}
 
 \item{remove_instability}{A logical value that indicates whether numerical
 zeros (set via \code{truncate.eigen.tol}) should be removed when building

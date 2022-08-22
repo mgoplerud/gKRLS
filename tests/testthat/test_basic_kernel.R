@@ -102,4 +102,23 @@ test_that("Test sketch size options work as anticipated", {
   expect_equal(nrow(fit_two$smooth[[1]]$sketch_matrix), 3)
 })
 
-
+test_that("Test custom vector", {
+  N <- 50
+  X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
+  y <- X %*% rnorm(ncol(X))
+  fit_one <- gam(y ~ s(X1, X2, X3,
+                       bs = "gKRLS",
+                       xt = gKRLS(sketch_method = sample(1:50, 5), remove_instability = FALSE)
+  ), data = data.frame(X, y))
+  expect_equal(length(fit_one$smooth[[1]]$nystrom_id), 5)
+  expect_s3_class(fit_one, "gam")
+  fit_one <- gam(y ~ s(X1, X2, X3,
+                       bs = "gKRLS",
+                       xt = gKRLS(sketch_method = rep(1,4), remove_instability = FALSE)
+  ), data = data.frame(X, y))
+  expect_equal(length(fit_one$smooth[[1]]$nystrom_id), 4)
+  expect_true(all(fit_one$smooth[[1]]$nystrom_id == 1))
+  expect_s3_class(fit_one, "gam")
+  v <- predict(fit_one, newdata = data.frame(X)[1:5,])
+  expect_vector(v, size = 5)
+})

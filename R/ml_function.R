@@ -96,6 +96,7 @@ SL.mgcv <- function(Y, X, newX, formula, family, obsWeights, bam = FALSE, ...) {
   if (is.character(formula)) {
     formula <- as.formula(formula)
   }
+  
   # Modified to deal with "y ~ ."
   # https://stackoverflow.com/questions/13217322/how-to-reliably-get-dependent-variable-name-from-formula-object
   getResponseFromFormula <- function(formula, X) {
