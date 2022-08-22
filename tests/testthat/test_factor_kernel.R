@@ -69,11 +69,7 @@ test_that("Test everything runs when kernel has categorical/factor variables", {
 
 test_that("Test that factor vs dummies is equivalent", {
   
-<<<<<<< HEAD
   set.seed(4999)
-=======
-
->>>>>>> 48cd6b5a4963fc0e14db0e248ee6ae2707a59ebe
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
   y <- X %*% rnorm(ncol(X))
