@@ -5,7 +5,7 @@ create_data_gKRLS <- function(term_levels, term_class, data_term, terms, allow.m
   out <- mapply(term_levels, term_class, data_term, terms, SIMPLIFY = FALSE, 
     FUN=function(l_i, c_i, d_i, n_i){
     if (is.null(l_i)){
-      if (!(c_i %in% c('numeric', 'integer'))){
+      if (!(any(c_i %in% c('numeric', 'integer', 'double', 'float')))){
         warning(paste0(n_i, ' is neither numeric nor integer but is not a factor. Check that it is parsed correctly.'))
       }
       d_i <- as.numeric(d_i)
