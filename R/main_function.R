@@ -107,7 +107,7 @@ gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                   sketch_size_raw = NULL,
                   sketch_prob = NULL, 
                   rescale_penalty = TRUE,
-                  bandwidth = NULL,
+                  bandwidth = NULL, 
                   remove_instability = TRUE) {
   if (length(sketch_method) == 1){
     sketch_method <- match.arg(sketch_method, c("nystrom", "gaussian", "bernoulli", "none"))

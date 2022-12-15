@@ -21,7 +21,7 @@ Imports:
   mlr3, 
   R6
 Depends:
-  mgcv
+  mgcv, sandwich (>= 2.4.0)
 Suggests:
   SuperLearner,
   mlr3misc,

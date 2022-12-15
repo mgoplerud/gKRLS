@@ -236,7 +236,6 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   } else {
     KS_mean <- rep(0, ncol(KS))
   }
-
   # Required elements for kernel prediction
   object$ev_orig <- P_orig
   object$KS_mean <- KS_mean
@@ -306,6 +305,35 @@ Predict.matrix.gKRLS.smooth <- function(object, data) {
   }
   
   return(KS_test)
+}
+
+#' @importFrom stats poly
+#' @export
+smooth.construct.unregpoly.smooth.spec <- function(object, data, knots) {
+  if (length(knots) != 0){stop('"knots" not used for unregularized-polynomial.')}
+  if (is.null(object$xt)) {
+    object$xt <- NULL
+  }
+  X <- do.call('poly', c(list(x = data[[object$term]]), object$xt)) 
+  object$orig_poly <- X
+  object$X <- as.matrix(X)
+  object$rank <- NA
+  object$null.space.dim <- 0
+  object$df <- ncol(X)
+  object$no.rescale <- TRUE
+  object$te.ok <- 0
+  object$plot.me <- FALSE
+  object$C <- matrix(nrow = 0, ncol = ncol(X))
+  object$S <- list()
+  object$fixed <- TRUE
+  class(object) <- 'unregpoly.smooth'
+  return(object)
+}
+
+#' @export
+Predict.matrix.unregpoly.smooth <- function(object, data) {
+  X_new <- predict(object = object$orig_poly, newdata = data[[object$term]])
+  return(X_new)
 }
 
 # leverage_scores <- function(X, bandwidth, k){
