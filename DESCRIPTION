@@ -15,14 +15,14 @@ Imports:
   mlr3, 
   R6
 Depends:
-  mgcv
+  mgcv, sandwich (>= 2.4.0)
 Suggests:
   SuperLearner,
   mlr3misc,
   DoubleML,
   testthat
 SystemRequirements: GNU make
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.1
 NeedsCompilation: yes
 URL: https://github.com/mgoplerud/gKRLS
 BugReports: https://github.com/mgoplerud/gKRLS/issues

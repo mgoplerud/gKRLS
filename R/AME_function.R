@@ -100,11 +100,12 @@
 calculate_effects <- function(model, data = NULL,
     variables = NULL, vcov = NULL, raw = FALSE, individual = FALSE,
     conditional = NULL, epsilon = 1e-7, verbose = FALSE,
-    continuous_type = c("IQR", "minmax", "derivative", "onesd")) {
+    continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict")) {
   if (!is.list(continuous_type)) {
     continuous_type <- match.arg(continuous_type)
   }
 
+  simple_family <- !inherits(model$family, c('general.family', 'extended.family'))
   N_eff <- length(model$y) - sum(model$edf)
   N <- length(model$y)
 
@@ -115,6 +116,12 @@ calculate_effects <- function(model, data = NULL,
     rm(data)
   }
 
+  if (identical(continuous_type, 'predict')){
+    if (raw){
+      raw <- FALSE
+      message("raw = FALSE if continuous_type = 'predict'")
+    }
+  }
   if (is.null(vcov)) {
     vcov <- stats::vcov(model)
   }
@@ -145,7 +152,7 @@ calculate_effects <- function(model, data = NULL,
     ncond <- 1
   }
 
-  any_binary <- apply(raw_data[, names(variable_type)],
+  any_binary <- apply(raw_data[, names(variable_type), drop = F],
     MARGIN = 2,
     FUN = function(i) {
       all(i %in% c(0, 1))
@@ -153,7 +160,9 @@ calculate_effects <- function(model, data = NULL,
   )
   variable_type[which(any_binary)] <- "bnames"
 
-  if (is.null(variables)) {
+  if (identical(continuous_type, 'predict')){
+    variable_list <- list('...placeholder')
+  }else if (is.null(variables)) {
     variable_list <- as.list(variable_list)
   } else if (is.list(variables)) {
     check_valid <- all(sapply(variables, FUN = function(i) {
@@ -183,7 +192,12 @@ calculate_effects <- function(model, data = NULL,
   if (individual) {
     out_mfx_individual <- data.frame()
   }
-  out_jacobian <- matrix(nrow = length(coef(model)), ncol = 0)
+  
+  if (simple_family){
+    out_jacobian <- matrix(nrow = length(coef(model)), ncol = 0)
+  }else{
+    out_jacobian <- list()
+  }
   out_counter <- c()
 
   if (is.list(continuous_type)) {
@@ -226,15 +240,15 @@ calculate_effects <- function(model, data = NULL,
 
     data_out <- list()
     for (v in variable_list) {
+      
       type_v <- variable_type[v]
-
       packaged_data <- list()
       # Loop over each variable and create the "d0" and "d1" frames, respectively
       for (v_id in seq_len(length(v))) {
         v_i <- v[v_id]
         type_i <- type_v[v_id]
         multiplier <- 1
-        if (type_i == "nnames") {
+        if (type_i %in% c("nnames", NA)) {
           if (is.list(continuous_type)) {
             r_i <- continuous_type[[v_i]]
             step2 <- c("0" = r_i[1], "1" = r_i[2])
@@ -264,19 +278,33 @@ calculate_effects <- function(model, data = NULL,
             step2 <- c("0" = q_i[1], "1" = q_i[2])
             step <- NULL
             ctype <- "IQR"
+          } else if (continuous_type == "predict") {
+            ctype <- "predict"
+            step <- NULL
+            step2 <- NULL
           } else {
             stop("invalid continuous_type")
           }
           if (v_id == 1) {
-            packaged_data <- list(list(
-              data = list("d1" = data, "d0" = data),
-              weights = c(1, -1) * multiplier,
-              raw = raw,
-              type = continuous_type,
-              name = v_i
-            ))
-            packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["0"], ctype)
-            packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["1"], ctype)
+            if (continuous_type == "predict"){
+              packaged_data <- list(list(
+                data = list("d0" = data),
+                weights = 1,
+                raw = raw,
+                type = continuous_type,
+                name = v_i
+              ))
+            }else{
+              packaged_data <- list(list(
+                data = list("d1" = data, "d0" = data),
+                weights = c(1, -1) * multiplier,
+                raw = raw,
+                type = continuous_type,
+                name = v_i
+              ))
+              packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["0"], ctype)
+              packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["1"], ctype)
+            }
             names(packaged_data) <- v_i
           } else {
             old_names <- names(packaged_data)
@@ -421,12 +449,20 @@ calculate_effects <- function(model, data = NULL,
       id <- NULL
       id_individual <- NULL
     }
-    out_mfx_i <- out_mfx_i[, c("variable", "type", "est", "se")]
+    select_col <- c("variable", "type", "est", "se")
+    if ('response' %in% names(out_mfx_i)){
+      select_col <- c(select_col, 'response')
+    }
+    out_mfx_i <- out_mfx_i[ , select_col]
     out_mfx_i[["...id"]] <- id
     rownames(out_mfx_i) <- NULL
 
     if (individual) {
-      out_mfx_i_ind <- out_mfx_i_ind[, c("obs", "variable", "type", "est", "se")]
+      select_col <- c("obs", "variable", "type", "est", "se")
+      if ('response' %in% names(out_mfx_i_ind)){
+        select_col <- c(select_col, 'response')
+      }
+      out_mfx_i_ind <- out_mfx_i_ind[, select_col]
       out_mfx_i_ind[["...id"]] <- id
     }
 
@@ -441,18 +477,39 @@ calculate_effects <- function(model, data = NULL,
 
     out_counter <- c(out_counter, rep(cond_i, nrow(out_mfx_i)))
     out_mfx <- rbind(out_mfx, out_mfx_i)
-    out_jacobian_i <- do.call("cbind", lapply(data_out, FUN = function(i) {
-      i$jacobian
-    }))
-    out_jacobian <- cbind(out_jacobian, out_jacobian_i)
+    
+    if (simple_family){
+      out_jacobian_i <- do.call("cbind", lapply(data_out, FUN = function(i) {
+        i$jacobian
+      }))
+      out_jacobian <- cbind(out_jacobian, out_jacobian_i)
+    }else{
+
+      out_jacobian_i <- lapply(data_out, FUN = function(i) {
+        i$jacobian
+      })
+      out_jacobian <- c(out_jacobian, list(out_jacobian_i))
+      
+    }
 
     if (individual) {
       out_mfx_individual <- rbind(out_mfx_individual, out_mfx_i_ind)
     }
   }
   
-  if (ncol(out_jacobian) != nrow(out_mfx)) {
-    stop("Unusual alignment error between jacobian and marginal effects.")
+  if (simple_family){
+    if (ncol(out_jacobian) != nrow(out_mfx)) {
+      stop("Unusual alignment error between jacobian and marginal effects.")
+    }
+  }else{
+    # out_jacobian: One for each "conditional"
+    # one for each variable
+    checksum_jacobian <- sum(sapply(out_jacobian, FUN=function(i){
+      sum(sapply(i, FUN=function(j){sapply(j, ncol)}))
+    }))
+    if (checksum_jacobian != nrow(out_mfx)){
+      stop("Unusual alignment error between jacobian and marginal effects.")
+    }
   }
   out_mfx$t <- out_mfx$est / out_mfx$se
   out_mfx$p.value <- 2 * pt(-abs(out_mfx$t), df = N_eff)
@@ -469,6 +526,10 @@ calculate_effects <- function(model, data = NULL,
   }
   out$N_eff <- N_eff
   out$N <- N
+  if (continuous_type == 'predict'){
+    out$individual <- out$individual[, !(names(out$individual) %in% c('variable', 'type'))]
+    out$marginal_effects <- out$marginal_effects[, !(names(out$marginal_effects) %in% c('variable', 'type'))]
+  }
   class(out) <- "gKRLS_mfx"
   return(out)
 }
@@ -650,6 +711,8 @@ weighted_mfx <- function(model, data_list, vcov,
                          weights, raw = FALSE, individual = FALSE) {
   model_coef <- coef(model)
 
+  simple_family <- !inherits(model$family, c('general.family', 'extended.family'))
+  
   if (missing(vcov)) {
     vcov <- vcov(model)
   } else if (identical(vcov, "none")) {
@@ -679,63 +742,154 @@ weighted_mfx <- function(model, data_list, vcov,
     # Get the design
     matrix_i <- predict(model, newdata = data_i, 
       na.action = na.pass, type = "lpmatrix")
-    lp_i <- as.vector(matrix_i %*% model_coef)
-    e_i <- model$family$linkinv(lp_i)
-    ex <- mean(e_i, na.rm = T)
-    if (individual) {
-      jacob_i <- Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i
-      jacob <- colMeans(jacob_i, na.rm = T)
-      nrow_valid <- sum(!is.na(lp_i))
-    } else {
-      se_i <- NULL
-      e_i <- NULL
-      jacob_i <- NULL
-      nrow_valid <- NULL
-      jacob <- colMeans(Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i, na.rm = T)
+    if (simple_family){
+      lp_i <- as.vector(matrix_i %*% model_coef)
+      e_i <- model$family$linkinv(lp_i)
+      ex <- mean(e_i, na.rm = T)
+      
+      if (individual) {
+        jacob_i <- Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i
+        jacob <- colMeans(jacob_i, na.rm = T)
+        nrow_valid <- sum(!is.na(lp_i))
+      } else {
+        se_i <- NULL
+        e_i <- NULL
+        jacob_i <- NULL
+        nrow_valid <- NULL
+        jacob <- colMeans(Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i, na.rm = T)
+      }
+      
+      out <- list(
+        expectation = ex,
+        expectation_i = e_i,
+        jacobian_i = jacob_i,
+        jacobian = jacob,
+        nrow_valid = nrow_valid
+      )
+    }else{
+      out <- predict_extended(object = model, 
+        X = matrix_i, individual = individual)
     }
-    return(list(
-      expectation = ex,
-      expectation_i = e_i,
-      jacobian_i = jacob_i,
-      jacobian = jacob,
-      nrow_valid = nrow_valid
-    ))
+    return(out)
   })
-  # Get the jacobian/gradient for each weighted average
-  jacobian_net <- sapply(raw_predictions, FUN = function(i) {
-    i$jacobian
-  }) %*% weights
+  
+  if (!simple_family){
+    
+    nlp <- length(raw_predictions[[1]]$jacobian)
+    
+    lpi <- lapply(1:nlp, FUN=function(i){
+      li <- sapply(raw_predictions, FUN=function(j){j$lpi[[i]]})
+      range_li <- max(abs(sweep(li, MARGIN = 1, STATS = rowMeans(li), FUN = '-')))
+      if (range_li != 0){stop('...')}
+      return(li[,1])
+    })
+    
+    jacobian_net <- lapply(1:nlp, FUN=function(d){
+      sapply(raw_predictions, FUN = function(i) {
+        i$jacobian[[d]]
+      }) %*% weights
+    })
+    
+    out_se <- sapply(1:nlp, FUN=function(d){
+      sqrt(rowSums( (t(jacobian_net[[d]]) %*% vcov[lpi[[d]], lpi[[d]]]) * t(jacobian_net[[d]]) ))
+    })
+    
+    out_est <- sapply(1:nlp, FUN=function(d){
+      sapply(raw_predictions, FUN=function(i){
+        i$expectation[[d]]
+      }) %*% weights
+    })
+    
+    if (ncol(weights) == 1){
+      out_est <- t(matrix(out_est))
+      out_se <- t(matrix(out_se))
+    }
+    
+    out_aggregate <- do.call('rbind', lapply(1:nlp, FUN=function(d){
+      out_aggregate <- data.frame(
+        name = colnames(weights), 
+        est = out_est[,d], 
+        se = out_se[,d])
+      out_aggregate$response <- d
+      return(out_aggregate)
+    }))
+    rownames(out_aggregate) <- NULL
 
-  out_se <- sqrt(rowSums( (t(jacobian_net) %*% vcov) * t(jacobian_net) ))
-  # out_se <- sqrt(apply(jacobian_net, MARGIN = 2, FUN = function(i) {
-  #   as.vector(t(i) %*% vcov %*% i)
-  # }))
-  out_est <- as.numeric(sapply(raw_predictions, FUN = function(i) {
-    i$expectation
-  }) %*% weights)
-
-  out_aggregate <- data.frame(name = colnames(weights), est = out_est, se = out_se)
+  }else{
+    # Get the jacobian/gradient for each weighted average
+    jacobian_net <- sapply(raw_predictions, FUN = function(i) {
+      i$jacobian
+    }) %*% weights
+    
+    out_se <- sqrt(rowSums( (t(jacobian_net) %*% vcov) * t(jacobian_net) ))
+    # out_se <- sqrt(apply(jacobian_net, MARGIN = 2, FUN = function(i) {
+    #   as.vector(t(i) %*% vcov %*% i)
+    # }))
+    out_est <- as.numeric(sapply(raw_predictions, FUN = function(i) {
+      i$expectation
+    }) %*% weights)
+    
+    out_aggregate <- data.frame(name = colnames(weights), est = out_est, se = out_se)
+    
+  }
 
   if (individual) {
+    
     checksum_ind <- length(unique(sapply(raw_predictions, FUN = function(i) {
       i$nrow_valid
     })))
     if (checksum_ind != 1) {
       stop("individual=TRUE requires same pattern of missing data across all elements of data_list.")
     }
-    jacob_net_i <- Reduce("+", mapply(sapply(raw_predictions, FUN = function(i) {
-      i$jacobian_i
-    }), weights, FUN = function(i, j) {
-      i * j
-    }))
-    # out_se_i <- apply(jacob_net_i, MARGIN = 1, FUN=function(i){sqrt(as.numeric(t(i) %*% vcov %*% i))})
-    out_se_i <- sqrt(rowSums((jacob_net_i %*% vcov) * jacob_net_i))
-    names(out_se_i) <- NULL
-    out_est <- as.vector(sapply(raw_predictions, FUN = function(i) {
-      i$expectation_i
-    }) %*% weights)
-    names(out_se) <- NULL
-    out_individual <- data.frame(est = out_est, se = out_se_i, obs = 1:length(out_est))
+    
+    if (simple_family){
+      
+      extract_ei <- sapply(raw_predictions, FUN = function(i) {
+        i$expectation_i
+      })
+      extract_jacob_i <- sapply(raw_predictions, FUN = function(i) {
+        i$jacobian_i
+      })
+      
+      out_individual <- do.call('rbind', lapply(1:ncol(weights), FUN=function(w){
+        ji <- Reduce('+', mapply(extract_jacob_i, weights[,w], FUN = function(i, j) {
+          i * j
+        }))
+        est <- as.vector(extract_ei %*% weights[,w])
+        se <- sqrt(rowSums( (ji %*% vcov) * ji))
+        out <- data.frame(est = est, se = se, obs = 1:length(est), variable = w)
+        return(out)
+      }))
+      out_individual$variable <- colnames(weights)[out_individual$variable]
+    } else {
+      
+      out_individual <- lapply(1:nlp, FUN=function(d){
+        
+        extract_ei <- sapply(raw_predictions, FUN = function(i) {
+          i$expectation_i[,d]
+        })
+        extract_jacob_i <- sapply(raw_predictions, FUN = function(i) {
+          i$jacobian_i[[d]]
+        })
+        
+        lpi_d <- lpi[[d]]
+        vcov_d <- vcov[lpi_d, lpi_d]
+        
+        out_individual <- do.call('rbind', lapply(1:ncol(weights), FUN=function(w){
+          ji <- Reduce('+', mapply(extract_jacob_i, weights[,w], FUN = function(i, j) {
+            i * j
+          }))
+          est <- as.vector(extract_ei %*% weights[,w])
+          se <- sqrt(rowSums( (ji %*% vcov_d) * ji))
+          out <- data.frame(est = est, se = se, obs = 1:length(est), variable = w)
+          return(out)
+        }))
+        out_individual$variable <- colnames(weights)[out_individual$variable]
+        out_individual$response <- d
+        return(out_individual)
+      })
+      out_individual <- do.call('rbind', out_individual)
+    }
   } else {
     out_individual <- NULL
   }
@@ -745,4 +899,118 @@ weighted_mfx <- function(model, data_list, vcov,
     individual = out_individual,
     jacobian = jacobian_net
   ))
+}
+
+predict_extended <- function(object, X, individual){
+  
+  
+  stopifnot(all(rowMeans(is.na(X)) %in% c(0,1)))
+  coef_object <- coef(object)
+  lpi <- attr(X, 'lpi')
+  if (isTRUE(attr(lpi, 'overlap'))){
+    stop('Not set up for "lpi" with overlap.')
+  }
+  family_object <- object$family
+  if (!is.null(family_object$predict)){
+    # [1] Does it have a predict function, if so, then use that
+    if (is.null(lpi)){
+      
+      lp_i <- as.vector(X %*% coef_object)
+      pred_obj <- family_object$predict(family = family_object, 
+          se = TRUE, 
+          X = matrix(lp_i), 
+          beta = 1, Vb = 1, off = 0)
+      pred_obj <- lapply(pred_obj, FUN=function(i){
+        if (!is.matrix(i)){i <- matrix(i, ncol = 1)}
+        return(i)
+      })
+      # Get prediction and get  [lp_i * g'(lp_i)]^2
+      jacob_i <- exp(sweep(log(pred_obj$se.fit), MARGIN = 1, 
+            STATS = log(abs(lp_i)), FUN = '-'
+      ))
+      e_i <- pred_obj$fit
+      nlp <- ncol(e_i)
+    }else{
+      
+      stop('calculate_effects(...) not yet set up for multi-outcome with different linear predictors')
+      # lp_i <- sapply(lpi, FUN=function(lpi_d){
+      #   as.vector(X[, lpi_d] %*% coef_object[lpi_d])
+      # })
+      # attr(lp_i, 'lpi') <- as.list(1:ncol(lp_i))
+      # pred_obj <- family_object$predict(family = family_object, 
+      #   se = TRUE, 
+      #   X = lp_i,
+      #   beta = rep(1, ncol(lp_i)), Vb = diag(ncol(lp_i)), off = rep(0,ncol(lp_i)))
+      # # Jacobian is 4 x 3
+      # 
+      # jacob_i <- FS(lp_i, pred_obj$se.fit)
+      # 
+      # pred_obj$se.fit[1,]
+      # 
+      # jacob <- do.call('rbind', lapply(jacob_i, colMeans, na.rm=T))
+      # 
+    }
+  }else{
+    # [2] If not, then use the linkinv for all of the relevant "link" components
+    if ('linfo' %in% names(family_object)){
+      list.mu.eta <- lapply(family_object$linfo, FUN=function(i){i$mu.eta})
+      list.linkinv <- lapply(family_object$linfo, FUN=function(i){i$linkinv})
+      nlp <- length(list.mu.eta)
+      stopifnot(length(list.linkinv) == nlp)
+    }else{
+      list.mu.eta <- list(family_object$mu.eta)
+      list.linkinv <- list(family_object$linkinv)
+      nlp <- 1
+      lpi <- list(1:ncol(X))
+    }
+    
+    jacob_i <- sapply(1:nlp, FUN=function(d){
+      lpi_d <- lpi[[d]]
+      list.mu.eta[[d]](as.vector(X[, lpi_d] %*% coef_object[lpi_d]))
+    })
+    e_i <- sapply(1:nlp, FUN=function(d){
+      lpi_d <- lpi[[d]]
+      list.linkinv[[d]](as.vector(X[, lpi_d] %*% coef_object[lpi_d]))
+    })
+  }
+  
+  ex <- colMeans(e_i, na.rm=T)
+  nrow_valid <- sum(!is.na(e_i[,1]))
+  if (individual){
+    jacob_i <- lapply(1:nlp, FUN=function(d){
+      if (is.null(lpi)){
+        lpi_d <- 1:ncol(X)
+      }else{
+        lpi_d <- lpi[[d]]
+      }
+      return(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d])
+    })
+    jacob <- lapply(jacob_i, colMeans, na.rm=T)
+  }else{
+    jacob <- lapply(1:nlp, FUN=function(d){
+      if (is.null(lpi)){
+        lpi_d <- 1:ncol(X)
+      }else{
+        lpi_d <- lpi[[d]]
+      }
+      ji <- colMeans(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d], na.rm=T)
+      return(ji)
+    })
+    jacob_i <- NULL
+    e_i <- NULL
+  }
+  
+  if (is.null(lpi)){
+    lpi <- lapply(1:nlp, FUN=function(i){1:ncol(X)})
+  }
+  return(
+    list(
+      expectation = ex,
+      expectation_i = e_i,
+      jacobian_i = jacob_i,
+      jacobian = jacob,
+      nrow_valid = nrow_valid,
+      lpi = lpi
+    )
+  )
 }
