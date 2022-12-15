@@ -120,7 +120,6 @@ test_that("Test Robust for GLM", {
     tol = 1e-5
   )
   
-  
   expect_equivalent(ef_gam, as.matrix(Diagonal(x = score_weight) %*% X_gam))
   expect_equivalent(ef_gam, estfun(est_gam, override_check = T))
   if (length(est_gam$smooth) == 0){

@@ -11,8 +11,9 @@ Description: Kernel regularized least squares, also known as kernel ridge regres
     scalability. It provides a smoothing basis type for estimation using 'mgcv' 
     and associated functions. It provides additional functions for estimating 
     marginal effects after estimation, implementation for ensembles 
-    (via 'SuperLearning') and double/debiased machine learning (via 'DoubleML'). 
-    Chang and Goplerud (2022) <arxiv:xx> provides further details.
+    (via 'SuperLearning'), double/debiased machine learning (via 'DoubleML'), 
+    and robust/clustered standard errors (via 'sandwich'). 
+    Chang and Goplerud (2022) <arxiv:2209.14355> provides further details.
 License: GPL (>= 2)
 LinkingTo: Rcpp, RcppEigen
 Imports: 
