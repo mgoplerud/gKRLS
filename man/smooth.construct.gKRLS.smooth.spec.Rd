@@ -19,7 +19,9 @@
 Constructor for gKRLS smooth
 }
 \keyword{See}
-\keyword{\link{gKRLS}}
+\keyword{\code{gKRLS}}
 \keyword{details.}
+\keyword{documentation}
 \keyword{for}
 \keyword{internal}
+\keyword{on}

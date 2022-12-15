@@ -50,7 +50,8 @@ create_data_gKRLS <- function(term_levels, term_class, data_term, terms, allow.m
 #' @importFrom Rcpp sourceCpp
 #' @keywords internal
 #' 
-#' See \link{gKRLS} for details.
+#' See documentation on \code{gKRLS} for details.
+#' 
 #' @param object a smooth object; see documentation for other methods in
 #'   \code{mgcv}.
 #' @param data a data.frame; see documentation for other methods in
