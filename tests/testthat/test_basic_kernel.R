@@ -122,3 +122,30 @@ test_that("Test custom vector", {
   v <- predict(fit_one, newdata = data.frame(X)[1:5,])
   expect_vector(v, size = 5)
 })
+
+test_that("Test polynomial works", {
+  
+  N <- 50
+  X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
+  y <- X %*% rnorm(ncol(X))
+  X <- data.frame(X)
+  
+  fit_three <- gam(y ~ s(X1, bs = 'unregpoly', xt = list(degree = 3)), data = X)  
+  fit_three_lm <- lm(y ~ poly(X1, 3), data = X)
+  expect_equivalent(coef(fit_three), coef(fit_three_lm))
+  expect_equivalent(vcov(fit_three), vcov(fit_three_lm))
+
+  df <- data.frame(X1 = rnorm(100))
+  pred_three <- predict(fit_three, newdata = df, se.fit = TRUE)
+  pred_three <- lapply(pred_three, as.numeric)
+  pred_three_lm <- predict(fit_three_lm, newdata = df, se.fit = TRUE)
+  expect_equivalent(pred_three$fit, pred_three_lm$fit)
+  expect_equivalent(pred_three$se.fit, pred_three_lm$se.fit)
+  
+  fit_three <- gam(y ~ X2 + s(X1, bs = 'unregpoly', xt = list(raw = T, degree = 3)), data = X)  
+  fit_three_lm <- lm(y ~ X2 + poly(X1, 3, raw = T), data = X)
+  expect_equivalent(coef(fit_three), coef(fit_three_lm))
+  expect_equivalent(vcov(fit_three), vcov(fit_three_lm))
+  
+  
+})

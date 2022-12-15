@@ -38,7 +38,7 @@ test_that("Test Robust for Linear (Unpenalized)", {
 
 test_that("Test Robust for Linear (Penalized)", {
   
-  N <- 200
+  N <- 1000
   x <- rnorm(N)
   z <- rnorm(N)
   y <- rnorm(N, sin(x * z)) * 2
@@ -95,7 +95,7 @@ test_that("Test Robust for GLM", {
                     vcovHC(est_gam, type = 'HC1'))
   
   # Check for binomial with NONSTANDARD LINK
-  N <- 100
+  N <- 1000
   x <- rnorm(N)
   z <- rnorm(N)
   y <- rbinom(N, 1, plogis( exp(x) + cos(z)))
@@ -172,9 +172,18 @@ test_that("Test Robust for bam", {
   S <- est_bam$smooth[[1]]$S[[1]] * est_bam$sp[1] + est_bam$smooth[[1]]$S[[2]] * est_bam$sp[2]
   meat <- t(mm) %*% Diagonal(x = residuals(est_bam)^2) %*% mm
   inv <- solve(crossprod(mm) + bdiag(0, S))
-  expect_equivalent(as.matrix(inv %*% meat %*% inv), vcovHC(est_bam, type = 'HC0'), tol = 1e-6)
+  expect_equivalent(as.matrix(inv %*% meat %*% inv), 
+    vcovHC(est_bam, type = 'HC0'), tol = 1e-5)
 })
 
 test_that("Test Robust for Complex Family", {
+  
+  N <- 100
+  x <- rnorm(N)
+  z <- rnorm(N)
+  y <- exp(z) + cos(x) + rnorm(N)
+  
+  est_gam <- gam(y ~ x + z, family = scat(), method = 'REML')
+  expect_error(vcovHC(est_gam), regexp = 'Robust SE')  
   
 })
