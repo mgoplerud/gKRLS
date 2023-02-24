@@ -8,7 +8,7 @@
 gKRLS(
   truncate.eigen.tol = sqrt(.Machine$double.eps),
   demean_kernel = FALSE,
-  sketch_method = "nystrom",
+  sketch_method = "subsampling",
   standardize = "Mahalanobis",
   sketch_multiplier = 5,
   sketch_size_raw = NULL,
@@ -32,9 +32,9 @@ numerical stability of the algorithm. Removal can be disabled using
 \code{FALSE}.}
 
 \item{sketch_method}{A string that specifies which kernel sketching method
-should be used. Options include \code{"nystrom"} (Nyström),
+should be used. Options include \code{"subsampling"} (sub-sampling),
 \code{"gaussian"}, \code{"bernoulli"}, or \code{"none"} (no sketching).
-Default is \code{"nystrom"}. See Drineas et al. (2005) and Yang et al.
+Default is \code{"subsampling"}. See Drineas et al. (2005) and Yang et al.
 (2017) for details.}
 
 \item{standardize}{A string that specifies how the data is standardized

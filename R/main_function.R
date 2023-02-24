@@ -19,9 +19,9 @@
 #'   (sketched) kernel should be demeaned before estimation. The default is
 #'   \code{FALSE}.
 #' @param sketch_method A string that specifies which kernel sketching method
-#'   should be used. Options include \code{"nystrom"} (Nyström),
+#'   should be used. Options include \code{"subsampling"} (sub-sampling),
 #'   \code{"gaussian"}, \code{"bernoulli"}, or \code{"none"} (no sketching).
-#'   Default is \code{"nystrom"}. See Drineas et al. (2005) and Yang et al.
+#'   Default is \code{"subsampling"}. See Drineas et al. (2005) and Yang et al.
 #'   (2017) for details.
 #' @param standardize A string that specifies how the data is standardized
 #'   before distance between observations is calculated. The default is
@@ -101,7 +101,7 @@
 #' calculate_effects(gkrls_est, variables = "x1", continuous_type = "derivative")
 gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                   demean_kernel = FALSE,
-                  sketch_method = "nystrom",
+                  sketch_method = "subsampling",
                   standardize = "Mahalanobis",
                   sketch_multiplier = 5,
                   sketch_size_raw = NULL,
@@ -110,7 +110,7 @@ gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                   bandwidth = NULL, 
                   remove_instability = TRUE) {
   if (length(sketch_method) == 1){
-    sketch_method <- match.arg(sketch_method, c("nystrom", "gaussian", "bernoulli", "none"))
+    sketch_method <- match.arg(sketch_method, c("subsampling", "gaussian", "bernoulli", "none"))
   }else{
     sketch_vector <- sketch_method
     sketch_method <- 'custom'
