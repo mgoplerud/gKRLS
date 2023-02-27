@@ -57,7 +57,7 @@ estfun.gam <- function(x, correct_df = TRUE, override_check = FALSE, ...){
     # Extractly slightly differently from gam to ensure that it works for
     # different families and link functions. See Wood (2017, p. XX)
     # for the definition
-    out <- ( residuals(x, 'pearson') * sqrt(weights(x, 'working')) ) * model.matrix(x)
+    out <- as.vector( residuals(x, 'pearson') * sqrt(weights(x, 'working')) ) * model.matrix(x)
   }else{
     stop('Robust SE from sandwich not set up for general.family or extended.family')
   }

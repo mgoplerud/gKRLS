@@ -19,9 +19,9 @@
 #'   (sketched) kernel should be demeaned before estimation. The default is
 #'   \code{FALSE}.
 #' @param sketch_method A string that specifies which kernel sketching method
-#'   should be used. Options include \code{"nystrom"} (Nyström),
+#'   should be used. Options include \code{"subsampling"} (sub-sampling),
 #'   \code{"gaussian"}, \code{"bernoulli"}, or \code{"none"} (no sketching).
-#'   Default is \code{"nystrom"}. See Drineas et al. (2005) and Yang et al.
+#'   Default is \code{"subsampling"}. See Drineas et al. (2005) and Yang et al.
 #'   (2017) for details.
 #' @param standardize A string that specifies how the data is standardized
 #'   before distance between observations is calculated. The default is
@@ -30,7 +30,7 @@
 #'   standardization).
 #' @param sketch_multiplier By default, sketching size increases with \code{c *
 #'   ceiling(nrow(X)^(1/3))} where \code{c} is the "multiplier". Default of 5;
-#'   if results seems unstable, Chang and Goplerud (2022) find that 15 works
+#'   if results seems unstable, Chang and Goplerud (2023) find that 15 works
 #'   well. See \code{sketch_size_raw} to directly set the sketching size.
 #' @param sketch_size_raw Set the exact sketching size (independent of N).
 #'   Exactly one of this or \code{sketch_multiplier} must be \code{NULL}.
@@ -54,8 +54,8 @@
 #'   \code{remove_instability = FALSE}.
 #' @references 
 #' 
-#' Chang, Qing and Max Goplerud. 2022. "Generalized Kernel Regularized Least
-#' Squares".
+#' Chang, Qing and Max Goplerud. 2023. "Generalized Kernel Regularized Least
+#' Squares". \url{https://arxiv.org/abs/2209.14355}.
 #' 
 #' Drineas, Petros and Mahoney, Michael W and Nello Cristianini. 2005. "On the
 #' Nyström Method for Approximating a Gram Matrix For Improved Kernel-Based
@@ -101,7 +101,7 @@
 #' calculate_effects(gkrls_est, variables = "x1", continuous_type = "derivative")
 gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                   demean_kernel = FALSE,
-                  sketch_method = "nystrom",
+                  sketch_method = "subsampling",
                   standardize = "Mahalanobis",
                   sketch_multiplier = 5,
                   sketch_size_raw = NULL,
@@ -110,7 +110,7 @@ gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                   bandwidth = NULL, 
                   remove_instability = TRUE) {
   if (length(sketch_method) == 1){
-    sketch_method <- match.arg(sketch_method, c("nystrom", "gaussian", "bernoulli", "none"))
+    sketch_method <- match.arg(sketch_method, c("subsampling", "gaussian", "bernoulli", "none"))
   }else{
     sketch_vector <- sketch_method
     sketch_method <- 'custom'

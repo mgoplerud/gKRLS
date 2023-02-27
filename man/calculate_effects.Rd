@@ -16,7 +16,8 @@ calculate_effects(
   conditional = NULL,
   epsilon = 1e-07,
   verbose = FALSE,
-  continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict")
+  continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict",
+    "second_derivative")
 )
 
 \method{print}{gKRLS_mfx}(x, ...)
@@ -63,11 +64,19 @@ effects to estimate when the variable is continuous (i.e. not binary,
 logical, factor, or character). Options are \code{"IQR"} (compares the
 variable at its 25\% and 75\% percentile), \code{"minmax"} (compares the
 variable at its minimum and maximum), \code{"derivative"} (numerically
-approximates the derivative at each observed value), \code{"onesd"}
-(compares one standard deviation below and one standard deviation above).
-It may also accepted a \bold{named list} where each named element
-corresponds to a numeric variable and has a two-length vector as each
-element. The two values are then compared.}
+approximates the derivative at each observed value),
+\code{"second_derivative"} (numerically approximates the second derivative
+at each observed value), \code{"onesd"} (compares one standard deviation
+below and one standard deviation above). It may also accepted a \bold{named
+list} where each named element corresponds to a numeric variable and has a
+two-length vector as each element. The two values are then compared.
+
+A special option (\code{"predict"}) produces predictions (e.g.,
+\code{predict(model, ..., type = "response")}) at each observed value and
+then averages them together. This in conjunction with \code{conditional}
+provides a way of calculating, for example, predicted probability curves
+using an "observed value" approach (e.g., Hanmer and Kalkan 2013). The
+examples below provide an illustration.}
 
 \item{x}{Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}}
 
@@ -128,8 +137,17 @@ calculate_effects(gkrls_est,
   variables = "x1",
   conditional = data.frame(state = c("a", "b", "c")), continuous_type = "derivative"
 )
+# calculated the average expected value across a grid of "x1" using an observed value approach
+calculate_effects(gkrls_est, conditional = data.frame(x1 = c(0, 0.2, 0.4, 0.6)),
+  continuous_type = 'predict'
+)
 }
 \references{
+Hanmer, Michael J. and Kerem Ozan Kalkan. 2013. "Behind the Curve: Clarifying
+the Best Approach to Calculating Predicted Probabilities and Marginal Effects
+from Limited Dependent Variable Models." \emph{American Journal of Political
+Science} 57(1): 263-277.
+
 Leeper, Thomas J. 2016. "Interpreting Regression Results using Average
 Marginal Effects with R's \code{margins}." Working paper available at
 \url{https://s3.us-east-2.amazonaws.com/tjl-sharing/assets/AverageMarginalEffects.pdf}.

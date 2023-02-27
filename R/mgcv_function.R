@@ -135,7 +135,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
 
   X_train <- X
 
-  nystrom_id <- NULL
+  subsampling_id <- NULL
   if (is.na(sketch_size) & object$xt$sketch_method != 'custom') {
     sketch_matrix <- diag(N)
   } else {
@@ -150,31 +150,31 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
     }
     
     if (object$xt$sketch_method == 'custom'){
-      nystrom_id <- object$xt$sketch_vector
-      X_train <- X[nystrom_id, , drop = F]
-      sketch_size <- length(nystrom_id)
-      sketch_matrix <- diag(length(nystrom_id)) * sqrt(N/sketch_size)
-    }else if (object$xt$sketch_method == 'nystrom_leverage'){
+      subsampling_id <- object$xt$sketch_vector
+      X_train <- X[subsampling_id, , drop = F]
+      sketch_size <- length(subsampling_id)
+      sketch_matrix <- diag(length(subsampling_id)) * sqrt(N/sketch_size)
+    }else if (object$xt$sketch_method == 'subsampling_leverage'){
       
       if (sketch_size > N) {
-        stop("Nystrom requires sketch_size < N.")
+        stop("Subsampling requires sketch_size < N.")
       }
       leverage_dim <- min(c(nrow(X), 10 * sketch_size))
       message(paste0('Computing leverage scores with rank ', leverage_dim))
       leverage_scores <- function(X, bandwidth, k){stop('SET UP LEVERAGE SCORES')}
       lscores <- leverage_scores(X = X, bandwidth = bandwidth, k = leverage_dim)
-      nystrom_id <- which(sketch_size * lscores >= runif(nrow(X)))
-      message(paste0(length(nystrom_id), ' sampled using leverage scores: ', sketch_size, ' was requested.'))
-      X_train <- X[nystrom_id, , drop = F]
-      sketch_matrix <- diag(length(nystrom_id)) * sqrt(N/sketch_size)
+      subsampling_id <- which(sketch_size * lscores >= runif(nrow(X)))
+      message(paste0(length(subsampling_id), ' sampled using leverage scores: ', sketch_size, ' was requested.'))
+      X_train <- X[subsampling_id, , drop = F]
+      sketch_matrix <- diag(length(subsampling_id)) * sqrt(N/sketch_size)
       
-    }else if (object$xt$sketch_method == "nystrom") {
+    }else if (object$xt$sketch_method == "subsampling") {
       if (sketch_size > N) {
-        stop("Nystrom requires sketch_size < N.")
+        stop("Subsampling requires sketch_size < N.")
       }
-      nystrom_id <- sample(1:N, sketch_size)
-      X_train <- X[nystrom_id, , drop = F]
-      sketch_matrix <- diag(length(nystrom_id)) * sqrt(N/sketch_size)
+      subsampling_id <- sample(1:N, sketch_size)
+      X_train <- X[subsampling_id, , drop = F]
+      sketch_matrix <- diag(length(subsampling_id)) * sqrt(N/sketch_size)
       
     } else {
       sketch_matrix <- create_sketch_matrix(N, sketch_size, object$xt$sketch_prob, object$xt$sketch_method)
@@ -186,12 +186,11 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
     X_test = X,
     X_train = X_train, tS = t(sketch_matrix), bandwidth = bandwidth
   )
-  
   ev_orig <- NULL
   P_orig <- NULL
   if (!object$fixed) {
-    if (!is.na(sketch_size) & object$xt$sketch_method %in% c("custom", "nystrom", "nystrom_leverage") ) {
-      Penalty <- t(KS[nystrom_id, ]) %*% sketch_matrix
+    if (!is.na(sketch_size) & object$xt$sketch_method %in% c("custom", "subsampling", "subsampling_leverage") ) {
+      Penalty <- t(KS[subsampling_id, ]) %*% sketch_matrix
     } else {
       Penalty <- t(KS) %*% sketch_matrix
     }
@@ -248,7 +247,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   object$fd_flag <- fd_flag
   object$term_levels <- term_levels
   object$term_class <- term_class
-  object$nystrom_id <- nystrom_id
+  object$subsampling_id <- subsampling_id
   # Required elements for "gam"
   object$rank <- ncol(KS)
   object$null.space.dim <- 0

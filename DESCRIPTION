@@ -1,7 +1,7 @@
 Package: gKRLS
 Type: Package
 Title: Generalized Kernel Regularized Least Squares (gKRLS)
-Version: 1.0.0
+Version: 1.0.1
 Encoding: UTF-8
 Authors@R:c(person(given = "Qing", family = "Chang", role = c("aut"), email = "qic47@pitt.edu"),
   person(given = "Max", family = "Goplerud", role = c("aut", "cre"), email = "mgoplerud@pitt.edu"))
@@ -13,7 +13,8 @@ Description: Kernel regularized least squares, also known as kernel ridge regres
     marginal effects after estimation, implementation for ensembles 
     (via 'SuperLearning'), double/debiased machine learning (via 'DoubleML'), 
     and robust/clustered standard errors (via 'sandwich'). 
-    Chang and Goplerud (2022) <arxiv:2209.14355> provides further details.
+    Chang and Goplerud (2023) <arxiv:2209.14355> provides further details.
+Date: 2023-2-27
 License: GPL (>= 2)
 LinkingTo: Rcpp, RcppEigen
 Imports: 
@@ -29,7 +30,7 @@ Suggests:
   DoubleML,
   testthat
 SystemRequirements: GNU make
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 NeedsCompilation: yes
 URL: https://github.com/mgoplerud/gKRLS
 BugReports: https://github.com/mgoplerud/gKRLS/issues

@@ -36,11 +36,19 @@
 #'   logical, factor, or character). Options are \code{"IQR"} (compares the
 #'   variable at its 25\% and 75\% percentile), \code{"minmax"} (compares the
 #'   variable at its minimum and maximum), \code{"derivative"} (numerically
-#'   approximates the derivative at each observed value), \code{"onesd"}
-#'   (compares one standard deviation below and one standard deviation above).
-#'   It may also accepted a \bold{named list} where each named element
-#'   corresponds to a numeric variable and has a two-length vector as each
-#'   element. The two values are then compared.
+#'   approximates the derivative at each observed value),
+#'   \code{"second_derivative"} (numerically approximates the second derivative
+#'   at each observed value), \code{"onesd"} (compares one standard deviation
+#'   below and one standard deviation above). It may also accepted a \bold{named
+#'   list} where each named element corresponds to a numeric variable and has a
+#'   two-length vector as each element. The two values are then compared.
+#'   
+#'   A special option (\code{"predict"}) produces predictions (e.g.,
+#'   \code{predict(model, ..., type = "response")}) at each observed value and
+#'   then averages them together. This in conjunction with \code{conditional}
+#'   provides a way of calculating, for example, predicted probability curves
+#'   using an "observed value" approach (e.g., Hanmer and Kalkan 2013). The
+#'   examples below provide an illustration.
 #'
 #' @return  \code{calculate_effects} returns a list of class \code{"gKRLS_mfx"}
 #'   that contains the following elements.
@@ -61,6 +69,11 @@
 #'   }
 #'
 #' @references 
+#' 
+#' Hanmer, Michael J. and Kerem Ozan Kalkan. 2013. "Behind the Curve: Clarifying
+#' the Best Approach to Calculating Predicted Probabilities and Marginal Effects
+#' from Limited Dependent Variable Models." \emph{American Journal of Political
+#' Science} 57(1): 263-277.
 #' 
 #' Leeper, Thomas J. 2016. "Interpreting Regression Results using Average
 #' Marginal Effects with R's \code{margins}." Working paper available at
@@ -95,12 +108,16 @@
 #'   variables = "x1",
 #'   conditional = data.frame(state = c("a", "b", "c")), continuous_type = "derivative"
 #' )
+#' # calculated the average expected value across a grid of "x1" using an observed value approach
+#' calculate_effects(gkrls_est, conditional = data.frame(x1 = c(0, 0.2, 0.4, 0.6)),
+#'   continuous_type = 'predict'
+#' )
 #' @importFrom stats model.frame sd
 #' @export
 calculate_effects <- function(model, data = NULL,
     variables = NULL, vcov = NULL, raw = FALSE, individual = FALSE,
     conditional = NULL, epsilon = 1e-7, verbose = FALSE,
-    continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict")) {
+    continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict", "second_derivative")) {
   if (!is.list(continuous_type)) {
     continuous_type <- match.arg(continuous_type)
   }
@@ -254,6 +271,13 @@ calculate_effects <- function(model, data = NULL,
             step2 <- c("0" = r_i[1], "1" = r_i[2])
             step <- NULL
             ctype <- "list"
+          } else if (continuous_type == "second_derivative") {
+            step <- sqrt(max(abs(data[[v_i]]), 1, na.rm = T) * epsilon)
+            # multiplier <- 1 / (2 * step)
+            multiplier <- 1/step^2
+            step2 <- c("-1" = -step, "0" = 0, "1" = step)
+            step <- NULL
+            ctype <- "derivative"
           } else if (continuous_type == "derivative") {
             # Closely adapted from "margins" by Thomas Leeper
             step <- max(abs(data[[v_i]]), 1, na.rm = T) * epsilon
@@ -295,15 +319,28 @@ calculate_effects <- function(model, data = NULL,
                 name = v_i
               ))
             }else{
-              packaged_data <- list(list(
-                data = list("d1" = data, "d0" = data),
-                weights = c(1, -1) * multiplier,
-                raw = raw,
-                type = continuous_type,
-                name = v_i
-              ))
-              packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["0"], ctype)
-              packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["1"], ctype)
+              if (continuous_type == 'second_derivative'){
+                packaged_data <- list(list(
+                  data = list("d2" = data, "d1" = data, "d0" = data),
+                  weights = c(1, -2, 1) * multiplier,
+                  raw = raw,
+                  type = continuous_type,
+                  name = v_i
+                ))
+                packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["-1"], ctype)
+                packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["0"], ctype)
+                packaged_data[[1]]$data$d2[[v_i]] <- continuous_f(packaged_data[[1]]$data$d2[[v_i]], step, step2["1"], ctype)
+              }else{
+                packaged_data <- list(list(
+                  data = list("d1" = data, "d0" = data),
+                  weights = c(1, -1) * multiplier,
+                  raw = raw,
+                  type = continuous_type,
+                  name = v_i
+                ))
+                packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["0"], ctype)
+                packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["1"], ctype)
+              }
             }
             names(packaged_data) <- v_i
           } else {
@@ -911,6 +948,7 @@ predict_extended <- function(object, X, individual){
     stop('Not set up for "lpi" with overlap.')
   }
   family_object <- object$family
+  
   if (!is.null(family_object$predict)){
     # [1] Does it have a predict function, if so, then use that
     if (is.null(lpi)){
@@ -932,15 +970,19 @@ predict_extended <- function(object, X, individual){
       nlp <- ncol(e_i)
     }else{
       
-      stop('calculate_effects(...) not yet set up for multi-outcome with different linear predictors')
-      # lp_i <- sapply(lpi, FUN=function(lpi_d){
-      #   as.vector(X[, lpi_d] %*% coef_object[lpi_d])
-      # })
-      # attr(lp_i, 'lpi') <- as.list(1:ncol(lp_i))
-      # pred_obj <- family_object$predict(family = family_object, 
-      #   se = TRUE, 
-      #   X = lp_i,
-      #   beta = rep(1, ncol(lp_i)), Vb = diag(ncol(lp_i)), off = rep(0,ncol(lp_i)))
+      stop('Not set up for this family yet.')
+      lp_i <- sapply(lpi, FUN=function(lpi_d){
+        as.vector(X[, lpi_d] %*% coef_object[lpi_d])
+      })
+      attr(lp_i, 'lpi') <- as.list(1:ncol(lp_i))
+      
+      pred_obj <- family_object$predict(family = family_object,
+        se = TRUE,
+        X = lp_i,
+        beta = rep(1, ncol(lp_i)), 
+        Vb = diag(ncol(lp_i)), off = rep(0,ncol(lp_i)))
+      
+      # 
       # # Jacobian is 4 x 3
       # 
       # jacob_i <- FS(lp_i, pred_obj$se.fit)
