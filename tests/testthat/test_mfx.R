@@ -144,6 +144,7 @@ test_that("test 'calculate_effects'", {
   man_first_deriv_se <- sqrt(rowSums( (SE_MAT %*% vcov(fit_gKRLS)[-1,-1]) * SE_MAT ))
   expect_equivalent(fit_first_deriv$individual$se, man_first_deriv_se, tol = 1e-5)  
 
+  
   SE_MAT2 <- 4/obj$bandwidth^2 * (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})^2 ) %*% S +
     -2/obj$bandwidth * (K * diag(W2)[1]) %*% S
   man_second_deriv_se <- sqrt(rowSums( (SE_MAT2 %*% vcov(fit_gKRLS)[-1,-1]) * SE_MAT2 ))
