@@ -118,7 +118,7 @@ test_that("test 'calculate_effects'", {
   if (identical(obj$xt$sketch_method, 'gaussian')){
     X_nystrom <- X_test
   }else{
-    X_nystrom <- X_test[obj$nystrom_id,, drop = F]
+    X_nystrom <- X_test[obj$subsampling_id,, drop = F]
   }
   
   obj$xt$return_raw <- TRUE
