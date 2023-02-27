@@ -45,7 +45,7 @@ standardization).}
 
 \item{sketch_multiplier}{By default, sketching size increases with \code{c *
 ceiling(nrow(X)^(1/3))} where \code{c} is the "multiplier". Default of 5;
-if results seems unstable, Chang and Goplerud (2022) find that 15 works
+if results seems unstable, Chang and Goplerud (2023) find that 15 works
 well. See \code{sketch_size_raw} to directly set the sketching size.}
 
 \item{sketch_size_raw}{Set the exact sketching size (independent of N).
@@ -112,8 +112,8 @@ gkrls_multiple <- mgcv::gam(y ~ s(x1, x2, bs = 'gKRLS') + s(x1, x3, bs = 'gKRLS'
 calculate_effects(gkrls_est, variables = "x1", continuous_type = "derivative")
 }
 \references{
-Chang, Qing and Max Goplerud. 2022. "Generalized Kernel Regularized Least
-Squares".
+Chang, Qing and Max Goplerud. 2023. "Generalized Kernel Regularized Least
+Squares". \url{https://arxiv.org/abs/2209.14355}.
 
 Drineas, Petros and Mahoney, Michael W and Nello Cristianini. 2005. "On the
 Nyström Method for Approximating a Gram Matrix For Improved Kernel-Based

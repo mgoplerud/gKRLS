@@ -20,7 +20,7 @@ test_that(" Test for prediction/SE for complex families ", {
   # From mgcv: Confirm predictions line up for
   # single linear predictor models
 
-  for (f in list(ocat(R=R), poisson(link = 'identity'), tw(), nb(), scat(), ziP())){
+  for (f in list(ocat(R=R), poisson(link = 'identity'), gaussian(), tw(), nb(), scat(), ziP())){
     print(f)
     b <- suppressWarnings(gam(y~ s(x0) + s(x1) + s(x2) + s(x3),family=f,data=dat))
     
