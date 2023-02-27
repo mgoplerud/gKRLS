@@ -16,7 +16,8 @@ calculate_effects(
   conditional = NULL,
   epsilon = 1e-07,
   verbose = FALSE,
-  continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict")
+  continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict",
+    "second_derivative")
 )
 
 \method{print}{gKRLS_mfx}(x, ...)

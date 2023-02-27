@@ -185,7 +185,6 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
     X_test = X,
     X_train = X_train, tS = t(sketch_matrix), bandwidth = bandwidth
   )
-  
   ev_orig <- NULL
   P_orig <- NULL
   if (!object$fixed) {

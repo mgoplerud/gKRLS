@@ -28,15 +28,16 @@ test_that(" Test for prediction/SE for complex families ", {
     pred_mgcv <- predict(b, newdata = dat, se.fit = TRUE, type = 'response')    
     expect_equivalent(pred_gKRLS$individual$est, as.vector(pred_mgcv$fit))
     expect_equivalent(pred_gKRLS$individual$se, as.vector(pred_mgcv$se.fit))
+    rm(pred_gKRLS, pred_mgcv)
   }
   
-
+  # Still need to set up for multinomial
   # dat$new_y <- dat$y - 1
   # b <- gam(list(new_y ~ s(x0), ~ x0 + x1 + x2, ~ s(x3, x2, bs = 'gKRLS')), data = dat,
   #          family = multinom(K = 3))
   # 
   # pred_gKRLS <- calculate_effects(model = b, continuous_type = 'predict', individual = T)
-  # pred_mgcv <- predict(b, newdata = dat, se.fit = TRUE, type = 'response')    
+  # pred_mgcv <- predict(b, newdata = dat, se.fit = TRUE, type = 'response')
   # 
   # expect_equivalent(pred_gKRLS$individual$est, as.vector(pred_mgcv$fit))
   # expect_equivalent(pred_gKRLS$individual$se, as.vector(pred_mgcv$se.fit))

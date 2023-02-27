@@ -100,7 +100,7 @@
 calculate_effects <- function(model, data = NULL,
     variables = NULL, vcov = NULL, raw = FALSE, individual = FALSE,
     conditional = NULL, epsilon = 1e-7, verbose = FALSE,
-    continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict")) {
+    continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict", "second_derivative")) {
   if (!is.list(continuous_type)) {
     continuous_type <- match.arg(continuous_type)
   }
@@ -254,6 +254,13 @@ calculate_effects <- function(model, data = NULL,
             step2 <- c("0" = r_i[1], "1" = r_i[2])
             step <- NULL
             ctype <- "list"
+          } else if (continuous_type == "second_derivative") {
+            step <- sqrt(max(abs(data[[v_i]]), 1, na.rm = T) * epsilon)
+            # multiplier <- 1 / (2 * step)
+            multiplier <- 1/step^2
+            step2 <- c("-1" = -step, "0" = 0, "1" = step)
+            step <- NULL
+            ctype <- "derivative"
           } else if (continuous_type == "derivative") {
             # Closely adapted from "margins" by Thomas Leeper
             step <- max(abs(data[[v_i]]), 1, na.rm = T) * epsilon
@@ -295,15 +302,28 @@ calculate_effects <- function(model, data = NULL,
                 name = v_i
               ))
             }else{
-              packaged_data <- list(list(
-                data = list("d1" = data, "d0" = data),
-                weights = c(1, -1) * multiplier,
-                raw = raw,
-                type = continuous_type,
-                name = v_i
-              ))
-              packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["0"], ctype)
-              packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["1"], ctype)
+              if (continuous_type == 'second_derivative'){
+                packaged_data <- list(list(
+                  data = list("d2" = data, "d1" = data, "d0" = data),
+                  weights = c(1, -2, 1) * multiplier,
+                  raw = raw,
+                  type = continuous_type,
+                  name = v_i
+                ))
+                packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["-1"], ctype)
+                packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["0"], ctype)
+                packaged_data[[1]]$data$d2[[v_i]] <- continuous_f(packaged_data[[1]]$data$d2[[v_i]], step, step2["1"], ctype)
+              }else{
+                packaged_data <- list(list(
+                  data = list("d1" = data, "d0" = data),
+                  weights = c(1, -1) * multiplier,
+                  raw = raw,
+                  type = continuous_type,
+                  name = v_i
+                ))
+                packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["0"], ctype)
+                packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["1"], ctype)
+              }
             }
             names(packaged_data) <- v_i
           } else {
@@ -911,6 +931,7 @@ predict_extended <- function(object, X, individual){
     stop('Not set up for "lpi" with overlap.')
   }
   family_object <- object$family
+  
   if (!is.null(family_object$predict)){
     # [1] Does it have a predict function, if so, then use that
     if (is.null(lpi)){
@@ -932,15 +953,19 @@ predict_extended <- function(object, X, individual){
       nlp <- ncol(e_i)
     }else{
       
-      stop('calculate_effects(...) not yet set up for multi-outcome with different linear predictors')
-      # lp_i <- sapply(lpi, FUN=function(lpi_d){
-      #   as.vector(X[, lpi_d] %*% coef_object[lpi_d])
-      # })
-      # attr(lp_i, 'lpi') <- as.list(1:ncol(lp_i))
-      # pred_obj <- family_object$predict(family = family_object, 
-      #   se = TRUE, 
-      #   X = lp_i,
-      #   beta = rep(1, ncol(lp_i)), Vb = diag(ncol(lp_i)), off = rep(0,ncol(lp_i)))
+      stop('Not set up for this family yet.')
+      lp_i <- sapply(lpi, FUN=function(lpi_d){
+        as.vector(X[, lpi_d] %*% coef_object[lpi_d])
+      })
+      attr(lp_i, 'lpi') <- as.list(1:ncol(lp_i))
+      
+      pred_obj <- family_object$predict(family = family_object,
+        se = TRUE,
+        X = lp_i,
+        beta = rep(1, ncol(lp_i)), 
+        Vb = diag(ncol(lp_i)), off = rep(0,ncol(lp_i)))
+      
+      # 
       # # Jacobian is 4 x 3
       # 
       # jacob_i <- FS(lp_i, pred_obj$se.fit)
