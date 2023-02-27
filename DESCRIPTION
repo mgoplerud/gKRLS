@@ -22,7 +22,7 @@ Suggests:
   DoubleML,
   testthat
 SystemRequirements: GNU make
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 NeedsCompilation: yes
 URL: https://github.com/mgoplerud/gKRLS
 BugReports: https://github.com/mgoplerud/gKRLS/issues

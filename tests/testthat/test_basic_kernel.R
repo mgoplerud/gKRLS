@@ -101,14 +101,14 @@ test_that("Test custom vector", {
                        bs = "gKRLS",
                        xt = gKRLS(sketch_method = sample(1:50, 5), remove_instability = FALSE)
   ), data = data.frame(X, y))
-  expect_equal(length(fit_one$smooth[[1]]$nystrom_id), 5)
+  expect_equal(length(fit_one$smooth[[1]]$subsampling_id), 5)
   expect_s3_class(fit_one, "gam")
   fit_one <- gam(y ~ s(X1, X2, X3,
                        bs = "gKRLS",
                        xt = gKRLS(sketch_method = rep(1,4), remove_instability = FALSE)
   ), data = data.frame(X, y))
-  expect_equal(length(fit_one$smooth[[1]]$nystrom_id), 4)
-  expect_true(all(fit_one$smooth[[1]]$nystrom_id == 1))
+  expect_equal(length(fit_one$smooth[[1]]$subsampling_id), 4)
+  expect_true(all(fit_one$smooth[[1]]$subsampling_id == 1))
   expect_s3_class(fit_one, "gam")
   v <- predict(fit_one, newdata = data.frame(X)[1:5,])
   expect_vector(v, size = 5)
