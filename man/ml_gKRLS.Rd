@@ -47,9 +47,12 @@ data will be used.}
 allowed for prediction. The default is True.}
 }
 \description{
-This provides a number of functions to integrate machine learning with gKRLS
-(and more generally \code{mgcv}). Integration into \code{SuperLearner} and \code{DoubleML}
-(via \code{mlr3}) is described below.
+This provides a number of functions to integrate machine
+  learning with gKRLS (and more generally \code{mgcv}). Integration into
+  \code{SuperLearner} and \code{DoubleML} (via \code{mlr3}) is described
+  below. It is often useful to load \code{SuperLearner} before \code{gKRLS}
+  or \code{mgcv} to avoid functions including \code{gam} and \code{s} being
+  masked from other packages.
 }
 \details{
 \code{SuperLearner} integration is provided by \code{SL.mgcv} and
