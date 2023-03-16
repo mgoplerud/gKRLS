@@ -2,11 +2,7 @@
 create_sketch_matrix <- function(N, sketch_size, sketch_prob = NULL, sketch_method) {
   if (sketch_method == "gaussian") {
     S <- matrix(rnorm(N * sketch_size), nrow = N)
-    cov_S <- cov(S)
-    eigen_cov_S <- eigen(cov_S, symmetric = TRUE)
-    S <- S %*% eigen_cov_S$vectors %*% diag(x = 1/sqrt(eigen_cov_S$values))
     S <- S * sqrt(1 / sqrt(sketch_size))
-    # S <- S * sqrt(1 / sqrt(sketch_size))
   } else if (sketch_method == "bernoulli") {
     if (is.null(sketch_prob)) {
       stop('sketch method "bernoulli" requires a probability.')
