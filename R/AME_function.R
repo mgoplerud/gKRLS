@@ -126,6 +126,15 @@ calculate_effects <- function(model, data = NULL,
   N_eff <- length(model$y) - sum(model$edf)
   N <- length(model$y)
 
+  if (!all(model$prior.weights == 1)){
+    warning('calculate_effects ignores "weights" argument when calculating effects.')
+  }
+  if (!is.null(model$offset)){
+    flat_offset <- unlist(model$offset)
+    if (!all(flat_offset == 0)){
+      stop('"offset" not set up for calculate_effects.')
+    }
+  }
   if (is.null(data)) {
     raw_data <- model.frame(model)
   } else {
@@ -811,38 +820,48 @@ weighted_mfx <- function(model, data_list, vcov,
   })
   
   if (!simple_family){
+    noutcome <- length(raw_predictions[[1]]$jacobian)
+    complex_outcome <- isTRUE(raw_predictions[[1]]$complex_extended)
     
-    nlp <- length(raw_predictions[[1]]$jacobian)
-    
-    lpi <- lapply(1:nlp, FUN=function(i){
-      li <- sapply(raw_predictions, FUN=function(j){j$lpi[[i]]})
-      range_li <- max(abs(sweep(li, MARGIN = 1, STATS = rowMeans(li), FUN = '-')))
-      if (range_li != 0){stop('...')}
-      return(li[,1])
-    })
-    
-    jacobian_net <- lapply(1:nlp, FUN=function(d){
+    jacobian_net <- lapply(1:noutcome, FUN=function(d){
       sapply(raw_predictions, FUN = function(i) {
         i$jacobian[[d]]
       }) %*% weights
     })
     
-    out_se <- sapply(1:nlp, FUN=function(d){
-      sqrt(rowSums( (t(jacobian_net[[d]]) %*% vcov[lpi[[d]], lpi[[d]]]) * t(jacobian_net[[d]]) ))
-    })
-    
-    out_est <- sapply(1:nlp, FUN=function(d){
+    out_est <- sapply(1:noutcome, FUN=function(d){
       sapply(raw_predictions, FUN=function(i){
         i$expectation[[d]]
       }) %*% weights
     })
+    
+    if (!complex_outcome){
+      # If "simple extended family", then do each outcome
+      # with its own linear predictor
+      lpi <- lapply(1:noutcome, FUN=function(i){
+        li <- sapply(raw_predictions, FUN=function(j){j$lpi[[i]]})
+        range_li <- max(abs(sweep(li, MARGIN = 1, STATS = rowMeans(li), FUN = '-')))
+        if (range_li != 0){stop('...')}
+        return(li[,1])
+      })
+    
+      out_se <- sapply(1:noutcome, FUN=function(d){
+        sqrt(rowSums( (t(jacobian_net[[d]]) %*% vcov[lpi[[d]], lpi[[d]]]) * t(jacobian_net[[d]]) ))
+      })
+      
+    }else{
+      # If "complex" family, e.g., multinomial, do this one.
+      out_se <- sapply(1:noutcome, FUN=function(d){
+        sqrt(rowSums( (t(jacobian_net[[d]]) %*% vcov) * t(jacobian_net[[d]]) ))
+      })
+    }
     
     if (ncol(weights) == 1){
       out_est <- t(matrix(out_est))
       out_se <- t(matrix(out_se))
     }
     
-    out_aggregate <- do.call('rbind', lapply(1:nlp, FUN=function(d){
+    out_aggregate <- do.call('rbind', lapply(1:noutcome, FUN=function(d){
       out_aggregate <- data.frame(
         name = colnames(weights), 
         est = out_est[,d], 
@@ -851,7 +870,6 @@ weighted_mfx <- function(model, data_list, vcov,
       return(out_aggregate)
     }))
     rownames(out_aggregate) <- NULL
-
   }else{
     # Get the jacobian/gradient for each weighted average
     jacobian_net <- sapply(raw_predictions, FUN = function(i) {
@@ -899,8 +917,8 @@ weighted_mfx <- function(model, data_list, vcov,
       }))
       out_individual$variable <- colnames(weights)[out_individual$variable]
     } else {
-      
-      out_individual <- lapply(1:nlp, FUN=function(d){
+
+      out_individual <- lapply(1:noutcome, FUN=function(d){
         
         extract_ei <- sapply(raw_predictions, FUN = function(i) {
           i$expectation_i[,d]
@@ -909,8 +927,12 @@ weighted_mfx <- function(model, data_list, vcov,
           i$jacobian_i[[d]]
         })
         
-        lpi_d <- lpi[[d]]
-        vcov_d <- vcov[lpi_d, lpi_d]
+        if (!complex_outcome){
+          lpi_d <- lpi[[d]]
+          vcov_d <- vcov[lpi_d, lpi_d]
+        }else{
+          vcov_d <- vcov
+        }
         
         out_individual <- do.call('rbind', lapply(1:ncol(weights), FUN=function(w){
           ji <- Reduce('+', mapply(extract_jacob_i, weights[,w], FUN = function(i, j) {
@@ -940,7 +962,6 @@ weighted_mfx <- function(model, data_list, vcov,
 
 predict_extended <- function(object, X, individual){
   
-  
   stopifnot(all(rowMeans(is.na(X)) %in% c(0,1)))
   coef_object <- coef(object)
   lpi <- attr(X, 'lpi')
@@ -948,49 +969,72 @@ predict_extended <- function(object, X, individual){
     stop('Not set up for "lpi" with overlap.')
   }
   family_object <- object$family
-  
+  # Set up a flag for complex extended families (e.g., multinomial)
+  complex_extended <- FALSE
   if (!is.null(family_object$predict)){
     # [1] Does it have a predict function, if so, then use that
     if (is.null(lpi)){
       
+      # Use modifications of functions from "mgcv" to
+      # calculate the jacobian needed for the delta method
       lp_i <- as.vector(X %*% coef_object)
-      pred_obj <- family_object$predict(family = family_object, 
+      if (grepl(family_object$family, pattern='^Ordered Categorical\\(')){
+        pred_obj <- internal_ocat_jacobian(
+          family = family_object, 
           se = TRUE, 
           X = matrix(lp_i), 
-          beta = 1, Vb = 1, off = 0)
+          beta = 1, Vb = 1, off = 0        
+        )
+      }else if (grepl(family_object$family, pattern='^Zero inflated Poisson\\(')){
+        pred_obj <- internal_ziP_jacobian(
+          family = family_object, 
+          se = TRUE, 
+          X = matrix(lp_i), 
+          beta = 1, Vb = 1, off = 0        
+        )
+      }else{
+        stop('This extended family not set up for calculate_effect.')
+      }
+      
       pred_obj <- lapply(pred_obj, FUN=function(i){
-        if (!is.matrix(i)){i <- matrix(i, ncol = 1)}
+        if (!is.matrix(i)){
+          i <- matrix(i, ncol = 1)
+        }
         return(i)
       })
-      # Get prediction and get  [lp_i * g'(lp_i)]^2
-      jacob_i <- exp(sweep(log(pred_obj$se.fit), MARGIN = 1, 
-            STATS = log(abs(lp_i)), FUN = '-'
-      ))
+
+      # # Incorrect as doesn't account for possibility of pos/neg signs      
+      # old_jacob_i <- exp(sweep(log(matrix(pred_jacobian$se.fit)), MARGIN = 1,
+      #                      STATS = log(abs(lp_i)), FUN = '-'
+      # ))
+      
       e_i <- pred_obj$fit
+      jacob_i <- pred_obj$jacobian
       nlp <- ncol(e_i)
     }else{
       
-      stop('Not set up for this family yet.')
+      complex_extended <- TRUE
+      
       lp_i <- sapply(lpi, FUN=function(lpi_d){
         as.vector(X[, lpi_d] %*% coef_object[lpi_d])
       })
       attr(lp_i, 'lpi') <- as.list(1:ncol(lp_i))
       
-      pred_obj <- family_object$predict(family = family_object,
-        se = TRUE,
-        X = lp_i,
-        beta = rep(1, ncol(lp_i)), 
-        Vb = diag(ncol(lp_i)), off = rep(0,ncol(lp_i)))
+      if (grepl(family_object$family, pattern='^multinom$')){
+        pred_obj <- internal_multinom_jacobian(
+          family = family_object,
+          se = TRUE,
+          X = lp_i,
+          beta = rep(1, ncol(lp_i)), 
+          Vb = diag(ncol(lp_i)), off = rep(0,ncol(lp_i))
+        )
+      }else{
+        stop('This extended family not set up for calculate_effect.')
+      }
+      e_i <- pred_obj$fit
+      jacob_i <- pred_obj$jacobian
+      nlp <- ncol(e_i)
       
-      # 
-      # # Jacobian is 4 x 3
-      # 
-      # jacob_i <- FS(lp_i, pred_obj$se.fit)
-      # 
-      # pred_obj$se.fit[1,]
-      # 
-      # jacob <- do.call('rbind', lapply(jacob_i, colMeans, na.rm=T))
-      # 
     }
   }else{
     # [2] If not, then use the linkinv for all of the relevant "link" components
@@ -1018,26 +1062,61 @@ predict_extended <- function(object, X, individual){
   
   ex <- colMeans(e_i, na.rm=T)
   nrow_valid <- sum(!is.na(e_i[,1]))
+  
+  coef_names <- names(coef(object))
   if (individual){
-    jacob_i <- lapply(1:nlp, FUN=function(d){
-      if (is.null(lpi)){
-        lpi_d <- 1:ncol(X)
-      }else{
-        lpi_d <- lpi[[d]]
-      }
-      return(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d])
-    })
-    jacob <- lapply(jacob_i, colMeans, na.rm=T)
+    
+    if (!is.list(jacob_i)){
+      jacob_i <- lapply(1:nlp, FUN=function(d){
+        if (is.null(lpi)){
+          lpi_d <- 1:ncol(X)
+        }else{
+          lpi_d <- lpi[[d]]
+        }
+        return(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d])
+      })
+      jacob <- lapply(jacob_i, colMeans, na.rm=T)
+    }else{
+      jacob_i <- lapply(jacob_i, FUN=function(ji){
+        out <- do.call('cbind', sapply(1:ncol(ji), FUN=function(d){
+          lpi_d <- lpi[[d]]
+          return(Diagonal(x = ji[,d]) %*% X[, lpi_d])
+        }))
+        # out <- out[, unlist(lpi)]
+        if (!isTRUE(identical(colnames(out), coef_names))){
+          stop("Name msialignment when creating jacobian")
+        }
+        return(out)
+      })
+      jacob <- lapply(jacob_i, colMeans, na.rm=T)
+    }
+    
   }else{
-    jacob <- lapply(1:nlp, FUN=function(d){
-      if (is.null(lpi)){
-        lpi_d <- 1:ncol(X)
-      }else{
-        lpi_d <- lpi[[d]]
-      }
-      ji <- colMeans(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d], na.rm=T)
-      return(ji)
-    })
+    
+    if (!is.list(jacob_i)){
+      jacob <- lapply(1:nlp, FUN=function(d){
+        if (is.null(lpi)){
+          lpi_d <- 1:ncol(X)
+        }else{
+          lpi_d <- lpi[[d]]
+        }
+        ji <- colMeans(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d], na.rm=T)
+        return(ji)
+      })
+    }else{
+      jacob <- lapply(jacob_i, FUN=function(ji){
+        out <- do.call('cbind', sapply(1:ncol(ji), FUN=function(d){
+          lpi_d <- lpi[[d]]
+          return(Diagonal(x = ji[,d]) %*% X[, lpi_d])
+        }))
+        out <- out[, unlist(lpi)]
+        if (!isTRUE(identical(colnames(out), coef_names))){
+          stop("Name msialignment when creating jacobian")
+        }
+        out <- colMeans(out, na.rm=T)
+        return(out)
+      })
+    }
     jacob_i <- NULL
     e_i <- NULL
   }
@@ -1047,6 +1126,7 @@ predict_extended <- function(object, X, individual){
   }
   return(
     list(
+      complex_extended = complex_extended,
       expectation = ex,
       expectation_i = e_i,
       jacobian_i = jacob_i,
