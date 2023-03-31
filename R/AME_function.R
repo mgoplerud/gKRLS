@@ -979,19 +979,11 @@ predict_extended <- function(object, X, individual){
       # calculate the jacobian needed for the delta method
       lp_i <- as.vector(X %*% coef_object)
       if (grepl(family_object$family, pattern='^Ordered Categorical\\(')){
-        pred_obj <- internal_ocat_jacobian(
-          family = family_object, 
-          se = TRUE, 
-          X = matrix(lp_i), 
-          beta = 1, Vb = 1, off = 0        
-        )
+        pred_obj <- ocat_jacobian(lp_i = as.vector(lp_i), 
+          family_object = family_object)
       }else if (grepl(family_object$family, pattern='^Zero inflated Poisson\\(')){
-        pred_obj <- internal_ziP_jacobian(
-          family = family_object, 
-          se = TRUE, 
-          X = matrix(lp_i), 
-          beta = 1, Vb = 1, off = 0        
-        )
+        pred_obj <- zip_jacobian(lp_i = as.vector(lp_i), 
+         family_object = family_object)      
       }else{
         stop('This extended family not set up for calculate_effect.')
       }
@@ -1021,13 +1013,10 @@ predict_extended <- function(object, X, individual){
       attr(lp_i, 'lpi') <- as.list(1:ncol(lp_i))
       
       if (grepl(family_object$family, pattern='^multinom$')){
-        pred_obj <- internal_multinom_jacobian(
-          family = family_object,
-          se = TRUE,
-          X = lp_i,
-          beta = rep(1, ncol(lp_i)), 
-          Vb = diag(ncol(lp_i)), off = rep(0,ncol(lp_i))
-        )
+        
+        pred_obj <- multinom_jacobian(lp_i = lp_i, 
+          family_object = family_object)
+        
       }else{
         stop('This extended family not set up for calculate_effect.')
       }

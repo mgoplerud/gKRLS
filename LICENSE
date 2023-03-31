@@ -1,5 +1,0 @@
-The `gKRLS` package includes components from other open source software packages. The following is a list of those elements:
-
-- From `mgcv 1.8-42` (<https://CRAN.R-project.org/package=mgcv>):
-  - Three internal functions are used for prediction that are direct copies from `mgcv`, with modifications to export some internal parameters. These functions are documented under `?internal_functions` and relate to the `ziP()`, `ocat()` and `multinom()` families.
-  - The license for `mgcv 1.8-42` is `GPL (≥ 2)`
