@@ -54,9 +54,8 @@ estfun.gam <- function(x, correct_df = TRUE, override_check = FALSE, ...){
   }
   
   if (!inherits(family_x, what = c('general.family', 'extended.family'))){
-    # Extractly slightly differently from gam to ensure that it works for
-    # different families and link functions. See Wood (2017, p. XX)
-    # for the definition
+    # Extract slightly differently from gam to ensure that it works for
+    # different families and link functions. See Wood (2017, Ch. 3) for discussion
     out <- as.vector( residuals(x, 'pearson') * sqrt(weights(x, 'working')) ) * model.matrix(x)
   }else{
     stop('Robust SE from sandwich not set up for general.family or extended.family')

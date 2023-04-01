@@ -1,0 +1,14 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+literature/*
+misc_files/*
+Qing_Work/*
+.github/*
+draft/*
+replication/*
+simulation/*
+temp_files.RDS
+desktop.ini
+codecov.yml
+DML_Demo/*
+tests/testthat/test_torch.R
