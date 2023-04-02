@@ -1,5 +1,15 @@
 
-context("Marginal Effects Tests")
+if (isTRUE(as.logical(Sys.getenv("CI")))){
+  # If on CI
+  env_test <- "CI"
+}else if (!identical(Sys.getenv("NOT_CRAN"), "true")){
+  # If on CRAN
+  env_test <- "CRAN"
+  set.seed(126)
+}else{
+  # If on local machine
+  env_test <- 'local'
+}
 
 test_that("Test DoubleML", {
   

@@ -1,3 +1,15 @@
+if (isTRUE(as.logical(Sys.getenv("CI")))){
+  # If on CI
+  env_test <- "CI"
+}else if (!identical(Sys.getenv("NOT_CRAN"), "true")){
+  # If on CRAN
+  env_test <- "CRAN"
+  set.seed(124)
+}else{
+  # If on local machine
+  env_test <- 'local'
+}
+
 
 context("Test basic kernel operations and edge cases")
 

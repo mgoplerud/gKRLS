@@ -5,6 +5,8 @@ Version: 1.0.1
 Encoding: UTF-8
 Authors@R:c(person(given = "Qing", family = "Chang", role = c("aut"), email = "qic47@pitt.edu"),
   person(given = "Max", family = "Goplerud", role = c("aut", "cre"), email = "mgoplerud@pitt.edu"))
+Date: 2023-2-27
+License: GPL (>= 2)
 Description: Kernel regularized least squares, also known as kernel ridge regression, 
     is a flexible machine learning method. This package implements this method for 
     generalized linear models and other models with random sketching to facilitate 
@@ -14,8 +16,6 @@ Description: Kernel regularized least squares, also known as kernel ridge regres
     (via 'SuperLearning'), double/debiased machine learning (via 'DoubleML'), 
     and robust/clustered standard errors (via 'sandwich'). 
     Chang and Goplerud (2023) <arxiv:2209.14355> provides further details.
-Date: 2023-2-27
-License: GPL (>= 2)
 LinkingTo: Rcpp, RcppEigen
 Imports: 
   Rcpp (>= 1.0.6), 
