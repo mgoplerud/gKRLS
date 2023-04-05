@@ -20,9 +20,7 @@ if (interactive() & (env_test == 'local')){
 
   test_that(" Test AME versus automatic differentation using torch ", {
     
-    if (!requireNamespace('torch', quiet = FALSE)){
-      stop('torch not installed...')
-    }
+    library(torch)
     
     # From mgcv
     n <- 1000

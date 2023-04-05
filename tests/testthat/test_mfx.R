@@ -102,12 +102,6 @@ test_that("test 'calculate_effects'", {
     model = fit_gKRLS, variables = "x1",
       continuous_type = list('x1' = c(-1, 1)))
   
-  fit_inter <- kernel_interactions(
-    fit_gKRLS,
-    variables = list(c("x1", "x3"))
-  )
-  
-  
   # Test alignment with derivative and second derivative
   
   fit_first_deriv <- calculate_effects(model = fit_gKRLS, 

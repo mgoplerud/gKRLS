@@ -4,6 +4,7 @@
 \alias{calculate_effects}
 \alias{print.gKRLS_mfx}
 \alias{summary.gKRLS_mfx}
+\alias{head.gKRLS_mfx}
 \title{Marginal Effects}
 \usage{
 calculate_effects(
@@ -23,6 +24,8 @@ calculate_effects(
 \method{print}{gKRLS_mfx}(x, ...)
 
 \method{summary}{gKRLS_mfx}(object, ...)
+
+\method{head}{gKRLS_mfx}(x, n = 6L, ...)
 }
 \arguments{
 \item{model}{A model estimated from \code{mgcv}.}

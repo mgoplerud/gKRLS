@@ -55,8 +55,12 @@ test_that(" Test for prediction/SE for complex families ", {
   pred_mgcv <- predict(b, newdata = dat, se.fit = TRUE, type = 'response')
 
   expect_equivalent(pred_gKRLS$individual$est, as.vector(pred_mgcv$fit))
-  expect_true(!isTRUE(all.equal(pred_gKRLS$individual$se, as.vector(pred_mgcv$se.fit))))
-
+  if (packageVersion('mgcv') > '1.8-42'){
+    expect_equivalent(pred_gKRLS$individual$se, as.vector(pred_mgcv$se.fit))
+  }else{
+    expect_true(!isTRUE(all.equal(pred_gKRLS$individual$se, as.vector(pred_mgcv$se.fit))))
+  }
+  
   # Test when K = 2 (i.e. 3 categories)
   new_dat <- subset(dat, new_y < 3)
   b <- gam(list(new_y ~ s(x0), 
@@ -69,5 +73,24 @@ test_that(" Test for prediction/SE for complex families ", {
   
   expect_equivalent(pred_gKRLS$individual$est, as.vector(pred_mgcv$fit))
   expect_equivalent(pred_gKRLS$individual$se, as.vector(pred_mgcv$se.fit))
+  
+  # Test that multinomial and logit agree when 2 categories (K=1) 
+  new_dat_2 <- subset(dat, new_y < 2)
+  b <- gam(list(new_y ~ s(x0)), 
+           data = new_dat_2,
+           family = multinom(K = 1), method = 'REML')
+  b2 <- gam(new_y ~ s(x0),
+            data = new_dat_2,
+            family = binomial(), method = 'REML')
+  
+  fit_multinom <- calculate_effects(b)
+  fit_logit <- calculate_effects(b2)
+  expect_equivalent(
+    fit_multinom$marginal_effects[2,-5],
+    fit_logit$marginal_effects,
+    tol = 1e-4, 
+  )
+  expect_equivalent(vcov(b), vcov(b2), tol = 1e-4, scale = 1)
+  expect_equivalent(coef(b), coef(b2), tol = 1e-4, scale = 1)
   
 })

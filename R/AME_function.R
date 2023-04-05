@@ -581,7 +581,7 @@ calculate_effects <- function(model, data = NULL,
 }
 
 kernel_interactions <- function(model,
-                                variables, QOI = c("AMIE", "ACE", "AIE", "AME"), ...) {
+      variables, QOI = c("AMIE", "ACE", "AIE", "AME"), ...) {
   QOI <- match.arg(QOI, several.ok = TRUE)
   args <- list(...)
   if (isTRUE(args$raw)) {
@@ -612,6 +612,12 @@ kernel_interactions <- function(model,
         args
       )
     )
+    
+    if (!('response' %in% names(fit_var$marginal_effects))){
+      fit_var$marginal_effects$response <- 1
+    }
+    fit_var$counter <- paste(fit_var$counter, '@', fit_var$marginal_effects$response)
+    
     id <- seq_len(nrow(fit_var$marginal_effects))
     split_var <- strsplit(fit_var$marginal_effects$variable, split = ":")
     split_var <- unique(split_var[which(lengths(split_var) == 2)])
@@ -619,18 +625,23 @@ kernel_interactions <- function(model,
     out_inter <- lapply(split_var, FUN = function(i) {
       out <- data.frame()
       v_i <- paste(i, collapse = ":")
-      id_two <- which(fit_var$marginal_effects$variable == v_i)
-      id_one <- which(fit_var$marginal_effects$variable %in% i)
-      id_two <- split(id_two, fit_var$counter[id_two])
-      id_one <- split(id_one, fit_var$counter[id_one])
-
+      id_inter <- which(fit_var$marginal_effects$variable == v_i)
+      id_marg <- which(fit_var$marginal_effects$variable %in% i)
+      id_marg <- split(id_marg, fit_var$counter[id_marg])
+      id_inter <- split(id_inter, fit_var$counter[id_inter])
+      fmt_names <- do.call('rbind', strsplit(names(id_inter), split=' @ '))
+      colnames(fmt_names) <- c('counter', 'response')
+      stopifnot(all(lengths(id_inter) == 1))
+      stopifnot(all(lengths(id_marg) == 2))
+      stopifnot(identical(names(id_inter), names(id_marg)))
+      
       if ("AME" %in% QOI) {
         out <- rbind(
           out,
           data.frame(
-            fit_var$marginal_effects[unlist(id_one), c("variable", "est", "se")],
+            fit_var$marginal_effects[unlist(id_marg), c("variable", "est", "se")],
             QOI = "AME",
-            `...counter` = rep(seq_len(length(id_one)), lengths(id_one))
+            `...counter` = rep(seq_len(length(id_marg)), lengths(id_marg))
           )
         )
       }
@@ -638,31 +649,49 @@ kernel_interactions <- function(model,
         out <- rbind(
           out,
           data.frame(
-            fit_var$marginal_effects[unlist(id_two), c("variable", "est", "se")],
+            fit_var$marginal_effects[unlist(id_inter), c("variable", "est", "se")],
             QOI = "ACE",
-            `...counter` = seq_len(length(unlist(id_two)))
+            `...counter` = seq_len(length(unlist(id_inter)))
           )
         )
       }
       if ("AMIE" %in% QOI) {
-        id_matrix <- do.call("rbind", mapply(id_two, id_one, seq_len(length(id_one)), SIMPLIFY = FALSE, FUN = function(x, y, z) {
+        
+        id_matrix <- do.call("rbind", mapply(id_inter, id_marg, seq_len(length(id_marg)), SIMPLIFY = FALSE, FUN = function(x, y, z) {
           rbind(c(x, z, 1), cbind(y, z, -1))
         }))
         id_matrix <- sparseMatrix(
           i = id_matrix[, 1], j = id_matrix[, 2], x = id_matrix[, 3],
-          dims = c(nrow(fit_var$marginal_effects), length(id_one))
+          dims = c(nrow(fit_var$marginal_effects), length(id_marg))
         )
-        point_estimate <- as.vector(fit_var$marginal_effects$est %*% id_matrix)
-        se_estimate <- apply(fit_var$jacobian %*% id_matrix,
-          MARGIN = 2, FUN = function(i) {
-            as.numeric(sqrt(t(i) %*% vcov_mdl %*% i))
-          }
-        )
+        rownames(id_matrix) <- paste(fit_var$marginal_effects$variable, '@', fit_var$marginal_effects$response)
+        if (all(fit_var$marginal_effects$response == 1)){
+          point_estimate <- as.vector(fit_var$marginal_effects$est %*% id_matrix)
+          se_estimate <- apply(fit_var$jacobian %*% id_matrix,
+             MARGIN = 2, FUN = function(i) {
+               as.numeric(sqrt(t(i) %*% vcov_mdl %*% i))
+             }
+          )
+        }else{
+          point_estimate <- as.vector(fit_var$marginal_effects$est %*% id_matrix)
+          # Loop over the jacobian for each conditional group
+          se_estimate <- do.call('c', lapply(fit_var$jacobian, FUN=function(ji){
+            # Loop over the jacobian for each *response*
+            se_loop <- mapply(ji[[i[1]]], ji[[i[2]]], ji[[v_i]], SIMPLIFY = TRUE, FUN=function(marg_1, marg_2, inter){
+               jacobian_ji <- cbind(inter, marg_1, marg_2) %*% c(1, -1, -1)
+               out <- sqrt(as.numeric(t(jacobian_ji) %*% vcov_mdl %*% jacobian_ji))
+               return(out)
+            })
+            return(se_loop)
+          }))
+        }
         out <- rbind(
           out,
           data.frame(variable = v_i, QOI = "AMIE", est = point_estimate, se = se_estimate, `...counter` = seq_len(length(point_estimate)), stringsAsFactors = F)
         )
       }
+      out$response <- as.numeric(fmt_names[,'response'])[out$`...counter`]
+      out$`...counter` <- as.numeric(fmt_names[,'counter'])[out$`...counter`]
       return(out)
     })
     out_inter <- do.call("rbind", out_inter)
@@ -676,7 +705,7 @@ kernel_interactions <- function(model,
   } else {
     id <- NULL
   }
-  all_inter <- all_inter[, c("QOI", "variable", "est", "se", "t", "...counter")]
+  all_inter <- all_inter[, c("QOI", "variable", "est", "se", "t", "response", "...counter")]
   all_inter[["...id"]] <- id
   if (!is.null(args$conditional)) {
     conditional <- args$conditional
@@ -750,6 +779,18 @@ print.gKRLS_mfx <- function(x, ...) {
 #' @export
 summary.gKRLS_mfx <- function(object, ...) {
   object$marginal_effects
+}
+
+#' @rdname calculate_effects
+#' @method head gKRLS_mfx
+#' @export
+head.gKRLS_mfx <- function(x, n = 6L, ...){
+  print(x)[seq_len(n),]
+}
+
+#' @export
+fortify.gKRLS_mfx <- function(model, data, ...){
+  model$marginal_effects
 }
 
 #' @importFrom stats coef vcov na.pass predict
@@ -969,6 +1010,11 @@ predict_extended <- function(object, X, individual){
     stop('Not set up for "lpi" with overlap.')
   }
   family_object <- object$family
+  if (family_object$family == 'multinom' & is.null(lpi)){
+    if (family_object$nlp == 1){
+      lpi <- list(1:ncol(X))
+    }
+  }
   # Set up a flag for complex extended families (e.g., multinomial)
   complex_extended <- FALSE
   if (!is.null(family_object$predict)){

@@ -34,22 +34,27 @@ zip_jacobian <- function(lp_i, family_object){
 multinom_jacobian <- function(lp_i, family_object){
   
   aug_lpi <- cbind(0, lp_i)
+  # Calculate softmax in a stable fashion to avoid dividing
+  # by very small numbers
+  # Slow implementation as follows
+  # t(apply(X, MARGIN = 1, FUN=function(i){j <- exp(i - max(i)); return(j/sum(j))}))
   lp_max <- do.call(pmax, data.frame(aug_lpi))
   lp_transf <- sweep(aug_lpi, MARGIN = 1, STATS = lp_max, FUN = '-')
   lp_transf <- exp(lp_transf)
   row_transf <- rowSums(lp_transf)
   lp_out <- lp_transf/row_transf
-  lp_denom <- exp(lp_max) * row_transf  
-  
+  lp_denom <- exp(lp_max) * row_transf
+
   lp_jacob <- lapply(1:ncol(lp_out), FUN=function(k){
     if (k == 1){
-      fmt_k <- -lp_out[,-1] / lp_denom
+      fmt_k <- -lp_out[,-1, drop = F] / lp_denom
     }else{
-      fmt_k <- -lp_out[,-1] * lp_out[,k]
-      fmt_k[,k-1] <- fmt_k[, k-1] + lp_out[,k]
+      fmt_k <- -lp_out[,-1, drop = F] * lp_out[,k]
+      fmt_k[,k-1] <- fmt_k[, k-1, drop = F] + lp_out[,k]
     }
     return(fmt_k)
   })
+  
   return(
     list(fit = lp_out, jacobian = lp_jacob)
   )
