@@ -50,12 +50,16 @@
 #'   using an "observed value" approach (e.g., Hanmer and Kalkan 2013). The
 #'   examples below provide an illustration.
 #'
-#' @return  \code{calculate_effects} returns a list of class \code{"gKRLS_mfx"}
-#'   that contains the following elements.
+#' @return  \code{calculate_effects} returns a data.frame of class
+#'   \code{"gKRLS_mfx"} that contains a data.frame with the estimated average
+#'   marginal effects. \code{"type"} reports the type of marginal effect
+#'   calculated.
+#'   
+#'   This data.frame has attributes, listed below, that are used in other
+#'   functions. The function \code{get_individual_effects} extracts the
+#'   individual-level effects that are estimated if \code{individual=TRUE}.
+#'   
 #'   \itemize{
-#'   \item{"marginal_effects": } A data.frame containing the estimated marginal
-#'   effects. \code{"type"} reports the type of marginal effect calculated. The
-#'   estimates, standard errors, t-statistics, and p-values are also reported.
 #'   \item{"jacobian": } This reports the corresponding Jacobian used to
 #'   calculate the standard error (via the delta method) for the estimate. There
 #'   is one row for each row in "marginal_effects". This can be used to, for
@@ -104,10 +108,16 @@
 #' )
 #'
 #' # calculate marginal effect by specifying a factor conditional variable
-#' calculate_effects(gkrls_est,
-#'   variables = "x1",
+#' # estimate the individual marginal effects
+#' out <- calculate_effects(gkrls_est,
+#'   variables = "x1", individual = TRUE,
 #'   conditional = data.frame(state = c("a", "b", "c")), continuous_type = "derivative"
 #' )
+#' 
+#' # Extract the individual marginal effects: 
+#' # shorthand for attr(fit_main, 'individual')
+#' get_individual_effects(out)
+#' 
 #' # calculated the average expected value across a grid of "x1" using an observed value approach
 #' calculate_effects(gkrls_est, conditional = data.frame(x1 = c(0, 0.2, 0.4, 0.6)),
 #'   continuous_type = 'predict'
@@ -217,6 +227,8 @@ calculate_effects <- function(model, data = NULL,
   out_mfx <- data.frame()
   if (individual) {
     out_mfx_individual <- data.frame()
+  }else{
+    out_mfx_individual <- NULL
   }
   
   if (simple_family){
@@ -557,44 +569,52 @@ calculate_effects <- function(model, data = NULL,
       stop("Unusual alignment error between jacobian and marginal effects.")
     }
   }
+  
   out_mfx$t <- out_mfx$est / out_mfx$se
   out_mfx$p.value <- 2 * pt(-abs(out_mfx$t), df = N_eff)
 
-  out <- list(
-    marginal_effects = out_mfx,
-    jacobian = out_jacobian,
-    counter = out_counter
-  )
   if (individual) {
     out_mfx_individual$t <- out_mfx_individual$est / out_mfx_individual$se
     out_mfx_individual$p.value <- 2 * pt(-abs(out_mfx_individual$t), df = N_eff)
-    out$individual <- out_mfx_individual
   }
-  out$N_eff <- N_eff
-  out$N <- N
+
   if (continuous_type == 'predict'){
-    out$individual <- out$individual[, !(names(out$individual) %in% c('variable', 'type'))]
-    out$marginal_effects <- out$marginal_effects[, !(names(out$marginal_effects) %in% c('variable', 'type'))]
+    if (individual){
+      out_mfx_individual <- out_mfx_individual[, !(names(out_mfx_individual) %in% c('variable', 'type'))]
+    }
+    out_mfx <- out_mfx[, !(names(out_mfx) %in% c('variable', 'type'))]
   }
-  class(out) <- "gKRLS_mfx"
+
+  out <- out_mfx
+  attr(out, 'jacobian') <- out_jacobian
+  attr(out, 'counter') <- out_counter
+  attr(out, 'individual') <- out_mfx_individual
+  attr(out, 'N_eff') <- N_eff
+  attr(out, 'N') <- N
+  class(out) <- c("gKRLS_mfx", "data.frame")
   return(out)
 }
 
 kernel_interactions <- function(model,
       variables, QOI = c("AMIE", "ACE", "AIE", "AME"), ...) {
+
   QOI <- match.arg(QOI, several.ok = TRUE)
   args <- list(...)
+  
   if (isTRUE(args$raw)) {
     stop("raw=T not permitted for interactions.")
   }
+  
   if (!is.null(args$conditional)) {
     if (any(names(args$conditional) %in% c("variable", "est", "se", "QOI", "...counter"))) {
       stop('conditional may not contain "variable", "est", "se", or "QOI" as column names.')
     }
   }
+  
   if (any(lengths(variables) != 2)) {
     stop("variables must be a list of two-length vectors.")
   }
+  
   if (is.null(args$vcov)) {
     vcov_mdl <- vcov(model)
   } else {
@@ -613,20 +633,20 @@ kernel_interactions <- function(model,
       )
     )
     
-    if (!('response' %in% names(fit_var$marginal_effects))){
-      fit_var$marginal_effects$response <- 1
+    if (!('response' %in% names(fit_var))){
+      fit_var$response <- 1
     }
-    fit_var$counter <- paste(fit_var$counter, '@', fit_var$marginal_effects$response)
+    fit_var$counter <- paste(fit_var$counter, '@', fit_var$response)
     
-    id <- seq_len(nrow(fit_var$marginal_effects))
-    split_var <- strsplit(fit_var$marginal_effects$variable, split = ":")
+    id <- seq_len(nrow(fit_var))
+    split_var <- strsplit(fit_var$variable, split = ":")
     split_var <- unique(split_var[which(lengths(split_var) == 2)])
 
     out_inter <- lapply(split_var, FUN = function(i) {
       out <- data.frame()
       v_i <- paste(i, collapse = ":")
-      id_inter <- which(fit_var$marginal_effects$variable == v_i)
-      id_marg <- which(fit_var$marginal_effects$variable %in% i)
+      id_inter <- which(fit_var$variable == v_i)
+      id_marg <- which(fit_var$variable %in% i)
       id_marg <- split(id_marg, fit_var$counter[id_marg])
       id_inter <- split(id_inter, fit_var$counter[id_inter])
       fmt_names <- do.call('rbind', strsplit(names(id_inter), split=' @ '))
@@ -639,7 +659,7 @@ kernel_interactions <- function(model,
         out <- rbind(
           out,
           data.frame(
-            fit_var$marginal_effects[unlist(id_marg), c("variable", "est", "se")],
+            fit_var[unlist(id_marg), c("variable", "est", "se")],
             QOI = "AME",
             `...counter` = rep(seq_len(length(id_marg)), lengths(id_marg))
           )
@@ -649,7 +669,7 @@ kernel_interactions <- function(model,
         out <- rbind(
           out,
           data.frame(
-            fit_var$marginal_effects[unlist(id_inter), c("variable", "est", "se")],
+            fit_var[unlist(id_inter), c("variable", "est", "se")],
             QOI = "ACE",
             `...counter` = seq_len(length(unlist(id_inter)))
           )
@@ -662,20 +682,20 @@ kernel_interactions <- function(model,
         }))
         id_matrix <- sparseMatrix(
           i = id_matrix[, 1], j = id_matrix[, 2], x = id_matrix[, 3],
-          dims = c(nrow(fit_var$marginal_effects), length(id_marg))
+          dims = c(nrow(fit_var), length(id_marg))
         )
-        rownames(id_matrix) <- paste(fit_var$marginal_effects$variable, '@', fit_var$marginal_effects$response)
-        if (all(fit_var$marginal_effects$response == 1)){
-          point_estimate <- as.vector(fit_var$marginal_effects$est %*% id_matrix)
-          se_estimate <- apply(fit_var$jacobian %*% id_matrix,
+        rownames(id_matrix) <- paste(fit_var$variable, '@', fit_var$response)
+        if (all(fit_var$response == 1)){
+          point_estimate <- as.vector(fit_var$est %*% id_matrix)
+          se_estimate <- apply(attr(fit_var, 'jacobian') %*% id_matrix,
              MARGIN = 2, FUN = function(i) {
                as.numeric(sqrt(t(i) %*% vcov_mdl %*% i))
              }
           )
         }else{
-          point_estimate <- as.vector(fit_var$marginal_effects$est %*% id_matrix)
+          point_estimate <- as.vector(fit_var$est %*% id_matrix)
           # Loop over the jacobian for each conditional group
-          se_estimate <- do.call('c', lapply(fit_var$jacobian, FUN=function(ji){
+          se_estimate <- do.call('c', lapply(attr(fit_var, 'jacobian'), FUN=function(ji){
             # Loop over the jacobian for each *response*
             se_loop <- mapply(ji[[i[1]]], ji[[i[2]]], ji[[v_i]], SIMPLIFY = TRUE, FUN=function(marg_1, marg_2, inter){
                jacobian_ji <- cbind(inter, marg_1, marg_2) %*% c(1, -1, -1)
@@ -714,8 +734,8 @@ kernel_interactions <- function(model,
     }
   }
   all_inter[["...counter"]] <- NULL
-  out <- list(marginal_effects = all_inter, jacobian = NA)
-  class(out) <- "gKRLS_mfx"
+  out <- all_inter
+  class(out) <- c("gKRLS_mfx", "data.frame")
   return(out)
 }
 
@@ -768,9 +788,14 @@ print.gKRLS_mfx <- function(x, ...) {
     cat("\nSummary of Average Marginal Effects\n")
     print(out)
   } else {
-    cat("\nSummary of Average Marginal Effects\n\n")
-    print(x$marginal_effects)
+    print.data.frame(x)
   }
+}
+
+#' @rdname calculate_effects
+#' @export
+get_individual_effects <- function(x){
+  return(attr(x, 'individual'))
 }
 
 #' @rdname calculate_effects
@@ -778,19 +803,16 @@ print.gKRLS_mfx <- function(x, ...) {
 #' @param ... Additional arguments (unused).
 #' @export
 summary.gKRLS_mfx <- function(object, ...) {
-  object$marginal_effects
-}
-
-#' @rdname calculate_effects
-#' @method head gKRLS_mfx
-#' @export
-head.gKRLS_mfx <- function(x, n = 6L, ...){
-  print(x)[seq_len(n),]
-}
-
-#' @export
-fortify.gKRLS_mfx <- function(model, data, ...){
-  model$marginal_effects
+  if (!is.null(object$type)){
+    out <- data.frame(est = object$AME_pointwise, se = sqrt(object$AME_pointwise_var))
+    out$t.stat <- out$est / out$se
+    out$p.value <- 2 * pt(-abs(out$t.stat), df = object$N_eff)
+    out <- cbind(data.frame(variable = rownames(out), stringsAsFactors = F), out)
+    rownames(out) <- NULL
+  }else{
+    out <- object
+  }
+  return(out)
 }
 
 #' @importFrom stats coef vcov na.pass predict

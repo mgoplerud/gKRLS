@@ -54,9 +54,9 @@ test_that("Test everything runs when kernel has categorical/factor variables", {
   expect_s3_class(mfx_calc, 'gKRLS_mfx')
   
   expect_warning(predict(fit_gam, 
-                         newdata = data.frame(X1 = -5:5, X2 = 0:10,
-                                              X3 = 2, X4 = 'a', X5 = 'NEW', X6 = 'CA',
-                                              X7 = 1.5, stringsAsFactors = T)), regexp = 'factor levels NEW')
+    newdata = data.frame(X1 = -5:5, X2 = 0:10,
+      X3 = 2, X4 = 'a', X5 = 'NEW', X6 = 'CA',
+      X7 = 1.5, stringsAsFactors = T)), regexp = 'factor levels NEW')
   
   v1 <- suppressMessages(suppressWarnings(predict(fit_gam, 
                                                   newdata = data.frame(X1 = -5:5, X2 = 0:10,
@@ -112,12 +112,12 @@ test_that("Test that factor vs dummies is equivalent", {
   legacy_direct <- legacy_marginal_effect(fit_direct, newdata = df, keep = 'X1')
   expect_equivalent(
     legacy_direct$AME_pointwise,
-    mfx_direct$marginal_effects$est,
+    mfx_direct$est,
     tol = 0.01, scale = 1
   )
   expect_equivalent(
     sqrt(legacy_direct$AME_pointwise_var),
-    mfx_direct$marginal_effects$se,
+    mfx_direct$se,
     tol = 0.01, scale = 1
   )
 })

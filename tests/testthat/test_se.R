@@ -190,4 +190,11 @@ test_that("Test Robust for bam", {
 
 test_that("Test Robust for Complex Family", {
   
+  N <- 100
+  x <- rnorm(N)
+  z <- rnorm(N)
+  y <- rt(N,df = 2) + exp(x) + cos(z)
+  
+  est_gam <- gam(y ~ x + z, family = scat, method = 'REML')
+  expect_error(vcovHC(est_gam), regexp = 'Robust SE from sandwich not set up')
 })

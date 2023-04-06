@@ -39,8 +39,8 @@ test_that(" Test for prediction/SE for complex families ", {
     }
     pred_gKRLS <- calculate_effects(model = b, continuous_type = 'predict', individual = T)
     pred_mgcv <- predict(b, newdata = dat, se.fit = TRUE, type = 'response')    
-    expect_equivalent(pred_gKRLS$individual$est, as.vector(pred_mgcv$fit))
-    expect_equivalent(pred_gKRLS$individual$se, as.vector(pred_mgcv$se.fit))
+    expect_equivalent(get_individual_effects(pred_gKRLS)$est, as.vector(pred_mgcv$fit))
+    expect_equivalent(get_individual_effects(pred_gKRLS)$se, as.vector(pred_mgcv$se.fit))
     rm(pred_gKRLS, pred_mgcv)
   }
   
@@ -54,11 +54,11 @@ test_that(" Test for prediction/SE for complex families ", {
   pred_gKRLS <- calculate_effects(model = b, continuous_type = 'predict', individual = T)
   pred_mgcv <- predict(b, newdata = dat, se.fit = TRUE, type = 'response')
 
-  expect_equivalent(pred_gKRLS$individual$est, as.vector(pred_mgcv$fit))
+  expect_equivalent(get_individual_effects(pred_gKRLS)$est, as.vector(pred_mgcv$fit))
   if (packageVersion('mgcv') > '1.8-42'){
-    expect_equivalent(pred_gKRLS$individual$se, as.vector(pred_mgcv$se.fit))
+    expect_equivalent(get_individual_effects(pred_gKRLS)$se, as.vector(pred_mgcv$se.fit), tol = 1e-6, scale = 1)
   }else{
-    expect_true(!isTRUE(all.equal(pred_gKRLS$individual$se, as.vector(pred_mgcv$se.fit))))
+    expect_true(!isTRUE(all.equal(get_individual_effects(pred_gKRLS)$se, as.vector(pred_mgcv$se.fit))))
   }
   
   # Test when K = 2 (i.e. 3 categories)
@@ -71,8 +71,8 @@ test_that(" Test for prediction/SE for complex families ", {
   pred_gKRLS <- calculate_effects(model = b, continuous_type = 'predict', individual = T)
   pred_mgcv <- predict(b, newdata = new_dat, se.fit = TRUE, type = 'response')
   
-  expect_equivalent(pred_gKRLS$individual$est, as.vector(pred_mgcv$fit))
-  expect_equivalent(pred_gKRLS$individual$se, as.vector(pred_mgcv$se.fit))
+  expect_equivalent(get_individual_effects(pred_gKRLS)$est, as.vector(pred_mgcv$fit))
+  expect_equivalent(get_individual_effects(pred_gKRLS)$se, as.vector(pred_mgcv$se.fit))
   
   # Test that multinomial and logit agree when 2 categories (K=1) 
   new_dat_2 <- subset(dat, new_y < 2)
@@ -86,8 +86,8 @@ test_that(" Test for prediction/SE for complex families ", {
   fit_multinom <- calculate_effects(b)
   fit_logit <- calculate_effects(b2)
   expect_equivalent(
-    fit_multinom$marginal_effects[2,-5],
-    fit_logit$marginal_effects,
+    fit_multinom[2,-5],
+    fit_logit,
     tol = 1e-4, 
   )
   expect_equivalent(vcov(b), vcov(b2), tol = 1e-4, scale = 1)

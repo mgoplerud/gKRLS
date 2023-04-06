@@ -38,8 +38,8 @@ test_that("mfx with degenerate Mahalanobis", {
                                          keep = c("x1", "x2", "x3")
     )
     
-    expect_equivalent(mfx_num$marginal_effects$est, mfx_legacy$AME_pointwise, tol = 1e-3)
-    expect_equivalent(mfx_num$marginal_effects$se, sqrt(mfx_legacy$AME_pointwise_var), tol = 1e-3)
+    expect_equivalent(mfx_num$est, mfx_legacy$AME_pointwise, tol = 1e-3)
+    expect_equivalent(mfx_num$se, sqrt(mfx_legacy$AME_pointwise_var), tol = 1e-3)
   }
 })
 
@@ -66,8 +66,8 @@ test_that("Test MFX", {
     keep = c("x1", "x2", "x3")
   )
 
-  expect_equivalent(mfx_num$marginal_effects$est, mfx_legacy$AME_pointwise, tol = 1e-3)
-  expect_equivalent(mfx_num$marginal_effects$se, sqrt(mfx_legacy$AME_pointwise_var), tol = 1e-3)
+  expect_equivalent(mfx_num$est, mfx_legacy$AME_pointwise, tol = 1e-3)
+  expect_equivalent(mfx_num$se, sqrt(mfx_legacy$AME_pointwise_var), tol = 1e-3)
 })
 
 test_that("test 'calculate_effects'", {
@@ -94,8 +94,8 @@ test_that("test 'calculate_effects'", {
     model = fit_gKRLS, variables = "x3",
     individual = TRUE, conditional = data.frame(x1 = c(-1, 1))
   )
-  expect_false(is.null(factor_test$individual))
-  expect_equal(nrow(factor_test$marginal_effects), 8)
+  expect_false(is.null(get_individual_effects(factor_test)))
+  expect_equal(nrow(factor_test), 8)
 
   logical_test <- calculate_effects(model = fit_gKRLS, variables = "x4")
   custom_cont_test <- calculate_effects(
@@ -141,18 +141,18 @@ test_that("test 'calculate_effects'", {
   man_second_deriv_b <- -2/obj$bandwidth * as.vector( (K * diag(W2)[1]) %*% S %*% coef(fit_gKRLS)[-1] )
   man_second_deriv <- man_second_deriv_a + man_second_deriv_b
   
-  expect_equivalent(fit_first_deriv$individual$est, man_first_deriv, tol = 1e-5)  
-  expect_equivalent(fit_second_deriv$individual$est, man_second_deriv, tol = 1e-5)  
+  expect_equivalent(get_individual_effects(fit_first_deriv)$est, man_first_deriv, tol = 1e-5)  
+  expect_equivalent(get_individual_effects(fit_second_deriv)$est, man_second_deriv, tol = 1e-5)  
   
   SE_MAT <- -2/obj$bandwidth * ( (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})) %*% S)
   man_first_deriv_se <- sqrt(rowSums( (SE_MAT %*% vcov(fit_gKRLS)[-1,-1]) * SE_MAT ))
-  expect_equivalent(fit_first_deriv$individual$se, man_first_deriv_se, tol = 1e-5)  
+  expect_equivalent(get_individual_effects(fit_first_deriv)$se, man_first_deriv_se, tol = 1e-5)  
 
   
   SE_MAT2 <- 4/obj$bandwidth^2 * (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})^2 ) %*% S +
     -2/obj$bandwidth * (K * diag(W2)[1]) %*% S
   man_second_deriv_se <- sqrt(rowSums( (SE_MAT2 %*% vcov(fit_gKRLS)[-1,-1]) * SE_MAT2 ))
-  expect_equivalent(fit_second_deriv$individual$se, man_second_deriv_se, tol = 1e-5)  
+  expect_equivalent(get_individual_effects(fit_second_deriv)$se, man_second_deriv_se, tol = 1e-5)  
   
 })
 

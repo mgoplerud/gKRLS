@@ -123,9 +123,9 @@ if (interactive() & (env_test == 'local')){
       }else{
         avg_mgcv <- mean(pred_mgcv)
       }
-      expect_equal(avg_mgcv, pred_gKRLS$marginal_effects$est)
-      expect_equal(est_torch, pred_gKRLS$marginal_effects$est, tol = 1e-6, scale = 1)
-      expect_equal(est_se_torch, pred_gKRLS$marginal_effects$se, tol = 1e-6, scale = 1)
+      expect_equal(avg_mgcv, pred_gKRLS$est)
+      expect_equal(est_torch, pred_gKRLS$est, tol = 1e-6, scale = 1)
+      expect_equal(est_se_torch, pred_gKRLS$se, tol = 1e-6, scale = 1)
       rm(pred_gKRLS, pred_mgcv)
       rm(list = ls(pattern='^torch_'))
     }

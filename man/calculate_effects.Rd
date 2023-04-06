@@ -3,8 +3,8 @@
 \name{calculate_effects}
 \alias{calculate_effects}
 \alias{print.gKRLS_mfx}
+\alias{get_individual_effects}
 \alias{summary.gKRLS_mfx}
-\alias{head.gKRLS_mfx}
 \title{Marginal Effects}
 \usage{
 calculate_effects(
@@ -23,9 +23,9 @@ calculate_effects(
 
 \method{print}{gKRLS_mfx}(x, ...)
 
-\method{summary}{gKRLS_mfx}(object, ...)
+get_individual_effects(x)
 
-\method{head}{gKRLS_mfx}(x, n = 6L, ...)
+\method{summary}{gKRLS_mfx}(object, ...)
 }
 \arguments{
 \item{model}{A model estimated from \code{mgcv}.}
@@ -88,12 +88,16 @@ examples below provide an illustration.}
 \item{object}{A model estimated from \code{mgcv}.}
 }
 \value{
-\code{calculate_effects} returns a list of class \code{"gKRLS_mfx"}
-  that contains the following elements.
+\code{calculate_effects} returns a data.frame of class
+  \code{"gKRLS_mfx"} that contains a data.frame with the estimated average
+  marginal effects. \code{"type"} reports the type of marginal effect
+  calculated.
+  
+  This data.frame has attributes, listed below, that are used in other
+  functions. The function \code{get_individual_effects} extracts the
+  individual-level effects that are estimated if \code{individual=TRUE}.
+  
   \itemize{
-  \item{"marginal_effects": } A data.frame containing the estimated marginal
-  effects. \code{"type"} reports the type of marginal effect calculated. The
-  estimates, standard errors, t-statistics, and p-values are also reported.
   \item{"jacobian": } This reports the corresponding Jacobian used to
   calculate the standard error (via the delta method) for the estimate. There
   is one row for each row in "marginal_effects". This can be used to, for
@@ -136,10 +140,16 @@ calculate_effects(gkrls_est,
 )
 
 # calculate marginal effect by specifying a factor conditional variable
-calculate_effects(gkrls_est,
-  variables = "x1",
+# estimate the individual marginal effects
+out <- calculate_effects(gkrls_est,
+  variables = "x1", individual = TRUE,
   conditional = data.frame(state = c("a", "b", "c")), continuous_type = "derivative"
 )
+
+# Extract the individual marginal effects: 
+# shorthand for attr(fit_main, 'individual')
+get_individual_effects(out)
+
 # calculated the average expected value across a grid of "x1" using an observed value approach
 calculate_effects(gkrls_est, conditional = data.frame(x1 = c(0, 0.2, 0.4, 0.6)),
   continuous_type = 'predict'
