@@ -76,15 +76,15 @@ test_that(" Test for prediction/SE for complex families ", {
   
   # Test that multinomial and logit agree when 2 categories (K=1) 
   new_dat_2 <- subset(dat, new_y < 2)
-  b <- gam(list(new_y ~ s(x0)), 
+  b <- gam(list(new_y ~ x0 + x1 + x2 * x3), 
            data = new_dat_2,
            family = multinom(K = 1), method = 'REML')
-  b2 <- gam(new_y ~ s(x0),
+  b2 <- gam(new_y ~ x0 + x1 + x2 * x3,
             data = new_dat_2,
             family = binomial(), method = 'REML')
   
-  fit_multinom <- calculate_effects(b)
-  fit_logit <- calculate_effects(b2)
+  fit_multinom <- calculate_effects(b, variables = 'x3')
+  fit_logit <- calculate_effects(b2, variables = 'x3')
   expect_equivalent(
     fit_multinom[2,-5],
     fit_logit,

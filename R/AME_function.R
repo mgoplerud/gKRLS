@@ -1076,9 +1076,9 @@ predict_extended <- function(object, X, individual){
       complex_extended <- TRUE
       
       lp_i <- sapply(lpi, FUN=function(lpi_d){
-        as.vector(X[, lpi_d] %*% coef_object[lpi_d])
+        as.vector(X[, lpi_d, drop = F] %*% coef_object[lpi_d])
       })
-      attr(lp_i, 'lpi') <- as.list(1:ncol(lp_i))
+      attr(lp_i, 'lpi') <- as.list(1:length(lpi))
       
       if (grepl(family_object$family, pattern='^multinom$')){
         
@@ -1141,7 +1141,7 @@ predict_extended <- function(object, X, individual){
         }))
         # out <- out[, unlist(lpi)]
         if (!isTRUE(identical(colnames(out), coef_names))){
-          stop("Name msialignment when creating jacobian")
+          stop("Name misalignment when creating jacobian")
         }
         return(out)
       })
@@ -1157,18 +1157,18 @@ predict_extended <- function(object, X, individual){
         }else{
           lpi_d <- lpi[[d]]
         }
-        ji <- colMeans(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d], na.rm=T)
+        ji <- colMeans(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d, drop = F], na.rm=T)
         return(ji)
       })
     }else{
       jacob <- lapply(jacob_i, FUN=function(ji){
         out <- do.call('cbind', sapply(1:ncol(ji), FUN=function(d){
           lpi_d <- lpi[[d]]
-          return(Diagonal(x = ji[,d]) %*% X[, lpi_d])
+          return(Diagonal(x = ji[,d]) %*% X[, lpi_d, drop = F])
         }))
-        out <- out[, unlist(lpi)]
+        out <- out[, unlist(lpi), drop = F]
         if (!isTRUE(identical(colnames(out), coef_names))){
-          stop("Name msialignment when creating jacobian")
+          stop("Name misalignment when creating jacobian")
         }
         out <- colMeans(out, na.rm=T)
         return(out)
