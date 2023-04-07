@@ -10,8 +10,6 @@ if (isTRUE(as.logical(Sys.getenv("CI")))){
   env_test <- 'local'
 }
 
-
-
 test_that("Test Robust for Linear (Unpenalized)", {
   
   N <- 100
@@ -159,7 +157,7 @@ test_that("Test Robust for GLM", {
 
 test_that("Test Robust for bam", {
   
-  N <- 1000
+  N <- 100
   x <- rnorm(N)
   z <- rnorm(N)
   y <- rbinom(N, 1, plogis( exp(x) + cos(z)))
@@ -169,15 +167,15 @@ test_that("Test Robust for bam", {
   
   expect_equivalent(
     vcovHC(est_gam, type = 'HC1'), 
-    vcovHC(est_gam, type = 'HC0'),
-    tol = 1e-5)
+    vcovHC(est_gam, type = 'HC0') * N/(N-sum(est_gam$edf))
+  )
 
   est_gam <- gam(y ~ x + z, family = gaussian())
   est_bam <- bam(y ~ x + z, family = gaussian())
   c1 <- sample(1:15, size = N, replace = T)
   expect_equivalent(
     vcovCL(est_gam, cluster = c1), 
-    vcovCL(est_gam, cluster = c1),
+    vcovCL(est_bam, cluster = c1),
     tol = 1e-5)
 
   est_bam <- bam(y ~ te(x,z), family = gaussian())
@@ -185,7 +183,7 @@ test_that("Test Robust for bam", {
   S <- est_bam$smooth[[1]]$S[[1]] * est_bam$sp[1] + est_bam$smooth[[1]]$S[[2]] * est_bam$sp[2]
   meat <- t(mm) %*% Diagonal(x = residuals(est_bam)^2) %*% mm
   inv <- solve(crossprod(mm) + bdiag(0, S))
-  expect_equivalent(as.matrix(inv %*% meat %*% inv), vcovHC(est_bam, type = 'HC0'), tol = 1e-6)
+  expect_equivalent(as.matrix(inv %*% meat %*% inv), vcovHC(est_bam, type = 'HC0'), scale = 1, tol = 1e-6)
 })
 
 test_that("Test Robust for Complex Family", {

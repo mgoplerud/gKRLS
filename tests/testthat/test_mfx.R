@@ -169,9 +169,9 @@ test_that("test logical and binary", {
   y <- x1^3 - 0.5 * x2 + 1/5 * match(X$x3, letters) + rnorm(N, 0, 1)
   y <- y * 10
   
-  fit_gKRLS <- gam(list(y ~ x4 * x3 + s(x1, x2, x3, bs = "gKRLS"), ~ x4 * x3 + s(x1,x2)),
+  fit_gKRLS <- suppressWarnings(gam(list(y ~ x4 * x3 + s(x1, x2, x3, bs = "gKRLS"), ~ x4 * x3 + s(x1,x2)),
     family = gaulss(), method = "REML", data = data.frame(y, X)
-  )
+  ))
   
   est_effects <- calculate_effects(fit_gKRLS, 
     variables = list(c('x4', 'x3')))
