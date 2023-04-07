@@ -20,7 +20,7 @@
 #' @return The \code{legacy_marginal_effect} a list that contains the following elements:
 #' \itemize{
 #' \item{"ME_pointwise": } The marginal effects for each observation.
-#' \item{"ME_pointwise_var": } The variance for each pointwise maringal effect
+#' \item{"ME_pointwise_var": } The variance for each pointwise marginal effect
 #' in "ME_pointwise".
 #' \item{"AME_pointwise": } The average marginal effect, i.e. the column
 #' averages of "ME_pointwise".

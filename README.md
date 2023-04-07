@@ -4,7 +4,7 @@ This package implements [Chang and Goplerud (2023)](https://arxiv.org/abs/2209.1
 
 We also provide an implementation of random sketching or projection following [Yang et al. (2017)](https://doi.org/10.1214/16-AOS1472).
 
-The syntax is straightforward to users of \texttt{mgcv}. The following example estimates a Poisson regression with an intercept and a flexible kernel term.
+The syntax is straightforward to users of `mgcv`. The following example estimates a Poisson regression with an intercept and a flexible kernel term.
 
 ```
 gam(y ~ s(x1, x2, bs = "gKRLS"), data = data, family = poisson())
