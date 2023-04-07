@@ -156,3 +156,36 @@ test_that("test 'calculate_effects'", {
   
 })
 
+test_that("test logical and binary", {
+
+  N <- 100
+  x1 <- rnorm(N, sd = 1.6)
+  x2 <- rbinom(N, size = 1, prob = .2)
+  s <- sample(letters[1:5], N, replace = T)
+  X <- data.frame(x1, x2, s = factor(s), 
+                  l = sample(c(TRUE,FALSE), N, replace = T), stringsAsFactors = F)
+  colnames(X) <- paste0("x", 1:ncol(X))
+
+  y <- x1^3 - 0.5 * x2 + 1/5 * match(X$x3, letters) + rnorm(N, 0, 1)
+  y <- y * 10
+  
+  fit_gKRLS <- gam(list(y ~ x4 * x3 + s(x1, x2, x3, bs = "gKRLS"), ~ x4 * x3 + s(x1,x2)),
+    family = gaulss(), method = "REML", data = data.frame(y, X)
+  )
+  
+  est_effects <- calculate_effects(fit_gKRLS, 
+    variables = list(c('x4', 'x3')))
+  
+  copy_X <- data.frame(X)  
+  copy_X$x4 <- FALSE  
+  copy_X$x3 <- 'a'
+  pred_base <- predict(fit_gKRLS, newdata = copy_X, type = 'response')
+  pred_base <- colMeans(pred_base)
+  for (v in c('b', 'c', 'd')){
+    copy_X$x3 <- v
+    copy_X$x4 <- TRUE  
+    pred_alt <- colMeans(predict(fit_gKRLS, newdata = copy_X, type = 'response'))
+    expect_equal(pred_alt - pred_base, subset(est_effects, grepl(variable, pattern=paste0('factor.x3.', v)))$est)
+  }
+})
+
