@@ -1,9 +1,12 @@
 #' @importFrom stats rnorm rbinom
 create_sketch_matrix <- function(N, sketch_size, sketch_prob = NULL, sketch_method) {
   if (sketch_method == "gaussian") {
-    S <- matrix(rnorm(N * sketch_size), nrow = N)
+    
+    S <- t(matrix(rnorm(N * sketch_size), nrow = N))
     S <- S * sqrt(1 / sqrt(sketch_size))
+    
   } else if (sketch_method == "bernoulli") {
+    
     if (is.null(sketch_prob)) {
       stop('sketch method "bernoulli" requires a probability.')
     }
@@ -11,11 +14,17 @@ create_sketch_matrix <- function(N, sketch_size, sketch_prob = NULL, sketch_meth
     S <- matrix(rbinom(N * sketch_size, 1, prob = sketch_prob), nrow = N)
     S <- S * 1 / sqrt(sketch_prob * (1 - sketch_prob))
     S <- S * 1 / sqrt(sketch_size)
+    S <- t(S)
+    
   } else if (sketch_method == "none") {
+    
     S <- as.matrix(Diagonal(n = N))
+    
   }
 
   S <- as.matrix(S)
+  
+  return(S)
 }
 
 #' @importFrom stats cov var

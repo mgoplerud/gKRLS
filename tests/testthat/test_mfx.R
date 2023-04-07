@@ -129,28 +129,28 @@ test_that("test 'calculate_effects'", {
   K <- create_sketched_kernel(
     X_test = Predict.matrix.gKRLS.smooth(object = obj, data = data.frame(X)), 
     X_train = as.matrix(obj$X_train),
-    tS = diag(nrow(obj$X_train)),
+    S = diag(nrow(obj$X_train)),
     bandwidth = obj$bandwidth
   )
   
   W <- obj$std_train$whiten
   W2 <- tcrossprod(W)
-  man_first_deriv <- -2/obj$bandwidth * as.vector( (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})) %*% S %*% coef(fit_gKRLS)[-1] )
+  man_first_deriv <- -2/obj$bandwidth * as.vector( (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})) %*% t(S) %*% coef(fit_gKRLS)[-1] )
 
-  man_second_deriv_a <- 4/obj$bandwidth^2 * as.vector( (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})^2 ) %*% S %*% coef(fit_gKRLS)[-1] )
-  man_second_deriv_b <- -2/obj$bandwidth * as.vector( (K * diag(W2)[1]) %*% S %*% coef(fit_gKRLS)[-1] )
+  man_second_deriv_a <- 4/obj$bandwidth^2 * as.vector( (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})^2 ) %*% t(S) %*% coef(fit_gKRLS)[-1] )
+  man_second_deriv_b <- -2/obj$bandwidth * as.vector( (K * diag(W2)[1]) %*% t(S) %*% coef(fit_gKRLS)[-1] )
   man_second_deriv <- man_second_deriv_a + man_second_deriv_b
   
   expect_equivalent(get_individual_effects(fit_first_deriv)$est, man_first_deriv, tol = 1e-5)  
   expect_equivalent(get_individual_effects(fit_second_deriv)$est, man_second_deriv, tol = 1e-5)  
   
-  SE_MAT <- -2/obj$bandwidth * ( (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})) %*% S)
+  SE_MAT <- -2/obj$bandwidth * ( (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})) %*% t(S))
   man_first_deriv_se <- sqrt(rowSums( (SE_MAT %*% vcov(fit_gKRLS)[-1,-1]) * SE_MAT ))
   expect_equivalent(get_individual_effects(fit_first_deriv)$se, man_first_deriv_se, tol = 1e-5)  
 
   
-  SE_MAT2 <- 4/obj$bandwidth^2 * (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})^2 ) %*% S +
-    -2/obj$bandwidth * (K * diag(W2)[1]) %*% S
+  SE_MAT2 <- 4/obj$bandwidth^2 * (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})^2 ) %*% t(S) +
+    -2/obj$bandwidth * (K * diag(W2)[1]) %*% t(S)
   man_second_deriv_se <- sqrt(rowSums( (SE_MAT2 %*% vcov(fit_gKRLS)[-1,-1]) * SE_MAT2 ))
   expect_equivalent(get_individual_effects(fit_second_deriv)$se, man_second_deriv_se, tol = 1e-5)  
   

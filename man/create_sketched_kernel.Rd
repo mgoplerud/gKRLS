@@ -4,14 +4,14 @@
 \alias{create_sketched_kernel}
 \title{Create the sketched kernel}
 \usage{
-create_sketched_kernel(X_test, X_train, tS, bandwidth)
+create_sketched_kernel(X_test, X_train, S, bandwidth)
 }
 \arguments{
 \item{X_test}{Test data}
 
 \item{X_train}{Train data}
 
-\item{tS}{Transposed sketch matrix}
+\item{S}{Sketch matrix}
 
 \item{bandwidth}{Kernel bandwidth}
 }

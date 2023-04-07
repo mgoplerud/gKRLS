@@ -5,17 +5,17 @@ kern_gauss <- function(X_one, X_two, bandwidth) {
     .Call('_gKRLS_kern_gauss', PACKAGE = 'gKRLS', X_one, X_two, bandwidth)
 }
 
-cpp_gkrls_me <- function(std_X_train, std_X_test, bandwidth, family, mahal, sd_y, offset, any_Z, tZ, tS, fe_mean, re_mean, SIZE_PARAMETER, vcov_ridge, FE_matrix_test, W_Matrix, WX_test, WX_train, raw_X_test, std_mean, std_whiten, type_mfx, fd_matrix, std_fd_matrix, fit_position, mfx_counter) {
-    .Call('_gKRLS_cpp_gkrls_me', PACKAGE = 'gKRLS', std_X_train, std_X_test, bandwidth, family, mahal, sd_y, offset, any_Z, tZ, tS, fe_mean, re_mean, SIZE_PARAMETER, vcov_ridge, FE_matrix_test, W_Matrix, WX_test, WX_train, raw_X_test, std_mean, std_whiten, type_mfx, fd_matrix, std_fd_matrix, fit_position, mfx_counter)
+cpp_gkrls_me <- function(std_X_train, std_X_test, bandwidth, family, mahal, sd_y, offset, any_Z, tZ, S, fe_mean, re_mean, SIZE_PARAMETER, vcov_ridge, FE_matrix_test, W_Matrix, WX_test, WX_train, raw_X_test, std_mean, std_whiten, type_mfx, fd_matrix, std_fd_matrix, fit_position, mfx_counter) {
+    .Call('_gKRLS_cpp_gkrls_me', PACKAGE = 'gKRLS', std_X_train, std_X_test, bandwidth, family, mahal, sd_y, offset, any_Z, tZ, S, fe_mean, re_mean, SIZE_PARAMETER, vcov_ridge, FE_matrix_test, W_Matrix, WX_test, WX_train, raw_X_test, std_mean, std_whiten, type_mfx, fd_matrix, std_fd_matrix, fit_position, mfx_counter)
 }
 
 #' Create the sketched kernel
 #' @param X_test Test data
 #' @param X_train Train data
-#' @param tS Transposed sketch matrix
+#' @param S Sketch matrix
 #' @param bandwidth Kernel bandwidth
 #' @keywords internal
-create_sketched_kernel <- function(X_test, X_train, tS, bandwidth) {
-    .Call('_gKRLS_create_sketched_kernel', PACKAGE = 'gKRLS', X_test, X_train, tS, bandwidth)
+create_sketched_kernel <- function(X_test, X_train, S, bandwidth) {
+    .Call('_gKRLS_create_sketched_kernel', PACKAGE = 'gKRLS', X_test, X_train, S, bandwidth)
 }
 

@@ -20,7 +20,7 @@ test_that("Check kernel CPP aligns with direct", {
 
   K_cpp <- create_sketched_kernel(
     X_test = X,
-    X_train = X[1:15, ], tS = diag(15),
+    X_train = X[1:15, ], S = diag(15),
     bandwidth = 2
   )
 
@@ -33,20 +33,21 @@ test_that("Check kernel CPP aligns with direct", {
 
   expect_error(create_sketched_kernel(
     X_test = X, X_train = X, bandwidth = 2,
-    tS = diag(3)
+    S = diag(3)
   ))
 
   S <- create_sketch_matrix(N = nrow(X), sketch_size = 3, sketch_method = "gaussian")
   K_cpp <- create_sketched_kernel(
     X_test = X,
-    X_train = X, tS = t(S),
+    X_train = X, S = S,
     bandwidth = 2
   )
-  expect_equivalent(K_cpp, exp(-base_kernel(X, X) / 2) %*% S)
-  expect_equivalent(K_cpp, exp(-as.matrix(dist(X)^2) / 2) %*% S)
+  expect_equivalent(K_cpp, exp(-base_kernel(X, X) / 2) %*% t(S))
+  expect_equivalent(K_cpp, exp(-as.matrix(dist(X)^2) / 2) %*% t(S))
 })
 
 test_that("Test everything works when kernel has limited columns", {
+  
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
   y <- X %*% rnorm(ncol(X))
@@ -64,9 +65,15 @@ test_that("Test everything works when kernel has limited columns", {
   data = data.frame(X, y),
   family = poisson()
   ))
-
-  expect_equal(length(coef(fit_gam)) - 1, ncol(fit_gam$smooth[[1]]$sketch_matrix))
-
+  
+  # Confirm that Predict.matrix.gKRLS.smooth works as expected
+  expect_equivalent(
+    as.vector(
+      cbind(1, Predict.matrix.gKRLS.smooth(fit_gam$smooth[[1]], data = data.frame(X))) %*% coef(fit_gam)
+    ), predict(fit_gam, newdata = data.frame(X))
+  )
+  
+  expect_equal(length(coef(fit_gam)) - 1, nrow(fit_gam$smooth[[1]]$sketch_matrix))
   evalues <- eigen(exp(-as.matrix(dist(X)^2) / ncol(X)))$values
   fit_single <- gam(y ~ s(X1, X2, X3,
     bs = "gKRLS",
@@ -74,10 +81,8 @@ test_that("Test everything works when kernel has limited columns", {
       standardize = "none",
       truncate.eigen.tol = max(evalues) - 0.001, sketch_method = "none"
     )
-  ),
-  data = data.frame(X, y),
-  family = poisson()
-  )
+  ), data = data.frame(X, y), family = poisson())
+  
   expect_equal(length(coef(fit_single)), 2)
 })
 
@@ -106,14 +111,34 @@ test_that("Test sketch size options work as anticipated", {
 })
 
 test_that("Test custom vector", {
+  
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
   y <- X %*% rnorm(ncol(X))
+  cust_vector <- sample(1:50, 5)
   fit_one <- gam(y ~ s(X1, X2, X3,
-                       bs = "gKRLS",
-                       xt = gKRLS(sketch_method = sample(1:50, 5), remove_instability = FALSE)
+   bs = "gKRLS",
+   xt = gKRLS(sketch_method = cust_vector, truncate.eigen.tol = 0.001)
   ), data = data.frame(X, y))
   expect_equal(length(fit_one$smooth[[1]]$subsampling_id), 5)
+  
+  # Check that prediction works as expected with eigentruncation
+  predict_mat <- Predict.matrix.gKRLS.smooth(object = fit_one$smooth[[1]], 
+                                             data = data.frame(X))
+  eig_X <- eigen(cov(X))
+  std_X <- sweep(X, MARGIN = 2, STATS = colMeans(X), FUN = '-')
+  std_X <- as.matrix(std_X %*% eig_X$vectors %*% Diagonal(x=1/sqrt(eig_X$values)))
+  K <- exp(-as.matrix(dist(std_X)^2) / ncol(std_X))
+  P <- K[cust_vector, cust_vector] * N/5
+  eig_P <- eigen(P, symmetric = TRUE)
+  eig_P$values[eig_P$values < 1e-4] <- 0
+  eig_nonzero <- which(eig_P$values != 0)
+  TMat <- eig_P$vectors[,eig_nonzero] %*% Diagonal(x = 1/sqrt(eig_P$values[eig_nonzero]))
+  custom_pred <- sqrt(N/5) * as.matrix(K[,cust_vector] %*% TMat)
+  # Address issue of eigen sign-flip
+  custom_pred <- custom_pred %*% Diagonal(x=sapply(1:ncol(custom_pred), FUN=function(i){cor(custom_pred[,i], predict_mat[,i])}))
+  expect_equivalent(predict_mat, as.matrix(custom_pred))
+  
   expect_s3_class(fit_one, "gam")
   fit_one <- gam(y ~ s(X1, X2, X3,
                        bs = "gKRLS",
@@ -124,4 +149,6 @@ test_that("Test custom vector", {
   expect_s3_class(fit_one, "gam")
   v <- predict(fit_one, newdata = data.frame(X)[1:5,])
   expect_vector(v, size = 5)
+  
+  
 })

@@ -147,26 +147,27 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
         sketch_size <- N + sketch_size
       }
     }
-    
+    # Remove leverage code for now...    
+    # else if (object$xt$sketch_method == 'subsampling_leverage'){
+    #   
+    #   if (sketch_size > N) {
+    #     stop("Subsampling requires sketch_size < N.")
+    #   }
+    #   leverage_dim <- min(c(nrow(X), 10 * sketch_size))
+    #   message(paste0('Computing leverage scores with rank ', leverage_dim))
+    #   leverage_scores <- function(X, bandwidth, k){stop('SET UP LEVERAGE SCORES')}
+    #   lscores <- leverage_scores(X = X, bandwidth = bandwidth, k = leverage_dim)
+    #   subsampling_id <- which(sketch_size * lscores >= runif(nrow(X)))
+    #   message(paste0(length(subsampling_id), ' sampled using leverage scores: ', sketch_size, ' was requested.'))
+    #   X_train <- X[subsampling_id, , drop = F]
+    #   sketch_matrix <- diag(length(subsampling_id)) * sqrt(N/sketch_size)
+    #   
+    # }
     if (object$xt$sketch_method == 'custom'){
       subsampling_id <- object$xt$sketch_vector
       X_train <- X[subsampling_id, , drop = F]
       sketch_size <- length(subsampling_id)
       sketch_matrix <- diag(length(subsampling_id)) * sqrt(N/sketch_size)
-    }else if (object$xt$sketch_method == 'subsampling_leverage'){
-      
-      if (sketch_size > N) {
-        stop("Subsampling requires sketch_size < N.")
-      }
-      leverage_dim <- min(c(nrow(X), 10 * sketch_size))
-      message(paste0('Computing leverage scores with rank ', leverage_dim))
-      leverage_scores <- function(X, bandwidth, k){stop('SET UP LEVERAGE SCORES')}
-      lscores <- leverage_scores(X = X, bandwidth = bandwidth, k = leverage_dim)
-      subsampling_id <- which(sketch_size * lscores >= runif(nrow(X)))
-      message(paste0(length(subsampling_id), ' sampled using leverage scores: ', sketch_size, ' was requested.'))
-      X_train <- X[subsampling_id, , drop = F]
-      sketch_matrix <- diag(length(subsampling_id)) * sqrt(N/sketch_size)
-      
     }else if (object$xt$sketch_method == "subsampling") {
       if (sketch_size > N) {
         stop("Subsampling requires sketch_size < N.")
@@ -180,24 +181,26 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
     }
     
   }
-  
-  KS <- create_sketched_kernel(
+
+  KSt <- create_sketched_kernel(
     X_test = X,
-    X_train = X_train, tS = t(sketch_matrix), bandwidth = bandwidth
+    X_train = X_train, S = sketch_matrix, bandwidth = bandwidth
   )
+  
   ev_orig <- NULL
   P_orig <- NULL
   if (!object$fixed) {
+    # S K S^T is the Penalty Term
     if (!is.na(sketch_size) & object$xt$sketch_method %in% c("custom", "subsampling", "subsampling_leverage") ) {
-      Penalty <- t(KS[subsampling_id, ]) %*% sketch_matrix
+      Penalty <- t(KSt[subsampling_id, ]) %*% t(sketch_matrix)
     } else {
-      Penalty <- t(KS) %*% sketch_matrix
+      Penalty <- t(KSt) %*% t(sketch_matrix)
     }
     P_orig <- Penalty
     # Penalty <- Penalty/sum(Penalty^2)
 
     if (object$xt$remove_instability) {
-      old_size_S <- ncol(KS)
+      old_size_S <- ncol(KSt)
 
       truncate_eigen_penalty <- object$xt$truncate.eigen.tol
 
@@ -209,13 +212,17 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
       if (length(nonzero) == 0) {
         stop('After truncation, all eigenvectors are removed. Decrease "truncate.eigen.tol" or set "remove_instability" = FALSE to proceed.')
       }
-      KS <- as.matrix(KS %*% (eigen_sketch$vectors[, nonzero] %*%
+      KSt <- as.matrix(KSt %*% (eigen_sketch$vectors[, nonzero] %*%
         Diagonal(x = 1 / sqrt(eigen_sketch$values[nonzero]))))
-      sketch_matrix <- sketch_matrix %*% as.matrix(eigen_sketch$vectors[, nonzero] %*%
-        Diagonal(x = 1 / sqrt(eigen_sketch$values[nonzero])))
-      Penalty <- diag(ncol(KS))
+      # P = S K S^T = Q Lambda Q^T
+      # S = t(t(S) %*% Q %*% Lambda^{-1/2})
+      # S = Lambda^{-1/2} %*% Q^T %*% S
+      # as note that KS^T = KS^T Q Lambda^{-1/2} after transformation.
+      sketch_matrix <- t( t(sketch_matrix) %*% as.matrix(eigen_sketch$vectors[, nonzero] %*%
+        Diagonal(x = 1 / sqrt(eigen_sketch$values[nonzero]))) )
+      Penalty <- diag(ncol(KSt))
       if (length(nonzero) != length(eigen_sketch$values)) {
-        message(paste("Sketch dimension decreased from", old_size_S, "to", ncol(KS), "because of singular penalty matrix."))
+        message(paste("Sketch dimension decreased from", old_size_S, "to", ncol(KSt), "because of singular penalty matrix."))
       }
     }
 
@@ -227,18 +234,18 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   }
 
   if (object$xt$demean_kernel) {
-    KS_mean <- colMeans(KS)
-    KS <- apply(KS, MARGIN = 2, FUN = function(i) {
+    KSt_mean <- colMeans(KSt)
+    KSt <- apply(KSt, MARGIN = 2, FUN = function(i) {
       i - mean(i)
     })
   } else {
-    KS_mean <- rep(0, ncol(KS))
+    KSt_mean <- rep(0, ncol(KSt))
   }
   # Required elements for kernel prediction
   object$ev_orig <- P_orig
-  object$KS_mean <- KS_mean
-  object$X <- KS
-  object$copy <- KS
+  object$KSt_mean <- KSt_mean
+  object$X <- KSt
+  object$copy <- KSt
   object$X_train <- X_train
   object$bandwidth <- bandwidth
   object$sketch_matrix <- sketch_matrix
@@ -248,9 +255,9 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   object$term_class <- term_class
   object$subsampling_id <- subsampling_id
   # Required elements for "gam"
-  object$rank <- ncol(KS)
+  object$rank <- ncol(KSt)
   object$null.space.dim <- 0
-  object$df <- ncol(KS)
+  object$df <- ncol(KSt)
   # If rescale_penalty is NOT true, then set "no.rescale" to TRUE, i.e. to not rescale.
   # otherwise, leave null.
   if (!object$xt$rescale_penalty) {
@@ -258,7 +265,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   }
   object$te.ok <- 0
   object$plot.me <- FALSE
-  object$C <- matrix(nrow = 0, ncol = ncol(KS))
+  object$C <- matrix(nrow = 0, ncol = ncol(KSt))
 
   class(object) <- "gKRLS.smooth" # Give object a class
   object
@@ -292,17 +299,17 @@ Predict.matrix.gKRLS.smooth <- function(object, data) {
     return(X_test)
   }
 
-  KS_test <- create_sketched_kernel(
+  KSt_test <- create_sketched_kernel(
     X_test = X_test, X_train = object$X_train,
-    tS = t(object$sketch_matrix),
+    S = object$sketch_matrix,
     bandwidth = object$bandwidth
   )
   
   if (object$xt$demean_kernel) {
-    KS_test <- sweep(KS_test, 2, object$KS_mean, FUN = "-")
+    KSt_test <- sweep(KSt_test, 2, object$KSt_mean, FUN = "-")
   }
   
-  return(KS_test)
+  return(KSt_test)
 }
 
 #' @importFrom stats poly
@@ -337,7 +344,7 @@ Predict.matrix.unregpoly.smooth <- function(object, data) {
 # leverage_scores <- function(X, bandwidth, k){
 #   
 #   kern_prod <- function(x, args){
-#     create_sketched_kernel(X_test = args$X, X_train = args$X, tS = t(x), bandwidth = args$bandwidth)
+#     create_sketched_kernel(X_test = args$X, X_train = args$X, S = x, bandwidth = args$bandwidth)
 #   }
 #   
 #   eig_func <- RSpectra::eigs_sym(
