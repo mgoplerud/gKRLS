@@ -4,7 +4,7 @@ if (isTRUE(as.logical(Sys.getenv("CI")))){
 }else if (!identical(Sys.getenv("NOT_CRAN"), "true")){
   # If on CRAN
   env_test <- "CRAN"
-  set.seed(130)
+  set.seed(130) # CRAN SEED
 }else{
   # If on local machine
   env_test <- 'local'
@@ -12,8 +12,6 @@ if (isTRUE(as.logical(Sys.getenv("CI")))){
 
 
 test_that("gKRLS agrees with direct solution", {
-  
-  set.seed(7777)
   
   N <- 200
   x1 <- rnorm(N)
@@ -80,8 +78,6 @@ test_that("gKRLS agrees with direct solution", {
 
 test_that("Legacy Agrees with Numerical", {
   
-  set.seed(7510)
-  
   N <- 200
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)
@@ -100,17 +96,18 @@ test_that("Legacy Agrees with Numerical", {
     data = data.frame(X), continuous_type = "deriv"
   )
 
-  expect_equivalent(mfx_gKRLS$AME_pointwise, mfx_numerical$marginal_effects$est, tol = 1e-5)
-  expect_equivalent(mfx_gKRLS$AME_pointwise_var, mfx_numerical$marginal_effects$se^2, tol = 1e-5)
+  expect_equivalent(mfx_gKRLS$AME_pointwise, mfx_numerical$est, tol = 1e-5)
+  expect_equivalent(mfx_gKRLS$AME_pointwise_var, mfx_numerical$se^2, tol = 1e-5)
 
+  ind_est <- get_individual_effects(mfx_numerical)
   expect_equivalent(
-    do.call("rbind", split(mfx_numerical$individual$est, mfx_numerical$individual$obs)),
+    do.call("rbind", split(ind_est$est, ind_est$obs)),
     mfx_gKRLS$ME_pointwise,
     tol = 1e-4
   )
 
   expect_equivalent(
-    do.call("rbind", split(mfx_numerical$individual$se^2, mfx_numerical$individual$obs)),
+    do.call("rbind", split(ind_est$se^2, ind_est$obs)),
     mfx_gKRLS$ME_pointwise_var,
     tol = 1e-4
   )
@@ -119,10 +116,6 @@ test_that("Legacy Agrees with Numerical", {
 
 test_that("Logistic KRLS Tests", {
   
-  set.seed(7581)
-  
-  skip_on_cran()
-
   N <- 200
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)
@@ -148,21 +141,23 @@ test_that("Logistic KRLS Tests", {
     continuous_type = "deriv", individual = TRUE
   )
 
-  expect_equivalent(mfx_logit$AME_pointwise[-1], mfx_logit_num$marginal_effects$est, tol = 1e-3)
-  expect_equivalent(mfx_logit$AME_pointwise_var[-1], mfx_logit_num$marginal_effects$se^2, tol = 1e-3)
+  expect_equivalent(mfx_logit$AME_pointwise[-1], mfx_logit_num$est, tol = 1e-3)
+  expect_equivalent(mfx_logit$AME_pointwise_var[-1], mfx_logit_num$se^2, tol = 1e-3)
 
+  ind_est <- get_individual_effects(mfx_logit_num)
   expect_equivalent(
-    do.call("rbind", split(mfx_logit_num$individual$est, mfx_logit_num$individual$obs)),
+    do.call("rbind", split(ind_est$est, ind_est$obs)),
     mfx_logit$ME_pointwise[, -1],
     tol = 1e-3
   )
 
   expect_equivalent(
-    do.call("rbind", split(mfx_logit_num$individual$se^2, mfx_logit_num$individual$obs)),
+    do.call("rbind", split(ind_est$se^2, ind_est$obs)),
     mfx_logit$ME_pointwise_var[, -1],
     tol = 1e-3
   )
 
   test_print <- print(mfx_logit)
   test_print <- print(mfx_logit_num)
+  
 })

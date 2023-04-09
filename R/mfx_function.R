@@ -20,7 +20,7 @@
 #' @return The \code{legacy_marginal_effect} a list that contains the following elements:
 #' \itemize{
 #' \item{"ME_pointwise": } The marginal effects for each observation.
-#' \item{"ME_pointwise_var": } The variance for each pointwise maringal effect
+#' \item{"ME_pointwise_var": } The variance for each pointwise marginal effect
 #' in "ME_pointwise".
 #' \item{"AME_pointwise": } The average marginal effect, i.e. the column
 #' averages of "ME_pointwise".
@@ -128,7 +128,7 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL) {
   std_X_test <- sweep(raw_X_test, 2, std_mean, FUN = "-")
   std_X_test <- as.matrix(std_X_test %*% std_whiten)
 
-  tS <- t(kern_smooth$sketch_matrix)
+  S <- kern_smooth$sketch_matrix
   bandwidth <- kern_smooth$bandwidth
 
   all_mean <- matrix(coef(object))
@@ -164,7 +164,7 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL) {
     offset <- as.vector(offset + Z %*% offset_mean)
     Z <- drop0(Z)
   }
-  Sc <- t(tS) %*% re_mean
+  Sc <- t(S) %*% re_mean
 
   fd_flag <- kern_smooth$fd_flag
 
@@ -242,7 +242,7 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL) {
     std_X_train = std_X_train, std_X_test = std_X_test,
     bandwidth = bandwidth, family = family,
     tZ = t(Z), offset = offset, any_Z = any_Z,
-    mahal = mahal, sd_y = fmt_sd_y, tS = tS, fe_mean = fe_mean,
+    mahal = mahal, sd_y = fmt_sd_y, S = S, fe_mean = fe_mean,
     re_mean = as.vector(re_mean),
     SIZE_PARAMETER = nrow(all_mean), vcov_ridge = vcov_ridge,
     FE_matrix_test = FE_matrix_test,

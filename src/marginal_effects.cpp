@@ -84,7 +84,7 @@ Rcpp::List cpp_gkrls_me(
   const Eigen::VectorXd offset,
   const bool any_Z,
   const Eigen::MappedSparseMatrix<double> tZ,
-  const Eigen::MatrixXd tS,
+  const Eigen::MatrixXd S,
   const Eigen::VectorXd fe_mean,
   const Eigen::VectorXd re_mean,
   const int SIZE_PARAMETER,
@@ -114,7 +114,12 @@ Rcpp::List cpp_gkrls_me(
   }else{
     SIZE_Z = 0;
   }
-  Eigen::ArrayXd Sc = (tS.transpose() * re_mean).array();
+  
+  if (N_train != S.cols()){
+    Rcpp::stop("ncol(S) must equal nrow(X_train)");
+  }
+  
+  Eigen::ArrayXd Sc = (S.transpose() * re_mean).array();
   Eigen::MatrixXd t_whiten = std_whiten.transpose();
     
   Eigen::MatrixXd ME_pointwise(N_test, SIZE_MFX);
@@ -137,7 +142,7 @@ Rcpp::List cpp_gkrls_me(
       kern_i(j) = kern_gauss(std_X_i, std_X_train.row(j), bandwidth);      
     }
 
-    Eigen::VectorXd tilde_k_i = tS * kern_i;
+    Eigen::VectorXd tilde_k_i = S * kern_i;
     double fe_i = (X_FE_i.array() * fe_mean.array()).sum();
     double offset_i = offset(i);
     double linpred_i = fe_i + (tilde_k_i.array() * re_mean.array()).sum() + offset_i;
@@ -163,8 +168,8 @@ Rcpp::List cpp_gkrls_me(
 
         Eigen::VectorXd grad_ME_K_p(SIZE_PARAMETER);
         
-        Eigen::VectorXd grad_ME_K_p_c = (kdsc * f_double_prime_i) * (tS * kern_i);
-        grad_ME_K_p_c +=  (f_prime_i * -2.0/bandwidth) * tS * kern_ip;
+        Eigen::VectorXd grad_ME_K_p_c = (kdsc * f_double_prime_i) * (S * kern_i);
+        grad_ME_K_p_c +=  (f_prime_i * -2.0/bandwidth) * S * kern_ip;
         
         Eigen::VectorXd grad_ME_K_p_beta = (-2.0/bandwidth * f_double_prime_i * meat_ip) * X_FE_i;
         Eigen::VectorXd grad_ME_K_p_alpha(SIZE_Z);
@@ -191,7 +196,7 @@ Rcpp::List cpp_gkrls_me(
         }
         
         Eigen::VectorXd grad_ME_FE_p_c = (-2.0/bandwidth * f_double_prime_i * fe_mean(p)) * 
-          (tS * kern_i);
+          (S * kern_i);
         
         Eigen::VectorXd grad_ME_FE_p(SIZE_PARAMETER);
         
@@ -275,7 +280,7 @@ Rcpp::List cpp_gkrls_me(
         
         ME_pointwise(i, raw_p) = f_base(linpred_i_1, family) - f_base(linpred_i_0, family);
         Eigen::VectorXd grad_ME_i_fd_beta = (f_prime(linpred_i_1, family) - f_prime(linpred_i_0, family)) * X_FE_i;
-        Eigen::VectorXd grad_ME_i_fd_c = tS * (f_prime(linpred_i_1, family) * k_i_1 - f_prime(linpred_i_0, family) * k_i_0);
+        Eigen::VectorXd grad_ME_i_fd_c = S * (f_prime(linpred_i_1, family) * k_i_1 - f_prime(linpred_i_0, family) * k_i_0);
         Eigen::VectorXd grad_ME_FD(SIZE_PARAMETER);
         Eigen::VectorXd grad_ME_i_fd_alpha(SIZE_Z);
         if (any_Z){

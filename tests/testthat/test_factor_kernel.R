@@ -4,7 +4,7 @@ if (isTRUE(as.logical(Sys.getenv("CI")))){
 }else if (!identical(Sys.getenv("NOT_CRAN"), "true")){
   # If on CRAN
   env_test <- "CRAN"
-  set.seed(128)
+  set.seed(128) # CRAN SEED
 }else{
   # If on local machine
   env_test <- 'local'
@@ -12,8 +12,6 @@ if (isTRUE(as.logical(Sys.getenv("CI")))){
 
 
 test_that("Test everything runs when kernel has categorical/factor variables", {
-  
-  set.seed(4161)
   
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
@@ -56,9 +54,9 @@ test_that("Test everything runs when kernel has categorical/factor variables", {
   expect_s3_class(mfx_calc, 'gKRLS_mfx')
   
   expect_warning(predict(fit_gam, 
-                         newdata = data.frame(X1 = -5:5, X2 = 0:10,
-                                              X3 = 2, X4 = 'a', X5 = 'NEW', X6 = 'CA',
-                                              X7 = 1.5, stringsAsFactors = T)), regexp = 'factor levels NEW')
+    newdata = data.frame(X1 = -5:5, X2 = 0:10,
+      X3 = 2, X4 = 'a', X5 = 'NEW', X6 = 'CA',
+      X7 = 1.5, stringsAsFactors = T)), regexp = 'factor levels NEW')
   
   v1 <- suppressMessages(suppressWarnings(predict(fit_gam, 
                                                   newdata = data.frame(X1 = -5:5, X2 = 0:10,
@@ -82,7 +80,6 @@ test_that("Test everything runs when kernel has categorical/factor variables", {
 
 test_that("Test that factor vs dummies is equivalent", {
   
-  set.seed(4999)
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
   y <- X %*% rnorm(ncol(X))
@@ -91,17 +88,18 @@ test_that("Test that factor vs dummies is equivalent", {
   
   df <- data.frame(X, X4 = factor(X4), y, stringsAsFactors = F)
   
-  set.seed(54321)
-  
+  id_nystrom <- sample(1:N, ceiling(5 * N^(1/3)))
+
   fit_factor <- gam(
-    y ~ s(X1, X4, bs = 'gKRLS'), data = df
+    y ~ s(X1, X4, bs = 'gKRLS', xt = gKRLS(sketch_method = id_nystrom)), data = df
   )
   wide_X4 <- model.matrix(~ 0 + X4)
   df <- cbind(df, wide_X4)
+
+  fmla <- as.formula(paste0('y ~ s(X1,', 
+        paste0(colnames(wide_X4), collapse=','), 
+        ', bs = "gKRLS", xt = gKRLS(sketch_method = id_nystrom))'))
   
-  set.seed(54321)
-  
-  fmla <- as.formula(paste0('y ~ s(X1,', paste0(colnames(wide_X4), collapse=','), ', bs = "gKRLS")'))
   fit_direct <-  gam(
     fmla, data = df
   )
@@ -114,12 +112,12 @@ test_that("Test that factor vs dummies is equivalent", {
   legacy_direct <- legacy_marginal_effect(fit_direct, newdata = df, keep = 'X1')
   expect_equivalent(
     legacy_direct$AME_pointwise,
-    mfx_direct$marginal_effects$est,
+    mfx_direct$est,
     tol = 0.01, scale = 1
   )
   expect_equivalent(
     sqrt(legacy_direct$AME_pointwise_var),
-    mfx_direct$marginal_effects$se,
+    mfx_direct$se,
     tol = 0.01, scale = 1
   )
 })

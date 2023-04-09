@@ -2,6 +2,8 @@
 % Please edit documentation in R/AME_function.R
 \name{calculate_effects}
 \alias{calculate_effects}
+\alias{calculate_interactions}
+\alias{get_individual_effects}
 \alias{print.gKRLS_mfx}
 \alias{summary.gKRLS_mfx}
 \title{Marginal Effects}
@@ -19,6 +21,15 @@ calculate_effects(
   continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict",
     "second_derivative")
 )
+
+calculate_interactions(
+  model,
+  variables,
+  QOI = c("AMIE", "ACE", "AME", "AIE"),
+  ...
+)
+
+get_individual_effects(x)
 
 \method{print}{gKRLS_mfx}(x, ...)
 
@@ -78,19 +89,39 @@ provides a way of calculating, for example, predicted probability curves
 using an "observed value" approach (e.g., Hanmer and Kalkan 2013). The
 examples below provide an illustration.}
 
-\item{x}{Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}}
+\item{QOI}{Quantity of interest to calculate for
+\code{calculate_interactions}. Options include AME (average marginal
+effect), ACE (average combination effect), AIE (average interaction effect)
+and AMIE (average marginal interaction effect); see "Details" for more
+information.}
 
 \item{...}{Additional arguments (unused).}
+
+\item{x}{Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}}
 
 \item{object}{A model estimated from \code{mgcv}.}
 }
 \value{
-\code{calculate_effects} returns a list of class \code{"gKRLS_mfx"}
-  that contains the following elements.
+\code{calculate_effects} returns a data.frame of class
+  \code{"gKRLS_mfx"} that contains a data.frame with the estimated average
+  marginal effects. \code{"type"} reports the type of marginal effect
+  calculated. For families with multiple predicted outcomes (e.g.,
+  multinomial), the column \code{"response"} numbers the different outcomes
+  in the same order as \code{predict.gam(object)} for the specified family.
+  Many (but not all) extended and generalized families from \code{mgcv} are
+  included.
+  
+  To estimated predicted values at different covariate strata (i.e., create
+  an "observed value" predicted probability curve for a logistic regression),
+  please use the \code{conditional} argument while setting
+  \code{continuous_type = "predict"}. Please see the examples for an
+  illustration.
+  
+  This data.frame has attributes, listed below, that are used in other
+  functions. The function \code{get_individual_effects} extracts the
+  individual-level effects that are estimated if \code{individual=TRUE}.
+  
   \itemize{
-  \item{"marginal_effects": } A data.frame containing the estimated marginal
-  effects. \code{"type"} reports the type of marginal effect calculated. The
-  estimates, standard errors, t-statistics, and p-values are also reported.
   \item{"jacobian": } This reports the corresponding Jacobian used to
   calculate the standard error (via the delta method) for the estimate. There
   is one row for each row in "marginal_effects". This can be used to, for
@@ -102,6 +133,24 @@ examples below provide an illustration.}
   the degrees of freedom for the t-distribution.}
   \item{"N": The number of observations.}
   }
+ 
+ \code{calculate_interactions} provides some simple functions for calculate
+ interaction effects between variables. The default quantities it can produce
+ are listed below. Egami and Imai (2019) provide a detailed exposition of
+ these quantities. All marginalization is done using an "observed value"
+ approach, i.e. over the estimation data or a custom dataset provided to
+ \code{data}.
+ \itemize{
+   \item{"AME" or Average Marginal Effect: } This is the standard quantity
+   reported from \code{calculate_effects}.
+   \item{"ACE" or Average Combination Effect: } This is the effect of
+   changing two variables simultaneously on the outcome.
+   \item{"AMIE" or Average Marginal Interaction Effect: } This is ACE minus
+   each corresponding AME.
+   \item{"AIE" or Average Interaction Effect:} This has a "conditional
+   effect" interpretation and reports the difference in average effect of one
+   variable ("A") between two different levels of a second variable ("B").
+ }
 }
 \description{
 This function calculates the marginal effects after estimating a model with
@@ -132,17 +181,35 @@ calculate_effects(gkrls_est,
   conditional = data.frame(x2 = c(0.6, 0.8), x3 = 0.3)
 )
 
+# calculate interaction effects between two variables
+# use the default setting ("IQR") for the baseline and
+# comparison categories for each variable
+calculate_interactions(gkrls_est, 
+   variables = list(c("x1", "x2")),
+   QOI = c('AIE', 'AMIE')
+)
+
 # calculate marginal effect by specifying a factor conditional variable
-calculate_effects(gkrls_est,
-  variables = "x1",
+# estimate the individual marginal effects
+out <- calculate_effects(gkrls_est,
+  variables = "x1", individual = TRUE,
   conditional = data.frame(state = c("a", "b", "c")), continuous_type = "derivative"
 )
+
+# Extract the individual marginal effects: 
+# shorthand for attr(fit_main, 'individual')
+get_individual_effects(out)
+
 # calculated the average expected value across a grid of "x1" using an observed value approach
 calculate_effects(gkrls_est, conditional = data.frame(x1 = c(0, 0.2, 0.4, 0.6)),
   continuous_type = 'predict'
 )
 }
 \references{
+Egami, Naoki and Kosuke Imai. 2019. "Causal Interaction in Factorial
+Experiments: Application to Conjoint Analysis." \emph{Journal of the American
+Statistical Association}. 114(526):529-540.
+
 Hanmer, Michael J. and Kerem Ozan Kalkan. 2013. "Behind the Curve: Clarifying
 the Best Approach to Calculating Predicted Probabilities and Marginal Effects
 from Limited Dependent Variable Models." \emph{American Journal of Political

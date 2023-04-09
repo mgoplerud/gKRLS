@@ -2,10 +2,11 @@ Package: gKRLS
 Type: Package
 Title: Generalized Kernel Regularized Least Squares (gKRLS)
 Version: 1.0.1
+Date: 2023-4-5
 Encoding: UTF-8
-Authors@R:c(person(given = "Qing", family = "Chang", role = c("aut"), email = "qic47@pitt.edu"),
-  person(given = "Max", family = "Goplerud", role = c("aut", "cre"), email = "mgoplerud@pitt.edu"))
-Date: 2023-2-27
+Authors@R: c(
+  person("Qing", "Chang", role = c("aut"), email = "qic47@pitt.edu"),
+  person("Max", "Goplerud", role = c("aut", "cre"), email = "mgoplerud@pitt.edu"))
 License: GPL (>= 2)
 Description: Kernel regularized least squares, also known as kernel ridge regression, 
     is a flexible machine learning method. This package implements this method for 

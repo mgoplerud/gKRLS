@@ -5,15 +5,13 @@ if (isTRUE(as.logical(Sys.getenv("CI")))){
 }else if (!identical(Sys.getenv("NOT_CRAN"), "true")){
   # If on CRAN
   env_test <- "CRAN"
-  set.seed(126)
+  set.seed(126) # CRAN SEED
 }else{
   # If on local machine
   env_test <- 'local'
 }
 
 test_that("Test DoubleML", {
-  
-  set.seed(5146)
   
   N <- 100
   x1 <- rnorm(N)
@@ -49,7 +47,6 @@ test_that("Test DoubleML", {
 
 test_that("Test SuperLearner", {
   
-  set.seed(5610)
   N <- 100
   x1 <- rnorm(N)
   x2 <- rbinom(N, size = 1, prob = .2)

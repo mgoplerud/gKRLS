@@ -4,7 +4,7 @@ if (isTRUE(as.logical(Sys.getenv("CI")))){
 }else if (!identical(Sys.getenv("NOT_CRAN"), "true")){
   # If on CRAN
   env_test <- "CRAN"
-  set.seed(129)
+  set.seed(129) # CRAN SEED
 }else{
   # If on local machine
   env_test <- 'local'

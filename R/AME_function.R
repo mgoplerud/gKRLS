@@ -50,12 +50,26 @@
 #'   using an "observed value" approach (e.g., Hanmer and Kalkan 2013). The
 #'   examples below provide an illustration.
 #'
-#' @return  \code{calculate_effects} returns a list of class \code{"gKRLS_mfx"}
-#'   that contains the following elements.
+#' @return  \code{calculate_effects} returns a data.frame of class
+#'   \code{"gKRLS_mfx"} that contains a data.frame with the estimated average
+#'   marginal effects. \code{"type"} reports the type of marginal effect
+#'   calculated. For families with multiple predicted outcomes (e.g.,
+#'   multinomial), the column \code{"response"} numbers the different outcomes
+#'   in the same order as \code{predict.gam(object)} for the specified family.
+#'   Many (but not all) extended and generalized families from \code{mgcv} are
+#'   included.
+#'   
+#'   To estimated predicted values at different covariate strata (i.e., create
+#'   an "observed value" predicted probability curve for a logistic regression),
+#'   please use the \code{conditional} argument while setting
+#'   \code{continuous_type = "predict"}. Please see the examples for an
+#'   illustration.
+#'   
+#'   This data.frame has attributes, listed below, that are used in other
+#'   functions. The function \code{get_individual_effects} extracts the
+#'   individual-level effects that are estimated if \code{individual=TRUE}.
+#'   
 #'   \itemize{
-#'   \item{"marginal_effects": } A data.frame containing the estimated marginal
-#'   effects. \code{"type"} reports the type of marginal effect calculated. The
-#'   estimates, standard errors, t-statistics, and p-values are also reported.
 #'   \item{"jacobian": } This reports the corresponding Jacobian used to
 #'   calculate the standard error (via the delta method) for the estimate. There
 #'   is one row for each row in "marginal_effects". This can be used to, for
@@ -67,8 +81,30 @@
 #'   the degrees of freedom for the t-distribution.}
 #'   \item{"N": The number of observations.}
 #'   }
-#'
+#'  
+#'  \code{calculate_interactions} provides some simple functions for calculate
+#'  interaction effects between variables. The default quantities it can produce
+#'  are listed below. Egami and Imai (2019) provide a detailed exposition of
+#'  these quantities. All marginalization is done using an "observed value"
+#'  approach, i.e. over the estimation data or a custom dataset provided to
+#'  \code{data}.
+#'  \itemize{
+#'    \item{"AME" or Average Marginal Effect: } This is the standard quantity
+#'    reported from \code{calculate_effects}.
+#'    \item{"ACE" or Average Combination Effect: } This is the effect of
+#'    changing two variables simultaneously on the outcome.
+#'    \item{"AMIE" or Average Marginal Interaction Effect: } This is ACE minus
+#'    each corresponding AME.
+#'    \item{"AIE" or Average Interaction Effect:} This has a "conditional
+#'    effect" interpretation and reports the difference in average effect of one
+#'    variable ("A") between two different levels of a second variable ("B").
+#'  }
+#'  
 #' @references 
+#' 
+#' Egami, Naoki and Kosuke Imai. 2019. "Causal Interaction in Factorial
+#' Experiments: Application to Conjoint Analysis." \emph{Journal of the American
+#' Statistical Association}. 114(526):529-540.
 #' 
 #' Hanmer, Michael J. and Kerem Ozan Kalkan. 2013. "Behind the Curve: Clarifying
 #' the Best Approach to Calculating Predicted Probabilities and Marginal Effects
@@ -103,11 +139,25 @@
 #'   conditional = data.frame(x2 = c(0.6, 0.8), x3 = 0.3)
 #' )
 #'
+#' # calculate interaction effects between two variables
+#' # use the default setting ("IQR") for the baseline and
+#' # comparison categories for each variable
+#' calculate_interactions(gkrls_est, 
+#'    variables = list(c("x1", "x2")),
+#'    QOI = c('AIE', 'AMIE')
+#' )
+#' 
 #' # calculate marginal effect by specifying a factor conditional variable
-#' calculate_effects(gkrls_est,
-#'   variables = "x1",
+#' # estimate the individual marginal effects
+#' out <- calculate_effects(gkrls_est,
+#'   variables = "x1", individual = TRUE,
 #'   conditional = data.frame(state = c("a", "b", "c")), continuous_type = "derivative"
 #' )
+#' 
+#' # Extract the individual marginal effects: 
+#' # shorthand for attr(fit_main, 'individual')
+#' get_individual_effects(out)
+#' 
 #' # calculated the average expected value across a grid of "x1" using an observed value approach
 #' calculate_effects(gkrls_est, conditional = data.frame(x1 = c(0, 0.2, 0.4, 0.6)),
 #'   continuous_type = 'predict'
@@ -117,7 +167,8 @@
 calculate_effects <- function(model, data = NULL,
     variables = NULL, vcov = NULL, raw = FALSE, individual = FALSE,
     conditional = NULL, epsilon = 1e-7, verbose = FALSE,
-    continuous_type = c("IQR", "minmax", "derivative", "onesd", "predict", "second_derivative")) {
+    continuous_type = c("IQR", "minmax", "derivative", 
+      "onesd", "predict", "second_derivative")) {
   if (!is.list(continuous_type)) {
     continuous_type <- match.arg(continuous_type)
   }
@@ -148,6 +199,12 @@ calculate_effects <- function(model, data = NULL,
       message("raw = FALSE if continuous_type = 'predict'")
     }
   }
+  if (is.list(continuous_type)){
+    fmt_type <- 'custom'
+  }else{
+    fmt_type <- continuous_type
+  }
+
   if (is.null(vcov)) {
     vcov <- stats::vcov(model)
   }
@@ -178,12 +235,10 @@ calculate_effects <- function(model, data = NULL,
     ncond <- 1
   }
 
-  any_binary <- apply(raw_data[, names(variable_type), drop = F],
-    MARGIN = 2,
-    FUN = function(i) {
-      all(i %in% c(0, 1))
-    }
-  )
+  any_binary <- sapply(names(variable_type), FUN=function(i){
+    j <- raw_data[[i]]
+    all(j %in% c(0,1)) & !all(is.logical(j))
+  })
   variable_type[which(any_binary)] <- "bnames"
 
   if (identical(continuous_type, 'predict')){
@@ -213,10 +268,18 @@ calculate_effects <- function(model, data = NULL,
   } else {
     stop('"variables" must be NULL, list or a vector.')
   }
-
+  # "conditional" variables cannot be used in "variables"
+  
+  check_overlap <- intersect(unlist(variable_list), colnames(conditional))
+  if (length(check_overlap) > 0){
+    stop('"conditional" should not contain any variables in "variable" argument.')
+  }
+  
   out_mfx <- data.frame()
   if (individual) {
     out_mfx_individual <- data.frame()
+  }else{
+    out_mfx_individual <- NULL
   }
   
   if (simple_family){
@@ -229,13 +292,24 @@ calculate_effects <- function(model, data = NULL,
   if (is.list(continuous_type)) {
     v <- unlist(variable_list)
     v <- variable_type[match(v, names(variable_type))]
-    v <- v[v == "nnames"]
-    if (!all(names(v) %in% names(continuous_type))) {
-      stop("if continuous_type is a list, then it must have all numerical variables in it.")
+    cont_v <- v[v == "nnames"]
+    # is a continous variable missing from "continuous_type"
+    name_not_in <- !all(names(cont_v) %in% names(continuous_type))
+    # invalid inclusion of non-continous variable
+    invalid_inclusion <- any(names(v[v != 'nnames']) %in% names(continuous_type))
+    if (name_not_in) {
+      stop("if continuous_type is a list, then it must have all numerical variables listed in it.")
+    }
+    if (invalid_inclusion) {
+      stop("if continuous_type is a list, then it must not include any non-continuous variable (including binary or logical).")
     }
     if (!all(lengths(continuous_type) == 2)) {
       stop("if continous_type is a list, it must have vectors of two elements.")
     }
+    continuous_type <- lapply(continuous_type, FUN=function(i){
+      names(i) <- NULL
+      return(i)
+    })
   }
 
   continuous_f <- function(x, m, s, type) {
@@ -269,6 +343,16 @@ calculate_effects <- function(model, data = NULL,
       
       type_v <- variable_type[v]
       packaged_data <- list()
+      # if "AIE" then use a *different* type
+      if (isTRUE(attr(v, 'aie'))){
+        aie_estimate <- TRUE
+        if (identical(continuous_type, 'predict') | identical(continuous_type, 'derivative') | identical(continuous_type, 'second_derivative')){
+          stop('aie_estimate cannot be true with predict or derivative continuous type.')          
+        }
+        if (length(v) != 2){stop("aie_estimate requires length(v) == 2")}
+      }else{
+        aie_estimate <- FALSE
+      }
       # Loop over each variable and create the "d0" and "d1" frames, respectively
       for (v_id in seq_len(length(v))) {
         v_i <- v[v_id]
@@ -318,51 +402,71 @@ calculate_effects <- function(model, data = NULL,
           } else {
             stop("invalid continuous_type")
           }
+          
           if (v_id == 1) {
-            if (continuous_type == "predict"){
+            if (identical(continuous_type, "predict")){
               packaged_data <- list(list(
                 data = list("d0" = data),
                 weights = 1,
                 raw = raw,
-                type = continuous_type,
+                type = fmt_type,
                 name = v_i
               ))
+            }else if (identical(continuous_type, 'second_derivative')){
+              packaged_data <- list(list(
+                data = list("d2" = data, "d1" = data, "d0" = data),
+                weights = c(1, -2, 1) * multiplier,
+                raw = raw,
+                type = fmt_type,
+                name = v_i
+              ))
+              packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["-1"], ctype)
+              packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["0"], ctype)
+              packaged_data[[1]]$data$d2[[v_i]] <- continuous_f(packaged_data[[1]]$data$d2[[v_i]], step, step2["1"], ctype)
             }else{
-              if (continuous_type == 'second_derivative'){
-                packaged_data <- list(list(
-                  data = list("d2" = data, "d1" = data, "d0" = data),
-                  weights = c(1, -2, 1) * multiplier,
-                  raw = raw,
-                  type = continuous_type,
-                  name = v_i
-                ))
-                packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["-1"], ctype)
-                packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["0"], ctype)
-                packaged_data[[1]]$data$d2[[v_i]] <- continuous_f(packaged_data[[1]]$data$d2[[v_i]], step, step2["1"], ctype)
-              }else{
-                packaged_data <- list(list(
-                  data = list("d1" = data, "d0" = data),
-                  weights = c(1, -1) * multiplier,
-                  raw = raw,
-                  type = continuous_type,
-                  name = v_i
-                ))
-                packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["0"], ctype)
-                packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["1"], ctype)
-              }
+              packaged_data <- list(list(
+                data = list("d1" = data, "d0" = data),
+                weights = c(1, -1) * multiplier,
+                raw = raw,
+                type = fmt_type,
+                name = v_i
+              ))
+              packaged_data[[1]]$data$d0[[v_i]] <- continuous_f(packaged_data[[1]]$data$d0[[v_i]], step, step2["0"], ctype)
+              packaged_data[[1]]$data$d1[[v_i]] <- continuous_f(packaged_data[[1]]$data$d1[[v_i]], step, step2["1"], ctype)
             }
             names(packaged_data) <- v_i
           } else {
+            
             old_names <- names(packaged_data)
             packaged_data <- lapply(packaged_data, FUN = function(i) {
-              i$data$d0[[v_i]] <- continuous_f(i$data$d0[[v_i]], step, step2["0"], ctype)
-              i$data$d1[[v_i]] <- continuous_f(i$data$d1[[v_i]], step, step2["1"], ctype)
-              if (!any(i$type %in% "derivative")) {
-                i$weights <- i$weights * multiplier
+              
+              if (aie_estimate){
+                # Get all four relevant terms if "aie_estimate" = TRUE
+                
+                d00 <- d01 <- i$data$d0
+                d11 <- d10 <- i$data$d1
+                
+                d00[[v_i]] <- continuous_f(d00[[v_i]], step, step2["0"], ctype)
+                d01[[v_i]] <- continuous_f(d01[[v_i]], step, step2["1"], ctype)
+                d10[[v_i]] <- continuous_f(d10[[v_i]], step, step2["0"], ctype)
+                d11[[v_i]] <- continuous_f(d11[[v_i]], step, step2["1"], ctype)
+                
+                i$data <- list(d00 = d00, d01 = d01, d10 = d10, d11 = d11)
+                stopifnot(!any(i$type %in% "derivative"))
+                i$weights <- c(1, -1, -1, 1)
+                stopifnot(!any(i$raw == TRUE))
+                i$type <- c(i$type, fmt_type)
+                i$name <- c(paste0('%%AIE%%', i$name), v_i)
+              }else{
+                i$data$d0[[v_i]] <- continuous_f(i$data$d0[[v_i]], step, step2["0"], ctype)
+                i$data$d1[[v_i]] <- continuous_f(i$data$d1[[v_i]], step, step2["1"], ctype)
+                if (!any(i$type %in% "derivative")) {
+                  i$weights <- i$weights * multiplier
+                }
+                i$raw <- i$raw * raw
+                i$type <- c(i$type, fmt_type)
+                i$name <- c(i$name, v_i)
               }
-              i$raw <- i$raw * raw
-              i$type <- c(i$type, continuous_type)
-              i$name <- c(i$name, v_i)
               return(i)
             })
             names(packaged_data) <- paste(names(packaged_data), ":", v_i, sep = "")
@@ -380,14 +484,36 @@ calculate_effects <- function(model, data = NULL,
             packaged_data[[1]]$data$d1[[v_i]] <- 1
             names(packaged_data) <- v_i
           } else {
+            
             old_names <- names(packaged_data)
             packaged_data <- lapply(packaged_data, FUN = function(i) {
-              i$data$d0[[v_i]] <- 0
-              i$data$d1[[v_i]] <- 1
-              i$weights <- i$weights
-              i$raw <- i$raw * raw
-              i$type <- c(i$type, "binary")
-              i$name <- c(i$name, v_i)
+              
+              if (aie_estimate){
+                # Get all four relevant terms if "aie_estimate" = TRUE
+                
+                d00 <- d01 <- i$data$d0
+                d11 <- d10 <- i$data$d1
+                
+                d00[[v_i]] <- 0
+                d01[[v_i]] <- 1
+                d10[[v_i]] <- 0
+                d11[[v_i]] <- 1
+                
+                i$data <- list(d00 = d00, d01 = d01, d10 = d10, d11 = d11)
+                i$weights <- c(1, -1, -1, 1)
+                stopifnot(!any(i$raw == TRUE))
+                i$type <- c(i$type, "binary")
+                i$name <- c(paste0('%%AIE%%', i$name), v_i)
+                
+              }else{
+                i$data$d0[[v_i]] <- 0
+                i$data$d1[[v_i]] <- 1
+                i$weights <- i$weights
+                i$raw <- i$raw * raw
+                i$type <- c(i$type, "binary")
+                i$name <- c(i$name, v_i)
+                
+              }
               return(i)
             })
             names(packaged_data) <- paste(names(packaged_data), ":", v_i, sep = "")
@@ -401,15 +527,46 @@ calculate_effects <- function(model, data = NULL,
               type = "logical",
               name = v_i
             ))
-            packaged_data[[1]]$d0[[v_i]] <- FALSE
-            packaged_data[[1]]$d1[[v_i]] <- TRUE
-
+            packaged_data[[1]]$data$d0[[v_i]] <- FALSE
+            packaged_data[[1]]$data$d1[[v_i]] <- TRUE
             names(packaged_data) <- v_i
           } else {
-            stop("Invalid logical data.")
+            
+            old_names <- names(packaged_data)
+            packaged_data <- lapply(packaged_data, FUN = function(i) {
+              
+              if (aie_estimate){
+                
+                d00 <- d01 <- i$data$d0
+                d11 <- d10 <- i$data$d1
+                
+                d00[[v_i]] <- FALSE
+                d01[[v_i]] <- TRUE
+                d10[[v_i]] <- FALSE
+                d11[[v_i]] <- TRUE
+                
+                i$data <- list(d00 = d00, d01 = d01, d10 = d10, d11 = d11)
+                i$weights <- c(1, -1, -1, 1)
+                stopifnot(!any(i$raw == TRUE))
+                i$type <- c(i$type, "logical")
+                i$name <- c(paste0('%%AIE%%', i$name), v_i)
+                
+              }else{
+                
+                i$data$d0[[v_i]] <- FALSE
+                i$data$d1[[v_i]] <- TRUE
+                i$weights <- i$weights
+                i$raw <- i$raw * raw
+                i$type <- c(i$type, "logical")
+                i$name <- c(i$name, v_i)
+                
+              }
+              return(i)
+            })
+            names(packaged_data) <- paste(names(packaged_data), ":", v_i, sep = "")
           }
         } else if (type_i == "fnames") {
-          levs <- levels(as.factor(data[[v_i]]))
+          levs <- levels(as.factor(raw_data[[v_i]]))
           base <- levs[1L]
           levs <- levs[-1L]
           if (v_id == 1) {
@@ -432,12 +589,27 @@ calculate_effects <- function(model, data = NULL,
             for (l in seq_along(levs)) {
               temp_name <- paste0("factor(", v_i, ")", levs[l])
               add_l <- mapply(packaged_data, names(packaged_data), SIMPLIFY = FALSE, FUN = function(i, m) {
-                i$data$d0[[v_i]] <- base
-                i$data$d1[[v_i]] <- levs[l]
-                i$weights <- i$weights
-                i$raw <- i$raw * raw
-                i$type <- c(i$type, "factor")
-                i$name <- c(i$name, temp_name)
+                if (aie_estimate){
+                  d00 <- d01 <- i$data$d0
+                  d11 <- d10 <- i$data$d1
+                  d00[[v_i]] <- base
+                  d01[[v_i]] <- levs[l]
+                  d10[[v_i]] <- base
+                  d11[[v_i]] <- levs[l]
+                  
+                  i$data <- list(d00 = d00, d01 = d01, d10 = d10, d11 = d11)
+                  i$weights <- c(1, -1, -1, 1)
+                  stopifnot(!any(i$raw == TRUE))
+                  i$type <- c(i$type, 'factor')
+                  i$name <- c(paste0('%%AIE%%', temp_name), v_i)
+                }else{
+                  i$data$d0[[v_i]] <- base
+                  i$data$d1[[v_i]] <- levs[l]
+                  i$weights <- i$weights
+                  i$raw <- i$raw * raw
+                  i$type <- c(i$type, "factor")
+                  i$name <- c(i$name, temp_name)
+                }
                 return(i)
               })
               names(add_l) <- paste0(names(packaged_data), ":", temp_name)
@@ -449,6 +621,7 @@ calculate_effects <- function(model, data = NULL,
           stop("Unknown type")
         }
       }
+      
       gc()
 
       fit_mfx <- lapply(packaged_data, FUN = function(data_i) {
@@ -541,6 +714,7 @@ calculate_effects <- function(model, data = NULL,
     if (individual) {
       out_mfx_individual <- rbind(out_mfx_individual, out_mfx_i_ind)
     }
+
   }
   
   if (simple_family){
@@ -557,44 +731,74 @@ calculate_effects <- function(model, data = NULL,
       stop("Unusual alignment error between jacobian and marginal effects.")
     }
   }
+  
   out_mfx$t <- out_mfx$est / out_mfx$se
   out_mfx$p.value <- 2 * pt(-abs(out_mfx$t), df = N_eff)
 
-  out <- list(
-    marginal_effects = out_mfx,
-    jacobian = out_jacobian,
-    counter = out_counter
-  )
   if (individual) {
     out_mfx_individual$t <- out_mfx_individual$est / out_mfx_individual$se
     out_mfx_individual$p.value <- 2 * pt(-abs(out_mfx_individual$t), df = N_eff)
-    out$individual <- out_mfx_individual
   }
-  out$N_eff <- N_eff
-  out$N <- N
-  if (continuous_type == 'predict'){
-    out$individual <- out$individual[, !(names(out$individual) %in% c('variable', 'type'))]
-    out$marginal_effects <- out$marginal_effects[, !(names(out$marginal_effects) %in% c('variable', 'type'))]
+
+  if (identical(continuous_type, 'predict')){
+    if (individual){
+      out_mfx_individual <- out_mfx_individual[, !(names(out_mfx_individual) %in% c('variable'))]
+    }
+    out_mfx <- out_mfx[, !(names(out_mfx) %in% c('variable'))]
   }
-  class(out) <- "gKRLS_mfx"
+
+  out <- out_mfx
+  attr(out, 'jacobian') <- out_jacobian
+  attr(out, 'counter') <- out_counter
+  attr(out, 'individual') <- out_mfx_individual
+  attr(out, 'N_eff') <- N_eff
+  attr(out, 'N') <- N
+  class(out) <- c("gKRLS_mfx", "data.frame")
   return(out)
 }
 
-kernel_interactions <- function(model,
-                                variables, QOI = c("AMIE", "ACE", "AIE", "AME"), ...) {
+#' @rdname calculate_effects
+#' @param QOI Quantity of interest to calculate for
+#'   \code{calculate_interactions}. Options include AME (average marginal
+#'   effect), ACE (average combination effect), AIE (average interaction effect)
+#'   and AMIE (average marginal interaction effect); see "Details" for more
+#'   information.
+#' @param ... Used for \code{calculate_interactions} to pass arguments to
+#'   \code{calculate_effects}.
+#' @export
+calculate_interactions <- function(model,
+      variables, QOI = c("AMIE", "ACE", "AME", "AIE"), ...) {
+
   QOI <- match.arg(QOI, several.ok = TRUE)
   args <- list(...)
+
+  if (isTRUE(args$individual)){
+    stop("individual=TRUE not set up for calculate_interactions.")
+  }
+  
+  if (!is.list(args$continuous_type)){
+    if (isTRUE(args$continuous_type == 'predict')){
+      stop('continous_type="predict" not set up for calculate_interactions.')
+    }  
+    if (isTRUE(grepl(args$continuous_type, pattern='derivative'))){
+      stop('continous_type="derivative" or "second_derivative" not set up for calculate_interactions.')
+    } 
+  }
+  
   if (isTRUE(args$raw)) {
     stop("raw=T not permitted for interactions.")
   }
+  
   if (!is.null(args$conditional)) {
     if (any(names(args$conditional) %in% c("variable", "est", "se", "QOI", "...counter"))) {
       stop('conditional may not contain "variable", "est", "se", or "QOI" as column names.')
     }
   }
+  
   if (any(lengths(variables) != 2)) {
     stop("variables must be a list of two-length vectors.")
   }
+  
   if (is.null(args$vcov)) {
     vcov_mdl <- vcov(model)
   } else {
@@ -603,7 +807,17 @@ kernel_interactions <- function(model,
 
   all_inter <- data.frame()
   for (v in variables) {
-    fmt_v <- c(list(v), as.list(v))
+    
+    fmt_v <- list()
+    if (any(c('AME', 'ACE', 'AMIE') %in% QOI)){
+      fmt_v <- c(fmt_v, as.list(v))
+      fmt_v <- c(fmt_v, list(v))
+    }
+    if ('AIE' %in% QOI){
+      aie_list <- v
+      attr(aie_list, 'aie') <- TRUE
+      fmt_v <- c(fmt_v, list(aie_list))
+    }
 
     fit_var <- do.call(
       "calculate_effects",
@@ -612,62 +826,118 @@ kernel_interactions <- function(model,
         args
       )
     )
-    id <- seq_len(nrow(fit_var$marginal_effects))
-    split_var <- strsplit(fit_var$marginal_effects$variable, split = ":")
+    
+    if (!('response' %in% names(fit_var))){
+      fit_var$response <- 1
+    }
+    fit_var$counter <- paste(attr(fit_var, 'counter'), '@', fit_var$response)
+    
+    id <- seq_len(nrow(fit_var))
+    split_var <- strsplit(fit_var$variable, split = ":")
     split_var <- unique(split_var[which(lengths(split_var) == 2)])
 
     out_inter <- lapply(split_var, FUN = function(i) {
+      
       out <- data.frame()
       v_i <- paste(i, collapse = ":")
-      id_two <- which(fit_var$marginal_effects$variable == v_i)
-      id_one <- which(fit_var$marginal_effects$variable %in% i)
-      id_two <- split(id_two, fit_var$counter[id_two])
-      id_one <- split(id_one, fit_var$counter[id_one])
-
-      if ("AME" %in% QOI) {
+      is_aie <- grepl(v_i, pattern='^%%AIE%%')
+      
+      id_inter <- which(fit_var$variable == v_i)
+      i <- gsub(i, pattern='^%%AIE%%', replacement='')
+      
+      id_marg <- which(fit_var$variable %in% i)
+      id_marg <- split(id_marg, fit_var$counter[id_marg])
+      id_inter <- split(id_inter, fit_var$counter[id_inter])
+      fmt_names <- do.call('rbind', strsplit(names(id_inter), split=' @ '))
+      colnames(fmt_names) <- c('counter', 'response')
+      stopifnot(all(lengths(id_inter) == 1))
+      stopifnot(all(lengths(id_marg) == 2))
+      if (any(c('AME', 'AMIE', 'ACE') %in% QOI)){
+        stopifnot(identical(names(id_inter), names(id_marg)))
+      }
+      
+      if ( ("AME" %in% QOI) & !is_aie ) {
         out <- rbind(
           out,
           data.frame(
-            fit_var$marginal_effects[unlist(id_one), c("variable", "est", "se")],
+            fit_var[unlist(id_marg), c("variable", "est", "se", "type")],
             QOI = "AME",
-            `...counter` = rep(seq_len(length(id_one)), lengths(id_one))
+            `...counter` = rep(seq_len(length(id_marg)), lengths(id_marg))
           )
         )
       }
-      if ("ACE" %in% QOI) {
+      if ( ("ACE" %in% QOI) & !is_aie ) {
         out <- rbind(
           out,
           data.frame(
-            fit_var$marginal_effects[unlist(id_two), c("variable", "est", "se")],
-            QOI = "ACE",
-            `...counter` = seq_len(length(unlist(id_two)))
+            fit_var[unlist(id_inter), c("variable", "est", "se", "type")],
+            QOI = "ACE", 
+            `...counter` = seq_len(length(unlist(id_inter)))
           )
         )
       }
-      if ("AMIE" %in% QOI) {
-        id_matrix <- do.call("rbind", mapply(id_two, id_one, seq_len(length(id_one)), SIMPLIFY = FALSE, FUN = function(x, y, z) {
+      
+      if ( ("AIE" %in% QOI) & is_aie){
+        
+        extract_AIE <- data.frame(
+          fit_var[unlist(id_inter), c("variable", "est", "se", "type")],
+          QOI = "AIE", 
+          `...counter` = seq_len(length(unlist(id_inter)))
+        )
+        extract_AIE$variable <- gsub(extract_AIE$variable, pattern='^%%AIE%%', replacement = '')
+        out <- rbind(out, extract_AIE)
+        
+      }
+      
+      if ( ("AMIE" %in% QOI) & !is_aie ) {
+        
+        id_matrix <- do.call("rbind", mapply(id_inter, id_marg, seq_len(length(id_marg)), SIMPLIFY = FALSE, FUN = function(x, y, z) {
           rbind(c(x, z, 1), cbind(y, z, -1))
         }))
         id_matrix <- sparseMatrix(
           i = id_matrix[, 1], j = id_matrix[, 2], x = id_matrix[, 3],
-          dims = c(nrow(fit_var$marginal_effects), length(id_one))
+          dims = c(nrow(fit_var), length(id_marg))
         )
-        point_estimate <- as.vector(fit_var$marginal_effects$est %*% id_matrix)
-        se_estimate <- apply(fit_var$jacobian %*% id_matrix,
-          MARGIN = 2, FUN = function(i) {
-            as.numeric(sqrt(t(i) %*% vcov_mdl %*% i))
-          }
-        )
-        out <- rbind(
-          out,
-          data.frame(variable = v_i, QOI = "AMIE", est = point_estimate, se = se_estimate, `...counter` = seq_len(length(point_estimate)), stringsAsFactors = F)
-        )
+        rownames(id_matrix) <- paste(fit_var$variable, '@', fit_var$response)
+        
+        if (all(fit_var$response == 1)){
+          point_estimate <- as.vector(fit_var$est %*% id_matrix)
+          se_estimate <- apply(attr(fit_var, 'jacobian') %*% id_matrix,
+             MARGIN = 2, FUN = function(i) {
+               as.numeric(sqrt(t(i) %*% vcov_mdl %*% i))
+             }
+          )
+        }else{
+          point_estimate <- as.vector(fit_var$est %*% id_matrix)
+          # Loop over the jacobian for each conditional group
+          se_estimate <- do.call('c', lapply(attr(fit_var, 'jacobian'), FUN=function(ji){
+            # Loop over the jacobian for each *response*
+            se_loop <- mapply(ji[[i[1]]], ji[[i[2]]], ji[[v_i]], SIMPLIFY = TRUE, FUN=function(marg_1, marg_2, inter){
+               jacobian_ji <- cbind(inter, marg_1, marg_2) %*% c(1, -1, -1)
+               out <- sqrt(as.numeric(t(jacobian_ji) %*% vcov_mdl %*% jacobian_ji))
+               return(out)
+            })
+            return(se_loop)
+          }))
+        }
+        extract_AMIE <- data.frame(variable = v_i, QOI = "AMIE",
+         type = fit_var$type[unlist(id_inter)], 
+         est = point_estimate, se = se_estimate,
+         `...counter` = seq_len(length(point_estimate)),
+         stringsAsFactors = F)
+        
+        out <- rbind(out, extract_AMIE)
+        
       }
+      out$response <- as.numeric(fmt_names[,'response'])[out$`...counter`]
+      out$`...counter` <- as.numeric(fmt_names[,'counter'])[out$`...counter`]
+      
       return(out)
     })
     out_inter <- do.call("rbind", out_inter)
     all_inter <- rbind(all_inter, out_inter)
   }
+
   rownames(all_inter) <- NULL
   all_inter <- unique(all_inter)
   all_inter$t <- all_inter$est / all_inter$se
@@ -676,7 +946,8 @@ kernel_interactions <- function(model,
   } else {
     id <- NULL
   }
-  all_inter <- all_inter[, c("QOI", "variable", "est", "se", "t", "...counter")]
+
+  all_inter <- all_inter[, c("QOI", "type", "variable", "est", "se", "t", "response", "...counter")]
   all_inter[["...id"]] <- id
   if (!is.null(args$conditional)) {
     conditional <- args$conditional
@@ -685,8 +956,8 @@ kernel_interactions <- function(model,
     }
   }
   all_inter[["...counter"]] <- NULL
-  out <- list(marginal_effects = all_inter, jacobian = NA)
-  class(out) <- "gKRLS_mfx"
+  out <- all_inter
+  class(out) <- c("gKRLS_mfx", "data.frame")
   return(out)
 }
 
@@ -720,6 +991,12 @@ gam_terms <- function(model, variables = NULL) {
 }
 
 #' @rdname calculate_effects
+#' @export
+get_individual_effects <- function(x){
+  return(attr(x, 'individual'))
+}
+
+#' @rdname calculate_effects
 #' @param x Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}
 #' @method print gKRLS_mfx
 #' @importFrom stats quantile pt
@@ -739,17 +1016,26 @@ print.gKRLS_mfx <- function(x, ...) {
     cat("\nSummary of Average Marginal Effects\n")
     print(out)
   } else {
-    cat("\nSummary of Average Marginal Effects\n\n")
-    print(x$marginal_effects)
+    print.data.frame(x)
   }
 }
+
 
 #' @rdname calculate_effects
 #' @method summary gKRLS_mfx
 #' @param ... Additional arguments (unused).
 #' @export
 summary.gKRLS_mfx <- function(object, ...) {
-  object$marginal_effects
+  if (!is.null(object$type)){
+    out <- data.frame(est = object$AME_pointwise, se = sqrt(object$AME_pointwise_var))
+    out$t.stat <- out$est / out$se
+    out$p.value <- 2 * pt(-abs(out$t.stat), df = object$N_eff)
+    out <- cbind(data.frame(variable = rownames(out), stringsAsFactors = F), out)
+    rownames(out) <- NULL
+  }else{
+    out <- object
+  }
+  return(out)
 }
 
 #' @importFrom stats coef vcov na.pass predict
@@ -1013,9 +1299,9 @@ predict_extended <- function(object, X, individual){
       complex_extended <- TRUE
       
       lp_i <- sapply(lpi, FUN=function(lpi_d){
-        as.vector(X[, lpi_d] %*% coef_object[lpi_d])
+        as.vector(X[, lpi_d, drop = F] %*% coef_object[lpi_d])
       })
-      attr(lp_i, 'lpi') <- as.list(1:ncol(lp_i))
+      attr(lp_i, 'lpi') <- as.list(1:length(lpi))
       
       if (grepl(family_object$family, pattern='^multinom$')){
         
@@ -1078,7 +1364,7 @@ predict_extended <- function(object, X, individual){
         }))
         # out <- out[, unlist(lpi)]
         if (!isTRUE(identical(colnames(out), coef_names))){
-          stop("Name msialignment when creating jacobian")
+          stop("Name misalignment when creating jacobian")
         }
         return(out)
       })
@@ -1094,18 +1380,18 @@ predict_extended <- function(object, X, individual){
         }else{
           lpi_d <- lpi[[d]]
         }
-        ji <- colMeans(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d], na.rm=T)
+        ji <- colMeans(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d, drop = F], na.rm=T)
         return(ji)
       })
     }else{
       jacob <- lapply(jacob_i, FUN=function(ji){
         out <- do.call('cbind', sapply(1:ncol(ji), FUN=function(d){
           lpi_d <- lpi[[d]]
-          return(Diagonal(x = ji[,d]) %*% X[, lpi_d])
+          return(Diagonal(x = ji[,d]) %*% X[, lpi_d, drop = F])
         }))
-        out <- out[, unlist(lpi)]
+        out <- out[, unlist(lpi), drop = F]
         if (!isTRUE(identical(colnames(out), coef_names))){
-          stop("Name msialignment when creating jacobian")
+          stop("Name misalignment when creating jacobian")
         }
         out <- colMeans(out, na.rm=T)
         return(out)
