@@ -43,10 +43,10 @@ multinom_jacobian <- function(lp_i, family_object){
   
   lp_jacob <- lapply(1:ncol(lp_out), FUN=function(k){
     if (k == 1){
-      fmt_k <- -lp_out[,-1] / lp_denom
+      fmt_k <- -lp_out[,-1, drop = F] / lp_denom
     }else{
-      fmt_k <- -lp_out[,-1] * lp_out[,k]
-      fmt_k[,k-1] <- fmt_k[, k-1] + lp_out[,k]
+      fmt_k <- -lp_out[,-1, drop = F] * lp_out[,k]
+      fmt_k[,k-1] <- fmt_k[, k-1, drop = F] + lp_out[,k]
     }
     return(fmt_k)
   })

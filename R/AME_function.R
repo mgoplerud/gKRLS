@@ -969,6 +969,11 @@ predict_extended <- function(object, X, individual){
     stop('Not set up for "lpi" with overlap.')
   }
   family_object <- object$family
+  if (family_object$family == 'multinom' & is.null(lpi)){
+    if (family_object$nlp == 1){
+      lpi <- list(1:ncol(X))
+    }
+  }
   # Set up a flag for complex extended families (e.g., multinomial)
   complex_extended <- FALSE
   if (!is.null(family_object$predict)){
