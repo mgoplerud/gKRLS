@@ -83,7 +83,7 @@ test_that("Test Robust for GLM", {
   z <- rnorm(N)
   
   # Check for poisson
-  y <- round(exp(rnorm(N, sin(x))))
+  y <- rpois(N, exp(sin(x)))
   est_gam <- gam(y ~ s(x,z, bs = 'gKRLS'), family = poisson())
   hc_gam <- vcovHC(est_gam, type = 'HC0')
   
@@ -108,7 +108,7 @@ test_that("Test Robust for GLM", {
   N <- 1000
   x <- rnorm(N)
   z <- rnorm(N)
-  y <- rbinom(N, 1, plogis( exp(x) + cos(z)))
+  y <- rbinom(N, 1, plogis( sqrt(abs(x)) + cos(z)))
   
   est_gam <- gam(y ~ s(x) + s(z), family = binomial(link = 'cloglog'))
   hc_gam <- vcovHC(est_gam, type = 'HC0')

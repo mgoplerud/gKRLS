@@ -601,7 +601,7 @@ calculate_effects <- function(model, data = NULL,
                   i$weights <- c(1, -1, -1, 1)
                   stopifnot(!any(i$raw == TRUE))
                   i$type <- c(i$type, 'factor')
-                  i$name <- c(paste0('%%AIE%%', temp_name), v_i)
+                  i$name <- c(paste0('%%AIE%%', i$name), temp_name)
                 }else{
                   i$data$d0[[v_i]] <- base
                   i$data$d1[[v_i]] <- levs[l]
@@ -721,6 +721,7 @@ calculate_effects <- function(model, data = NULL,
     if (ncol(out_jacobian) != nrow(out_mfx)) {
       stop("Unusual alignment error between jacobian and marginal effects.")
     }
+    attr_lpi <- NULL
   }else{
     # out_jacobian: One for each "conditional"
     # one for each variable
@@ -730,6 +731,8 @@ calculate_effects <- function(model, data = NULL,
     if (checksum_jacobian != nrow(out_mfx)){
       stop("Unusual alignment error between jacobian and marginal effects.")
     }
+    attr_lpi <- data_out[[1]]$lpi
+    
   }
   
   out_mfx$t <- out_mfx$est / out_mfx$se
@@ -748,6 +751,8 @@ calculate_effects <- function(model, data = NULL,
   }
 
   out <- out_mfx
+  attr(out, 'simple_family') <- simple_family
+  attr(out, 'lpi') <- attr_lpi
   attr(out, 'jacobian') <- out_jacobian
   attr(out, 'counter') <- out_counter
   attr(out, 'individual') <- out_mfx_individual
@@ -852,6 +857,7 @@ calculate_interactions <- function(model,
       colnames(fmt_names) <- c('counter', 'response')
       stopifnot(all(lengths(id_inter) == 1))
       stopifnot(all(lengths(id_marg) == 2))
+      
       if (any(c('AME', 'AMIE', 'ACE') %in% QOI)){
         stopifnot(identical(names(id_inter), names(id_marg)))
       }
@@ -900,7 +906,7 @@ calculate_interactions <- function(model,
         )
         rownames(id_matrix) <- paste(fit_var$variable, '@', fit_var$response)
         
-        if (all(fit_var$response == 1)){
+        if (attr(fit_var, 'simple_family')){
           point_estimate <- as.vector(fit_var$est %*% id_matrix)
           se_estimate <- apply(attr(fit_var, 'jacobian') %*% id_matrix,
              MARGIN = 2, FUN = function(i) {
@@ -908,13 +914,18 @@ calculate_interactions <- function(model,
              }
           )
         }else{
+          lpi <- attr(fit_var, 'lpi')
           point_estimate <- as.vector(fit_var$est %*% id_matrix)
           # Loop over the jacobian for each conditional group
           se_estimate <- do.call('c', lapply(attr(fit_var, 'jacobian'), FUN=function(ji){
             # Loop over the jacobian for each *response*
-            se_loop <- mapply(ji[[i[1]]], ji[[i[2]]], ji[[v_i]], SIMPLIFY = TRUE, FUN=function(marg_1, marg_2, inter){
+            se_loop <- mapply(ji[[i[1]]], ji[[i[2]]], ji[[v_i]], lpi, SIMPLIFY = TRUE, FUN=function(marg_1, marg_2, inter, lpi_loop){
                jacobian_ji <- cbind(inter, marg_1, marg_2) %*% c(1, -1, -1)
-               out <- sqrt(as.numeric(t(jacobian_ji) %*% vcov_mdl %*% jacobian_ji))
+               if (is.null(lpi_loop)){
+                 out <- sqrt(as.numeric(t(jacobian_ji) %*% vcov_mdl %*% jacobian_ji))
+               }else{
+                 out <- sqrt(as.numeric(t(jacobian_ji) %*% vcov_mdl[lpi_loop, lpi_loop] %*% jacobian_ji))
+               }
                return(out)
             })
             return(se_loop)
@@ -1135,11 +1146,15 @@ weighted_mfx <- function(model, data_list, vcov,
         sqrt(rowSums( (t(jacobian_net[[d]]) %*% vcov[lpi[[d]], lpi[[d]]]) * t(jacobian_net[[d]]) ))
       })
       
+      out_lpi <- lpi
+      
     }else{
       # If "complex" family, e.g., multinomial, do this one.
       out_se <- sapply(1:noutcome, FUN=function(d){
         sqrt(rowSums( (t(jacobian_net[[d]]) %*% vcov) * t(jacobian_net[[d]]) ))
       })
+      
+      out_lpi <- NULL
     }
     
     if (ncol(weights) == 1){
@@ -1157,6 +1172,7 @@ weighted_mfx <- function(model, data_list, vcov,
     }))
     rownames(out_aggregate) <- NULL
   }else{
+    out_lpi <- NULL
     # Get the jacobian/gradient for each weighted average
     jacobian_net <- sapply(raw_predictions, FUN = function(i) {
       i$jacobian
@@ -1242,7 +1258,8 @@ weighted_mfx <- function(model, data_list, vcov,
   return(list(
     aggregate = out_aggregate,
     individual = out_individual,
-    jacobian = jacobian_net
+    jacobian = jacobian_net,
+    lpi = out_lpi
   ))
 }
 
