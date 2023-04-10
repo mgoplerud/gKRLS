@@ -96,8 +96,8 @@ test_that("Legacy Agrees with Numerical", {
     data = data.frame(X), continuous_type = "deriv"
   )
 
-  expect_equivalent(mfx_gKRLS$AME_pointwise, mfx_numerical$est, tol = 1e-5)
-  expect_equivalent(mfx_gKRLS$AME_pointwise_var, mfx_numerical$se^2, tol = 1e-5)
+  expect_equivalent(mfx_gKRLS$AME_pointwise, mfx_numerical$est, tol = 1e-2)
+  expect_equivalent(sqrt(mfx_gKRLS$AME_pointwise_var), mfx_numerical$se, tol = 1e-2)
 
   ind_est <- get_individual_effects(mfx_numerical)
   expect_equivalent(

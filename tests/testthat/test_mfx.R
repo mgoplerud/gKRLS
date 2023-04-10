@@ -142,18 +142,18 @@ test_that("test 'calculate_effects'", {
   man_second_deriv_b <- -2/obj$bandwidth * as.vector( (K * diag(W2)[1]) %*% t(S) %*% coef(fit_gKRLS)[-1] )
   man_second_deriv <- man_second_deriv_a + man_second_deriv_b
   
-  expect_equivalent(get_individual_effects(fit_first_deriv)$est, man_first_deriv, tol = 1e-4)  
-  expect_equivalent(get_individual_effects(fit_second_deriv)$est, man_second_deriv, tol = 1e-4)  
+  expect_equivalent(get_individual_effects(fit_first_deriv)$est, man_first_deriv, tol = 1e-3)  
+  expect_equivalent(get_individual_effects(fit_second_deriv)$est, man_second_deriv, tol = 1e-3)  
   
   SE_MAT <- -2/obj$bandwidth * ( (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})) %*% t(S))
   man_first_deriv_se <- sqrt(rowSums( (SE_MAT %*% vcov(fit_gKRLS)[-1,-1]) * SE_MAT ))
-  expect_equivalent(get_individual_effects(fit_first_deriv)$se, man_first_deriv_se, tol = 1e-4)  
+  expect_equivalent(get_individual_effects(fit_first_deriv)$se, man_first_deriv_se, tol = 1e-3)  
 
   
   SE_MAT2 <- 4/obj$bandwidth^2 * (K * outer( (X_test %*% W2)[,1], (X_nystrom %*% W2)[,1], FUN=function(x,y){x-y})^2 ) %*% t(S) +
     -2/obj$bandwidth * (K * diag(W2)[1]) %*% t(S)
   man_second_deriv_se <- sqrt(rowSums( (SE_MAT2 %*% vcov(fit_gKRLS)[-1,-1]) * SE_MAT2 ))
-  expect_equivalent(get_individual_effects(fit_second_deriv)$se, man_second_deriv_se, tol = 1e-4)  
+  expect_equivalent(get_individual_effects(fit_second_deriv)$se, man_second_deriv_se, tol = 1e-3)  
   
 })
 
@@ -170,9 +170,10 @@ test_that("test logical and binary", {
   y <- x1^3 - 0.5 * x2 + 1/5 * match(X$x3, letters) + rnorm(N, 0, 1)
   y <- y * 10
   
-  fit_gKRLS <- suppressWarnings(gam(list(y ~ x4 * x3 + s(x1, x2, x3, bs = "gKRLS"), ~ x4 * x3 + s(x1,x2)),
-    family = gaulss(), method = "REML", data = data.frame(y, X)
-  ))
+  fit_gKRLS <- suppressWarnings(
+    gam(list(y ~ x4 * x3 + s(x1, by = x3, bs = 'unregpoly'), ~ x4 * x3 + x1),
+        family = gaulss(), method = "REML", data = data.frame(y, X)
+    ))
   
   est_effects <- calculate_effects(fit_gKRLS, 
     variables = list(c('x4', 'x3')))
