@@ -120,4 +120,8 @@ test_that("Test that factor vs dummies is equivalent", {
     mfx_direct$se,
     tol = 0.01, scale = 1
   )
+  
+  # Test that "summary" works as expected  
+  expect_true(nrow(summary(legacy_direct)) == 1)
+  expect_equal(summary(mfx_direct), mfx_direct)
 })

@@ -1037,7 +1037,9 @@ print.gKRLS_mfx <- function(x, ...) {
 #' @param ... Additional arguments (unused).
 #' @export
 summary.gKRLS_mfx <- function(object, ...) {
-  if (!is.null(object$type)){
+  args <- list(...)
+  if (length(args) != 0){stop('... not used for summary on gKRLS_mfx')}
+  if (!inherits(object, 'data.frame')){
     out <- data.frame(est = object$AME_pointwise, se = sqrt(object$AME_pointwise_var))
     out$t.stat <- out$est / out$se
     out$p.value <- 2 * pt(-abs(out$t.stat), df = object$N_eff)
