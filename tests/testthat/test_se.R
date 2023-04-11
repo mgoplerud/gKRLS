@@ -159,7 +159,7 @@ test_that("Test Robust for bam", {
   N <- 100
   x <- rnorm(N)
   z <- rnorm(N)
-  y <- rbinom(N, 1, plogis( exp(x) + cos(z)))
+  y <- rbinom(N, 1, plogis( sqrt(abs(x)) + cos(z)))
   
   est_gam <- gam(y ~ x + z, family = binomial(link = 'cloglog'), method = 'REML')
   est_bam <- bam(y ~ x + z, family = binomial(link = 'cloglog'), method = 'REML')
