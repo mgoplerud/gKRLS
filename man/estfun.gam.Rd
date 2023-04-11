@@ -27,6 +27,7 @@ work correctly with functions from \code{sandwich}, e.g. cluster or robust
 standard errors.
 }
 \examples{
+set.seed(456)
 n <- 50
 x1 <- rnorm(n)
 state <- sample(letters[1:5], n, replace = TRUE)
@@ -37,6 +38,9 @@ data <- data.frame(y, x1, state)
 data$state <- factor(data$state)
 
 # A gKRLS model
-gkrls_est <- mgcv::gam(y ~ state + s(x1), data = data)
+fit_gKRLS <- mgcv::gam(y ~ state + s(x1), data = data)
 # note that HC3 (default) is not available for mgcv
+robust <- sandwich::vcovHC(fit_gKRLS, type = 'HC1')
+cluster <- sandwich::vcovCL(fit_gKRLS, cluster = data$state)
+
 }

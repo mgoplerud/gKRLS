@@ -44,7 +44,7 @@
 #' Models for Large Data Sets." \emph{Journal of the Royal Statistical Society:
 #' Series C (Applied Statistics)} 64(1):139-155.
 #' @examples
-#'
+#' set.seed(789)
 #' N <- 100
 #' x1 <- rnorm(N)
 #' x2 <- rbinom(N, size = 1, prob = .2)

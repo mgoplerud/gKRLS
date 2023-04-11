@@ -66,3 +66,41 @@ test_that("does not run with offset", {
   expect_error(calculate_effects(fit), regexp = '"offset" not set')
   
 })
+
+test_that("test raw works and fails where expected", {
+  
+  dat <- gamSim(eg = 1, n =100)
+  dat$x0 <- dat$x0 > 0
+  dat$x1 <- cut(dat$x1, 3)
+  b <- gam(y ~ x0 + x1 + s(x2, by =x1), data = dat)
+  
+  est_effects <- calculate_effects(b, raw = TRUE)
+  # Ordered by effect, raw_1, raw_0
+  expect_true(all(sapply(split(est_effects$est, est_effects$variable), FUN=function(i){
+    i[1] - (i[2] - i[3])
+  }) == 0))
+  
+  est_effects <- calculate_effects(b, continuous_type = 'derivative', 
+       conditional = data.frame(x1 = unique(dat$x1)), 
+       variables = 'x2', raw = TRUE)
+  
+  expect_equivalent(sapply(split(est_effects$est, est_effects$x1), FUN=function(i){
+    i[1] - (i[2] - i[3]) / (2 * 1e-7 * max(1, max(abs(dat$x2))))
+  }), rep(0, 3))
+  
+  est_effects <- calculate_effects(b, continuous_type = 'second_derivative', 
+       variables = 'x2', raw = TRUE, individual = T)
+  # Check formula for second derivative lines up  
+  expect_equivalent(
+    est_effects$est[1],
+    sum(est_effects$est[-1] * c(1, -2, 1))/(1e-7 * max(1, max(abs(dat$x2))))
+  )
+  individual_raw <- get_individual_effects(est_effects)
+  expect_equivalent(sapply(split(individual_raw$est, individual_raw$obs), FUN=function(i){
+    i[1] - sum(i[-1] * c(1, -2,1)) / (1e-7 * max(1, max(abs(dat$x2))))
+  }), rep(0, length(unique(individual_raw$obs))))
+
+  # Test for errors  
+  expect_error(calculate_effects(b, continuous_type = 'predict', raw=T), regexp = 'raw must be FALSE')
+  expect_error(calculate_interactions(b, raw = T), regexp = 'raw=T not permitted')
+})

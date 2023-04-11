@@ -39,7 +39,8 @@ desired, this can be approximated as described in the
 \link{calculate_effects} documentation.
 }
 \examples{
-n <- 500
+set.seed(321)
+n <- 100
 x1 <- rnorm(n)
 x2 <- rnorm(n)
 x3 <- rnorm(n)
@@ -48,7 +49,8 @@ y <- 0.3 * x1 + 0.4 * x2 + 0.5 * x3 + rnorm(n)
 data <- data.frame(y, x1, x2, x3, state)
 
 # A gKRLS model
-gkrls_est <- mgcv::gam(y ~ s(x1, x2, x3, bs = "gKRLS"), data = data)
+fit_gKRLS <- mgcv::gam(y ~ s(x1, x2, x3, bs = "gKRLS"), data = data)
 # calculate marginal effect using derivative
-legacy_marginal_effect(gkrls_est, newdata = data)
+legacy_marginal_effect(fit_gKRLS, newdata = data)
+
 }

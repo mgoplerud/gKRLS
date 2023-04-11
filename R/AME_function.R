@@ -4,6 +4,7 @@
 #' \code{gam} or \code{bam}. For continuous predictors, a numerical
 #' approximation of the partial derivative is available following Leeper (2016).
 #'
+#' @encoding UTF-8
 #' @name calculate_effects
 #' @param model A model estimated from \code{mgcv}.
 #' @param object A model estimated from \code{mgcv}.
@@ -17,7 +18,16 @@
 #'   The default, \code{NULL}, uses the standard covariance matrix from
 #'   \code{mgcv}. This can be used to specify clustered or robust matrices
 #'   using, e.g., the \code{sandwich} package.
-#' @param raw Argument used for internal functions only. Default is \code{FALSE}.
+#' @param raw Return the raw values used to calculate the difference in addition
+#'   to the estimated effect. Default is \code{FALSE}. If \code{TRUE}, an
+#'   additional column \code{...id} is present in the estimated effects that
+#'   reports whether the the row corresponds to the effect (\code{effect}), the
+#'   first value (\code{raw_0}) or the second value (\code{raw_1}) where
+#'   \code{effect=raw_1 - raw_0}. 
+#'   
+#'   For \code{"derivative"}, this must be scaled by the step size. For
+#'   \code{"second_derivative"}, \code{effect=raw_2 - 2 * raw_1 + raw_0}, scaled
+#'   by the step size; see the discussion for \code{epsilon}.
 #' @param individual A value of \code{TRUE} calculates individual effects (i.e.
 #'   an effect for each observation in the provided data). The default is
 #'   \code{FALSE}.
@@ -25,10 +35,21 @@
 #'   \code{at} argument in the \code{margins}  package. For a marginal effect on
 #'   some variable \code{"a"}, this can specify the values for other covariates,
 #'   e.g. \code{"b"}, to be held at. Examples are provided below. This should be
-#'   either \code{NULL} (default) or a data.frame where one marginal effect (per
-#'   variable) is provided for each row of \code{conditional}.
-#' @param epsilon A numerical value to define the step when calculating
-#'   numerical derivatives. See Leeper (2016) for details.
+#'   either \code{NULL} (default) or a data.frame where each row is a
+#'   combination of covariate values to be held fixed. Marginal effects are
+#'   calculated separately for each row of \code{conditional}.
+#' @param epsilon A numerical value to define the step size when calculating
+#'   numerical derivatives.  For \code{"derivative"}, the step size for the
+#'   approximation is  \eqn{h = \epsilon \cdot \mathrm{max}(1,
+#'   \mathrm{max}(|x|))}{h = \epsilon * max(1, max(|x|))}, i.e. \eqn{f'(x)
+#'   \approx \frac{f(x+h) - f(x-h)}{2h}}{f'(x) ≈ [f(x+h)-f(x-h)]/(2h)}. Please
+#'   see Leeper (2016) for more details.
+#'
+#'   For \code{"second_derivative"}, the step size is \eqn{h = [\epsilon \cdot
+#'   \mathrm{max}(1, \mathrm{max}(|x|))]^{0.5}}{h=[\epsilon * max(1, max(|x|))]^{0.5}}, i.e.
+#'   \eqn{f''(x) \approx \frac{f(x+h) - 2 f(x) + f(x-h)}{h^2}}{f''(x) ≈ [f(x+h)
+#'   - 2 f(x) + f(x-h)]/h^2}
+#'   
 #' @param verbose A logical value indicates whether to report progress when
 #'   calculating the marginal effects.
 #' @param continuous_type A character string indicating the type of marginal
@@ -116,6 +137,7 @@
 #' \url{https://s3.us-east-2.amazonaws.com/tjl-sharing/assets/AverageMarginalEffects.pdf}.
 #' 
 #' @examples
+#' set.seed(654)
 #' n <- 50
 #' x1 <- rnorm(n)
 #' x2 <- rnorm(n)
@@ -128,13 +150,13 @@
 #' data$state <- factor(data$state)
 #'
 #' # A gKRLS model
-#' gkrls_est <- mgcv::gam(y ~ state + s(x1, x2, x3, bs = "gKRLS"), data = data)
+#' fit_gKRLS <- mgcv::gam(y ~ state + s(x1, x2, x3, bs = "gKRLS"), data = data)
 #'
 #' # calculate marginal effect using derivative
-#' calculate_effects(gkrls_est, variables = "x1", continuous_type = "derivative")
+#' calculate_effects(fit_gKRLS, variables = "x1", continuous_type = "derivative")
 #'
 #' # calculate marginal effect by specifying conditional variables
-#' calculate_effects(gkrls_est,
+#' calculate_effects(fit_gKRLS,
 #'   variables = "x1",
 #'   conditional = data.frame(x2 = c(0.6, 0.8), x3 = 0.3)
 #' )
@@ -142,14 +164,14 @@
 #' # calculate interaction effects between two variables
 #' # use the default setting ("IQR") for the baseline and
 #' # comparison categories for each variable
-#' calculate_interactions(gkrls_est, 
+#' calculate_interactions(fit_gKRLS, 
 #'    variables = list(c("x1", "x2")),
 #'    QOI = c('AIE', 'AMIE')
 #' )
 #' 
 #' # calculate marginal effect by specifying a factor conditional variable
 #' # estimate the individual marginal effects
-#' out <- calculate_effects(gkrls_est,
+#' out <- calculate_effects(fit_gKRLS,
 #'   variables = "x1", individual = TRUE,
 #'   conditional = data.frame(state = c("a", "b", "c")), continuous_type = "derivative"
 #' )
@@ -158,8 +180,9 @@
 #' # shorthand for attr(fit_main, 'individual')
 #' get_individual_effects(out)
 #' 
-#' # calculated the average expected value across a grid of "x1" using an observed value approach
-#' calculate_effects(gkrls_est, conditional = data.frame(x1 = c(0, 0.2, 0.4, 0.6)),
+#' # calculated the average expected value across a grid of "x1" 
+#' # using an observed value approach for the other covariates
+#' calculate_effects(fit_gKRLS, conditional = data.frame(x1 = c(0, 0.2, 0.4, 0.6)),
 #'   continuous_type = 'predict'
 #' )
 #' @importFrom stats model.frame sd
@@ -193,12 +216,10 @@ calculate_effects <- function(model, data = NULL,
     rm(data)
   }
 
-  if (identical(continuous_type, 'predict')){
-    if (raw){
-      raw <- FALSE
-      message("raw = FALSE if continuous_type = 'predict'")
-    }
+  if (raw & identical(continuous_type, 'predict')){
+    stop("raw must be FALSE if continuous_type = 'predict'")
   }
+  
   if (is.list(continuous_type)){
     fmt_type <- 'custom'
   }else{
@@ -366,7 +387,6 @@ calculate_effects <- function(model, data = NULL,
             ctype <- "list"
           } else if (continuous_type == "second_derivative") {
             step <- sqrt(max(abs(data[[v_i]]), 1, na.rm = T) * epsilon)
-            # multiplier <- 1 / (2 * step)
             multiplier <- 1/step^2
             step2 <- c("-1" = -step, "0" = 0, "1" = step)
             step <- NULL
@@ -633,7 +653,7 @@ calculate_effects <- function(model, data = NULL,
           individual = individual, raw = data_i$raw
         )
         if (data_i$raw) {
-          fit_i$aggregate[["...id"]] <- c("effect", "raw_1", "raw_0")
+          fit_i$aggregate[["...id"]] <- c("effect", paste0('raw_', rev(-1 + seq_len(nrow(fit_i$aggregate)-1))))
         }
         fit_i$name <- paste(data_i$name, collapse = ":")
         fit_i$type <- paste(data_i$type, collapse = ":")

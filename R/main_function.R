@@ -9,7 +9,7 @@
 #' 
 #' The \code{gKRLS} function should not be called directly and is a control
 #' argument to the smoother in \code{mgcv}, i.e. \code{s(..., bs = "gKRLS", xt =
-#' gKRLS(...)}. Its arguments are described above Multiple kernels can be
+#' gKRLS(...))}. Its arguments are described above Multiple kernels can be
 #' included alongside other smooth arguments specified via \code{s(...)}.
 #'
 #' \bold{Note:} Variables must be separated with commas inside of \code{s(...)}.
@@ -19,10 +19,14 @@
 #'   (sketched) kernel should be demeaned before estimation. The default is
 #'   \code{FALSE}.
 #' @param sketch_method A string that specifies which kernel sketching method
-#'   should be used. Options include \code{"subsampling"} (sub-sampling),
-#'   \code{"gaussian"}, \code{"bernoulli"}, or \code{"none"} (no sketching).
-#'   Default is \code{"subsampling"}. See Drineas et al. (2005) and Yang et al.
-#'   (2017) for details.
+#'   should be used. Options include \code{"subsampling"}, \code{"gaussian"},
+#'   \code{"bernoulli"}, or \code{"none"} (no sketching). Default is
+#'   \code{"subsampling"}. See Drineas et al. (2005) and Yang et al. (2017) for
+#'   details. To force \code{"subsampling"} to select a specific set of
+#'   observations, provide a vector of row positions to \code{sketch_method}.
+#'   This manually sets the size of the sketching multiplier, implicitly
+#'   overriding other options in \code{gKRLS}. See "Examples" for an
+#'   illustration.
 #' @param standardize A string that specifies how the data is standardized
 #'   before distance between observations is calculated. The default is
 #'   \code{"Mahalanobis"}. Other options are \code{"scaled"} (ensure all
@@ -45,7 +49,7 @@
 #' @param remove_instability A logical value that indicates whether numerical
 #'   zeros (set via \code{truncate.eigen.tol}) should be removed when building
 #'   the penalty matrix. The default is \code{TRUE}.
-#' @param truncate.eigen.tol Remove columns of the penalty, i.e. \code{S^T K S},
+#' @param truncate.eigen.tol Remove columns of the penalty, i.e. \code{S K S^T},
 #'   whose eigenvalue is below \code{truncate.eigen.tol}. This ensures a
 #'   numerically positive-definite penalty. These columns are also removed from
 #'   the sketched kernel. Default is \code{sqrt(.Machine$double.eps)}. Setting
@@ -70,6 +74,7 @@
 #' @export
 #'
 #' @examples
+#' set.seed(123)
 #' n <- 100
 #' x1 <- rnorm(n)
 #' x2 <- rnorm(n)
@@ -79,16 +84,16 @@
 #' data <- data.frame(y, x1, x2, x3, state)
 #' data$state <- factor(data$state)
 #' # A gKRLS model without fixed effects
-#' gkrls_est <- mgcv::gam(y ~ s(x1, x2, x3, bs = "gKRLS"), data = data)
-#' summary(gkrls_est)
-#' # A gKRLS model with fixed effects
-#' gkrls_fx <- mgcv::gam(y ~ state + s(x1, x2, x3, bs = "gKRLS"), data = data)
-#' # Change default standardization to Mahalanobis, sketch method to Gaussian,
+#' fit_gKRLS <- mgcv::gam(y ~ s(x1, x2, x3, bs = "gKRLS"), data = data)
+#' summary(fit_gKRLS)
+#' # A gKRLS model with fixed effects outside of the kernel
+#' fit_gKRLS_FE <- mgcv::gam(y ~ state + s(x1, x2, x3, bs = "gKRLS"), data = data)
+#' # Change default standardization to "scaled", sketch method to Gaussian,
 #' # and alter sketching multiplier
-#' gkrls_mah <- mgcv::gam(y ~ s(x1, x2, x3,
+#' fit_gKRLS_alt <- mgcv::gam(y ~ s(x1, x2, x3,
 #'   bs = "gKRLS",
 #'   xt = gKRLS(
-#'     standardize = "Mahalanobis",
+#'     standardize = "scaled",
 #'     sketch_method = "gaussian",
 #'     sketch_multiplier = 2
 #'   )
@@ -96,9 +101,15 @@
 #' data = data
 #' )
 #' # A model with multiple kernels
-#' gkrls_multiple <- mgcv::gam(y ~ s(x1, x2, bs = 'gKRLS') + s(x1, x3, bs = 'gKRLS'), data = data)
-#' # calculate marginal effect
-#' calculate_effects(gkrls_est, variables = "x1", continuous_type = "derivative")
+#' fit_gKRLS_2 <- mgcv::gam(y ~ s(x1, x2, bs = 'gKRLS') + s(x1, x3, bs = 'gKRLS'), data = data)
+#' # A model with a custom set of ids for sketching
+#' id <- sample(1:n, 5)
+#' fit_gKRLS_custom <- mgcv::gam(y ~ s(x1, bs = 'gKRLS', xt = gKRLS(sketch_method = id)), data = data)
+#' # Note that the ids of the sampled observations can be extracted 
+#' # from the fitted mgcv object
+#' stopifnot(identical(id, fit_gKRLS_custom$smooth[[1]]$subsampling_id))
+#' # calculate marginal effect (see ?calculate_effects for more examples)
+#' calculate_effects(fit_gKRLS, variables = "x1")
 gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
                   demean_kernel = FALSE,
                   sketch_method = "subsampling",

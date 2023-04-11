@@ -69,7 +69,7 @@ either manually added to the list of \code{mlr3} learners by calling
 \code{classif.bam} and \code{regr.bam}, the formula argument is mandatory.
 }
 \examples{
-
+set.seed(789)
 N <- 100
 x1 <- rnorm(N)
 x2 <- rbinom(N, size = 1, prob = .2)
