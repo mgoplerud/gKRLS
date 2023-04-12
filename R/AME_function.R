@@ -291,9 +291,16 @@ calculate_effects <- function(model, data = NULL,
   }
   # "conditional" variables cannot be used in "variables"
   
-  check_overlap <- intersect(unlist(variable_list), colnames(conditional))
-  if (length(check_overlap) > 0){
-    stop('"conditional" should not contain any variables in "variable" argument.')
+  check_overlap_cond <- intersect(unlist(variable_list), colnames(conditional))
+  if (length(check_overlap_cond) > 0){
+    warn_message <- '"conditional" should not usually contain any variables in "variable" argument.'
+    check_overlap_cond <- TRUE
+    if (identical(continuous_type, 'derivative') | identical(continuous_type, 'second_derivative')){
+      warn_message <- paste(warn_message, 'step size is estimated using argument to "data" in this case.')
+    }
+    warning(warn_message)
+  }else{
+    check_overlap_cond <- FALSE
   }
   
   out_mfx <- data.frame()
@@ -386,14 +393,22 @@ calculate_effects <- function(model, data = NULL,
             step <- NULL
             ctype <- "list"
           } else if (continuous_type == "second_derivative") {
-            step <- sqrt(max(abs(data[[v_i]]), 1, na.rm = T) * epsilon)
+            if (!check_overlap_cond){
+              step <- sqrt(max(abs(data[[v_i]]), 1, na.rm = T) * epsilon)
+            }else{
+              step <- sqrt(max(abs(raw_data[[v_i]]), 1, na.rm = T) * epsilon)
+            }
             multiplier <- 1/step^2
             step2 <- c("-1" = -step, "0" = 0, "1" = step)
             step <- NULL
             ctype <- "derivative"
           } else if (continuous_type == "derivative") {
             # Closely adapted from "margins" by Thomas Leeper
-            step <- max(abs(data[[v_i]]), 1, na.rm = T) * epsilon
+            if (!check_overlap_cond){
+              step <- max(abs(data[[v_i]]), 1, na.rm = T) * epsilon
+            }else{
+              step <- max(abs(raw_data[[v_i]]), 1, na.rm = T) * epsilon
+            }
             multiplier <- 1 / (2 * step)
             step2 <- c("0" = -step, "1" = step)
             step <- NULL

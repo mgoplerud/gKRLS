@@ -191,3 +191,58 @@ test_that("test logical and binary", {
   }
 })
 
+
+test_that("test mfx where conditional contains variable", {
+  
+  N <- 100
+  x1 <- rnorm(N)
+  x2 <- rbinom(N, size = 1, prob = .2)
+  y <- x1^3 - 0.5 * x2 + rnorm(N, 0, 1)
+  X <- cbind(x1, x2, x1 + x2 * 3)
+  fit <- gam(y ~ s(x1, x2, bs = 'gKRLS'))  
+  
+  if (env_test == 'CRAN'){
+    grid_x <- seq(-2, 2, length.out=2)
+  }else{
+    grid_x <- seq(-2, 2, length.out=10)
+  }
+  # Check warning occurs
+  fit_IQR <- expect_warning(calculate_effects(fit, variables = 'x1', conditional = data.frame(x1 = grid_x)), regexp = 'should not usually contain')
+  # Should *not* warn
+  fit_pred <- calculate_effects(fit, variables = 'x1', continuous_type = 'predict',
+                               conditional = data.frame(x1 = grid_x))
+  
+  fit_deriv <- expect_warning(calculate_effects(fit, variables = 'x1', 
+    continuous_type = 'derivative',
+    conditional = data.frame(x1 = grid_x)), regexp = 'should not usually contain.*step')
+  fit_second_deriv <- expect_warning(calculate_effects(fit, variables = 'x1', 
+    continuous_type = 'second_derivative',
+    conditional = data.frame(x1 = grid_x)), regexp = 'should not usually contain.*step size')
+  
+  expect_true(identical(fit_IQR$est, rep(0, nrow(fit_IQR))))
+  
+  copy_dat <- data.frame(x1 = x1, x2 = x2)
+  step <- max(1, max(abs(x1))) * 1e-7
+  check_deriv <- sapply(grid_x, FUN=function(i){
+    copy_dat$x1 <- i - step
+    p0 <- mean(predict(fit, newdata = copy_dat))
+    copy_dat$x1 <- i + step
+    p1 <- mean(predict(fit, newdata = copy_dat))
+    return( (p1 - p0)/(2 * step))
+  })
+  expect_equal(fit_deriv$est, check_deriv)
+  
+  copy_dat <- data.frame(x1 = x1, x2 = x2)
+  step <- sqrt(max(1, max(abs(x1))) * 1e-7)
+  check_deriv <- sapply(grid_x, FUN=function(i){
+    copy_dat$x1 <- i - step
+    p0 <- mean(predict(fit, newdata = copy_dat))
+    copy_dat$x1 <- i + step
+    p2 <- mean(predict(fit, newdata = copy_dat))
+    copy_dat$x1 <- i
+    p1 <- mean(predict(fit, newdata = copy_dat))
+    return( (p2 - 2 * p1 +  p0)/(step^2))
+  })
+  expect_equal(fit_second_deriv$est, check_deriv)
+  
+})
