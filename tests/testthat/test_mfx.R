@@ -34,8 +34,8 @@ test_that("mfx with degenerate Mahalanobis", {
     }
     mfx_num <- calculate_effects(fit_gKRLS, data = data.frame(X), continuous_type = "deriv")
     mfx_legacy <- legacy_marginal_effect(fit_gKRLS,
-                                         newdata = data.frame(X),
-                                         keep = c("x1", "x2", "x3")
+       data = data.frame(X),
+       variables = c("x1", "x2", "x3")
     )
     
     expect_equivalent(mfx_num$est, mfx_legacy$AME_pointwise, tol = 1e-3)
@@ -63,8 +63,8 @@ test_that("Test MFX", {
 
   mfx_num <- calculate_effects(fit_gKRLS, data = data.frame(X), continuous_type = "deriv")
   mfx_legacy <- legacy_marginal_effect(fit_gKRLS,
-    newdata = data.frame(X),
-    keep = c("x1", "x2", "x3")
+    data = data.frame(X),
+    variables = c("x1", "x2", "x3")
   )
 
   expect_equivalent(mfx_num$est, mfx_legacy$AME_pointwise, tol = 1e-3)

@@ -1,42 +1,51 @@
 #' Machine Learning with gKRLS
 #'
 #' @description This provides a number of functions to integrate machine
-#'   learning with gKRLS (and more generally \code{mgcv}). Integration into
-#'   \code{SuperLearner} and \code{DoubleML} (via \code{mlr3}) is described
-#'   below. It is often useful to load \code{SuperLearner} before \code{gKRLS}
-#'   or \code{mgcv} to avoid functions including \code{gam} and \code{s} being
-#'   masked from other packages.
+#'   learning with \code{gKRLS} (and \code{mgcv} more generally). Integration
+#'   into \code{SuperLearner} and \code{DoubleML} (via \code{mlr3}) is described
+#'   below.
 #'
-#' @details \code{SuperLearner} integration is provided by \code{SL.mgcv} and
-#'   the corresponding predict method. `mgcv::bam` can be enabled by using
-#'   \code{bam = TRUE}. Note that a formula must be explicitly provided as a
-#'   \bold{character}, e.g. " ~ X1 + X2".
+#' @details 
+#'   \bold{Ensembles:} \code{SuperLearner} integration is provided by
+#'   \code{SL.mgcv} and the corresponding predict method. `mgcv::bam` can be
+#'   enabled by using \code{bam = TRUE}. A formula \bold{without an outcome}
+#'   must be explicitly provided.
 #'
-#' \code{DoubleML} integration is provided in two ways. First, one could load
-#' \code{mlr3extralearners} to access \code{regr.gam} and \code{classif.gam}.
-#' Second, this package provides \code{mgcv::bam} integration directly with a
-#' slight adaption of the \code{mlr3extralearner} implementation. These can be
-#' either manually added to the list of \code{mlr3} learners by calling
-#' \code{add_bam_to_mlr3()} or direct usage. Examples are provided below. For
-#' \code{classif.bam} and \code{regr.bam}, the formula argument is mandatory.
+#'   Please note that it is often useful to load \code{SuperLearner} before
+#'   \code{gKRLS} or \code{mgcv} to avoid functions including \code{gam} and
+#'   \code{s} being masked from other packages.
+#'
+#'   \bold{Double Machine Learning}: \code{DoubleML} integration is provided in
+#'   two ways. First, one could load \code{mlr3extralearners} to access
+#'   \code{regr.gam} and \code{classif.gam}.
+#'
+#'   Second, this package provides \code{mgcv::bam} integration directly with a
+#'   slight adaption of the \code{mlr3extralearner} implementation (see
+#'   \code{?LearnerClassifBam} for more details). These can be either manually
+#'   added to the list of \code{mlr3} learners by calling
+#'   \code{add_bam_to_mlr3()} or direct usage. Examples are provided below. For
+#'   \code{classif.bam} and \code{regr.bam}, the formula argument is mandatory.
 #'
 #' @name ml_gKRLS
 #' @importFrom stats as.formula terms update.formula
-#' @param Y The outcome variable.
-#' @param X All predictors used in the model, including those inside and outside
-#'   of the kernel.
-#' @param newX A new dataset used for prediction; if nothing is provided, the
-#'   original data will be used. See the documentation in \code{SuperLearner}
-#'   for details.
-#' @param formula The formula used for \code{mgcv}.
-#' @param family A string variable passed to \code{SL.mgcv}. See
-#'   \code{SuperLearner} documentation for details on valid options.
-#' @param obsWeights A vector of numeric weights for each observation. See
-#'   \code{SuperLearner} documentation for details on valid options.
+#' @param Y This is not usually directly specified in \code{SL.mgcv}, see the
+#'   examples below and documentation in \code{SuperLearner} for more details.
+#' @param X This is not usually directly specified in \code{SL.mgcv}, see the
+#'   examples below and documentation in \code{SuperLearner} for more details.
+#' @param newX This is not usually directly specified in \code{SL.mgcv}, see the
+#'   examples below and documentation in \code{SuperLearner} for more details.
+#' @param formula The formula used for \code{mgcv}. This must be specified, see
+#'   the examples.
+#' @param family This is not usually directly specified in \code{SL.mgcv}, see
+#'   the examples below and documentation in \code{SuperLearner} for more
+#'   details.
+#' @param obsWeights This is not usually directly specified in \code{SL.mgcv},
+#'   see the examples below and documentation in \code{SuperLearner} for more
+#'   details.
 #' @param bam A logical value for whether \code{mgcv::bam} should be used
 #'   instead of \code{mgcv::gam}. Default is \code{FALSE}. For large datasets,
-#'   this can dramatically improve estimation time. See Wood et al. (2015) for
-#'   details on \code{bam}.
+#'   this can dramatically improve estimation time. Wood et al. (2015) and
+#'   \code{mgcv} provide details on \code{bam}.
 #' @param ... Additional arguments to \code{mgcv::gam} and \code{mgcv::bam}.
 #'
 #' @references 
@@ -53,12 +62,10 @@
 #' X <- cbind(x1, x2, x1 + x2 * 3)
 #' X <- cbind(X, "x3" = rexp(nrow(X)))
 #'
-#' # Estimate Ensemble with SuperLearner
-#' sl_m <- function(...) {
-#'   SL.mgcv(formula = ~ x1 + x2 + x3, ...)
-#' }
 #' if (requireNamespace("SuperLearner", quietly = TRUE)) {
+#' # Estimate Ensemble with SuperLearner
 #'   require(SuperLearner)
+#'   sl_m <- function(...) { SL.mgcv(formula = ~ x1 + x2 + x3, ...) }
 #'   fit_SL <- SuperLearner::SuperLearner(
 #'     Y = y, X = data.frame(X),
 #'     SL.library = "sl_m"
@@ -180,12 +187,13 @@ add_bam_to_mlr3 <- function() {
 #' @description This documents \code{LearnerRegrBam} and
 #'   \code{LearnerClassifBam} that allow for \code{mgcv::bam} to be used in
 #'   \code{mlr3} without explicitly loading \code{mlr3extralearners}. See
-#'   \link{ml_gKRLS} for discussion of how to use this and \code{mlr3} for
-#'   discussion of the "Learner" objects. See Wood et al. (2015) for a
-#'   discussion of \code{bam}.
+#'   \link{ml_gKRLS} for examples of how to use this and \code{mlr3} for
+#'   discussion of the "Learner" objects.
+#'   
 #' @name mlr3_gKRLS
 #' @importFrom mlr3 LearnerRegr
 #' @importFrom R6 R6Class
+#' @keywords internal
 #' @references 
 #' Wood, Simon N and Goude, Yannig and Simon Shaw. 2015. "Generalized Additive
 #' Models for Large Data Sets." \emph{Journal of the Royal Statistical Society:

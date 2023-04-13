@@ -104,3 +104,26 @@ test_that("test raw works and fails where expected", {
   expect_error(calculate_effects(b, continuous_type = 'predict', raw=T), regexp = 'raw must be FALSE')
   expect_error(calculate_interactions(b, raw = T), regexp = 'raw=T not permitted')
 })
+
+test_that("test sketching dimension and bam", {
+  
+  dat <- gamSim(eg = 1, n = 500)
+  fit_bam_default <- bam(y ~ s(x1, x2, bs = 'gKRLS'), data = dat)  
+  fit_bam <- bam(y ~ s(x1, x2, bs = 'gKRLS'), data = dat, chunk.size = 100)  
+  fit_bam_custom <- bam(y ~ s(x1, x2, bs = 'gKRLS', xt = gKRLS(sketch_size_raw = 5, sketch_multiplier = NULL)), data = dat, chunk.size = 100)  
+  # Check that sketching dimension is governed by "chunk.size" to bam
+  expect_equal(length(fit_bam_default$smooth[[1]]$subsampling_id), ceiling(nrow(dat)^(1/3)) * 5)
+  expect_equal(length(fit_bam$smooth[[1]]$subsampling_id), ceiling(100^(1/3)) * 5)
+  expect_equal(length(fit_bam_custom$smooth[[1]]$subsampling_id), 5)
+  
+  if (env_test != "CRAN"){
+    dat <- gamSim(eg = 1, n = 15000)
+    fit_gam <- gam(y ~ s(x1, x2, bs = 'gKRLS'), data = dat)  
+    fit_bam <- bam(y ~ s(x1, x2, bs = 'gKRLS'), data = dat)  
+    fit_bam_large <- bam(y ~ s(x1, x2, bs = 'gKRLS'), data = dat, chunk.size = Inf)  
+    expect_equal(length(fit_bam$smooth[[1]]$subsampling_id), ceiling(10^(4/3)) * 5)
+    expect_equal(length(fit_gam$smooth[[1]]$subsampling_id), ceiling(nrow(dat)^(1/3)) * 5)
+    expect_equal(length(fit_bam_large$smooth[[1]]$subsampling_id), ceiling(nrow(dat)^(1/3)) * 5)
+  }
+  
+})

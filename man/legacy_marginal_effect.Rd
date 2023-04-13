@@ -2,20 +2,23 @@
 % Please edit documentation in R/mfx_function.R
 \name{legacy_marginal_effect}
 \alias{legacy_marginal_effect}
-\title{Marginal Effects by Derivative}
+\title{Analytical Average Marginal Effects}
 \usage{
-legacy_marginal_effect(object, newdata, keep = NULL)
+legacy_marginal_effect(model, data = NULL, variables = NULL)
 }
 \arguments{
-\item{object}{A fitted gKRLS model.}
+\item{model}{A model estimated using functions from \code{mgcv} (e.g., \code{gam} or \code{bam}).}
 
-\item{newdata}{A new data frame that used to calculate the marginal effect.}
+\item{data}{A data frame that is used to calculate the marginal effect or set
+to \code{NULL} which will employ the data used when estimating the model.
+The default is \code{NULL}.}
 
-\item{keep}{A character string indicating which variables to calculate marginal
-effects. Default is \code{NULL}, which calculates marginal effects for all.}
+\item{variables}{A character vector that specifies the variables for which to
+calculate effects. The default, \code{NULL}, calculates effects for all
+variables.}
 }
 \value{
-The \code{legacy_marginal_effect} a list that contains the following elements:
+The function returns a list that contains the following elements:
 \itemize{
 \item{"ME_pointwise": } The marginal effects for each observation.
 \item{"ME_pointwise_var": } The variance for each pointwise marginal effect
@@ -26,17 +29,21 @@ averages of "ME_pointwise".
 }
 }
 \description{
-Find the (average) marginal effect and standard error by taking the
-analytical derivative of the conditional expectation function. This method is
-designed to provide comparability with the original \code{KRLS} package, but
-is rather limited in the scenarios where it can be applied. Specifically, it can
-only compute effects with a single kernel and where variables are not both in
-the kernel and outside the kernel.
+This function is consider "legacy" and may be removed in future
+  updates. It calculates the (average) marginal effect and standard error by
+  taking the analytical derivative of the conditional expectation function
+  and only works in limited scenarios.
+}
+\details{
+This function is designed to provide comparability with the original
+  \code{KRLS} package, but is rather limited in the scenarios where it can be
+  applied (e.g., limited families, limited specifications of linear
+  predictions, limited numbers of smooth/penalized terms, etc.)
 
-Because of these restrictions, users should rely on \code{calculate_effects}
-and this function may be removed in future updates. If a derivative is really
-desired, this can be approximated as described in the
-\link{calculate_effects} documentation.
+  Because of these restrictions, users should rely on
+  \code{calculate_effects} as this function may be removed in future updates.
+  A numerical approximation to the derivative found analytically in this
+  function is provided in \link{calculate_effects}.
 }
 \examples{
 set.seed(321)
@@ -51,6 +58,7 @@ data <- data.frame(y, x1, x2, x3, state)
 # A gKRLS model
 fit_gKRLS <- mgcv::gam(y ~ s(x1, x2, x3, bs = "gKRLS"), data = data)
 # calculate marginal effect using derivative
-legacy_marginal_effect(fit_gKRLS, newdata = data)
+legacy_marginal_effect(fit_gKRLS)
 
 }
+\keyword{internal}

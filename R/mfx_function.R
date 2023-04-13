@@ -1,23 +1,29 @@
-#' Marginal Effects by Derivative
+#' Analytical Average Marginal Effects
 #'
-#' @description Find the (average) marginal effect and standard error by taking the
-#' analytical derivative of the conditional expectation function. This method is
-#' designed to provide comparability with the original \code{KRLS} package, but
-#' is rather limited in the scenarios where it can be applied. Specifically, it can
-#' only compute effects with a single kernel and where variables are not both in
-#' the kernel and outside the kernel.
+#' @description This function is consider "legacy" and may be removed in future
+#'   updates. It calculates the (average) marginal effect and standard error by
+#'   taking the analytical derivative of the conditional expectation function
+#'   and only works in limited scenarios.
+#'   
+#' @details This function is designed to provide comparability with the original
+#'   \code{KRLS} package, but is rather limited in the scenarios where it can be
+#'   applied (e.g., limited families, limited specifications of linear
+#'   predictions, limited numbers of smooth/penalized terms, etc.)
 #'
-#' Because of these restrictions, users should rely on \code{calculate_effects}
-#' and this function may be removed in future updates. If a derivative is really
-#' desired, this can be approximated as described in the
-#' \link{calculate_effects} documentation.
+#'   Because of these restrictions, users should rely on
+#'   \code{calculate_effects} as this function may be removed in future updates.
+#'   A numerical approximation to the derivative found analytically in this
+#'   function is provided in \link{calculate_effects}.
 #'
-#' @param object A fitted gKRLS model.
-#' @param newdata A new data frame that used to calculate the marginal effect.
-#' @param keep A character string indicating which variables to calculate marginal
-#' effects. Default is \code{NULL}, which calculates marginal effects for all.
-#'
-#' @return The \code{legacy_marginal_effect} a list that contains the following elements:
+#' @keywords internal
+#' @param model A model estimated using functions from \code{mgcv} (e.g., \code{gam} or \code{bam}).
+#' @param data A data frame that is used to calculate the marginal effect or set
+#'   to \code{NULL} which will employ the data used when estimating the model.
+#'   The default is \code{NULL}.
+#' @param variables A character vector that specifies the variables for which to
+#'   calculate effects. The default, \code{NULL}, calculates effects for all
+#'   variables.
+#' @return The function returns a list that contains the following elements:
 #' \itemize{
 #' \item{"ME_pointwise": } The marginal effects for each observation.
 #' \item{"ME_pointwise_var": } The variance for each pointwise marginal effect
@@ -40,21 +46,35 @@
 #' # A gKRLS model
 #' fit_gKRLS <- mgcv::gam(y ~ s(x1, x2, x3, bs = "gKRLS"), data = data)
 #' # calculate marginal effect using derivative
-#' legacy_marginal_effect(fit_gKRLS, newdata = data)
+#' legacy_marginal_effect(fit_gKRLS)
 #' 
 #' @importFrom stats plogis dnorm pnorm predict coef
 #' @export
-legacy_marginal_effect <- function(object, newdata, keep = NULL) {
+legacy_marginal_effect <- function(model, data = NULL, variables = NULL) {
   
-  standardize <- object$internal$standardize
+  if (!all(model$prior.weights == 1)){
+    warning('calculate_effects ignores "weights" argument when calculating effects.')
+  }
+  if (!is.null(model$offset)){
+    flat_offset <- unlist(model$offset)
+    if (!all(flat_offset == 0)){
+      stop('"offset" not set up for legacy_marginal_effects.')
+    }
+  }
+  
+  if (is.null(data)) {
+    data <- model.frame(model)
+  }
+  
+  standardize <- model$internal$standardize
 
-  N_eff <- length(object$y) - sum(object$edf)
-  N <- length(object$y)
+  N_eff <- length(model$y) - sum(model$edf)
+  N <- length(model$y)
 
-  full_lp <- predict(object, newdata = newdata, type = "lpmatrix")
+  full_lp <- predict(model, newdata = data, type = "lpmatrix")
   model_offset <- attr(full_lp, "model.offset")
 
-  class_smooth <- lapply(object$smooth, FUN = function(i) {
+  class_smooth <- lapply(model$smooth, FUN = function(i) {
     class(i)
   })
   stopifnot(all(lengths(class_smooth) == 2))
@@ -63,14 +83,17 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL) {
   })
 
   if (sum(class_smooth == "gKRLS.smooth") != 1) {
-    stop("marginal_effects can only be run with one kernel...for now...")
+    stop("legacy_marginal_effects can only be run with one gKRLS penalized term; use calculate_effects")
   }
-  kern_smooth <- object$smooth[[which(class_smooth == "gKRLS.smooth")]]
+  if (any(class_smooth != 'gKRLS.smooth')){
+    stop("legacy_marginal_effects can only be used with one gKRLS penalized term.")
+  }
+  kern_smooth <- model$smooth[[which(class_smooth == "gKRLS.smooth")]]
 
   # Get the fixed effects
   fe_id <- setdiff(
     seq_len(ncol(full_lp)),
-    unlist(lapply(object$smooth, FUN = function(i) {
+    unlist(lapply(model$smooth, FUN = function(i) {
       i$first.par:i$last.par
     }))
   )
@@ -103,10 +126,10 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL) {
   kern_smooth$xt$return_raw <- TRUE
   kern_smooth$std_train <- NULL
 
-  raw_X_test <- PredictMat(kern_smooth, data = newdata)
+  raw_X_test <- PredictMat(kern_smooth, data = data)
   WX_test <- raw_X_test %*% W_Matrix
 
-  family <- object$family
+  family <- model$family
 
   fe_names <- colnames(FE_matrix_test)
   names_mfx <- c(fe_names, kern_smooth$term)
@@ -133,15 +156,15 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL) {
   S <- kern_smooth$sketch_matrix
   bandwidth <- kern_smooth$bandwidth
 
-  all_mean <- matrix(coef(object))
+  all_mean <- matrix(coef(model))
   if (length(fe_id) > 0) {
-    fe_mean <- matrix(coef(object)[fe_id])
+    fe_mean <- matrix(coef(model)[fe_id])
     re_mean <- all_mean[-fe_id, , drop = F]
   } else {
     re_mean <- all_mean
     fe_mean <- numeric(0)
   }
-  vcov_ridge <- vcov(object)
+  vcov_ridge <- vcov(model)
   fmt_sd_y <- 1
 
   N_train <- nrow(std_X_train)
@@ -161,8 +184,8 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL) {
     Z <- sparseMatrix(i = 1, j = 1, x = 0)
   } else {
     any_Z <- TRUE
-    offset_mean <- matrix(coef(object)[-c(fe_id, kernel_id)])
-    re_mean <- matrix(coef(object)[kernel_id])
+    offset_mean <- matrix(coef(model)[-c(fe_id, kernel_id)])
+    re_mean <- matrix(coef(model)[kernel_id])
     offset <- as.vector(offset + Z %*% offset_mean)
     Z <- drop0(Z)
   }
@@ -221,14 +244,14 @@ legacy_marginal_effect <- function(object, newdata, keep = NULL) {
   WX_test <- as.matrix(WX_test)
   WX_train <- as.matrix(WX_train)
 
-  if (!is.null(keep)) {
+  if (!is.null(variables)) {
     # Variables to calculate AME for
-    kern_to_fit <- intersect(kern_smooth$term, keep)
-    fe_to_fit <- intersect(fe_names, keep)
-    missing_provided <- setdiff(setdiff(keep, kern_to_fit), fe_to_fit)
+    kern_to_fit <- intersect(kern_smooth$term, variables)
+    fe_to_fit <- intersect(fe_names, variables)
+    missing_provided <- setdiff(setdiff(variables, kern_to_fit), fe_to_fit)
     all_to_fit <- c(fe_to_fit, kern_to_fit)
     if (length(missing_provided) != 0) {
-      warning('Some variables in "keep" not located in data.')
+      warning('Some variables in "variables" not located in data.')
     }
     fit_position <- which(rownames(fd_matrix) %in% all_to_fit)
     mfx_counter <- seq_len(length(fit_position))

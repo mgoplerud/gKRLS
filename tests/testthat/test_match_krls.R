@@ -90,7 +90,7 @@ test_that("Legacy Agrees with Numerical", {
     family = gaussian(), method = "REML", data = data.frame(y, X)
   )
 
-  mfx_gKRLS <- legacy_marginal_effect(object = fit_gKRLS, newdata = data.frame(X))
+  mfx_gKRLS <- legacy_marginal_effect(fit_gKRLS, data = data.frame(X))
   mfx_numerical <- calculate_effects(
     model = fit_gKRLS, individual = TRUE,
     data = data.frame(X), continuous_type = "deriv"
@@ -135,7 +135,7 @@ test_that("Logistic KRLS Tests", {
   family = binomial()
   )
 
-  mfx_logit <- legacy_marginal_effect(fit_binary_gKRLS, newdata = data.frame(X))
+  mfx_logit <- legacy_marginal_effect(fit_binary_gKRLS, data = data.frame(X))
   mfx_logit_num <- calculate_effects(fit_binary_gKRLS,
     data = data.frame(X),
     continuous_type = "deriv", individual = TRUE

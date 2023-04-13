@@ -7,40 +7,22 @@
 \method{estfun}{gam}(x, correct_df = TRUE, override_check = FALSE, ...)
 }
 \arguments{
-\item{x}{Model estimated with \code{gam} or \code{bam}.}
+\item{x}{A model estimated using \code{gam} or \code{bam}.}
 
-\item{correct_df}{Default \code{TRUE} adjusts \code{sandwich} to use the
+\item{correct_df}{The default, \code{TRUE}, adjusts \code{sandwich} to use the
 effective degrees of freedom for \code{k} instead of the number of columns
-of the design. Set to \code{FALSE} to use \code{k}.}
+of the design. \code{FALSE} uses \code{k}.}
 
-\item{override_check}{Default \code{FALSE} allows this function to be used
-with \code{sandwich}. If only the matrix of scores is required, set to
-\code{TRUE}.}
+\item{override_check}{The default, \code{FALSE}, allows this function to be
+used inside of \code{sandwich}. If only the matrix of scores is required,
+set to \code{TRUE}.}
 
 \item{...}{Not used for \code{estfun.gam}.}
 }
 \description{
 This extracts the score of the log-likelihood for each observation for a
-model estimated using \code{gam} or \code{bam}. It does not include the
-contribution of any penalized terms. It is used for allowing \code{mgcv} to
-work correctly with functions from \code{sandwich}, e.g. cluster or robust
-standard errors.
+model estimated using \code{gam} or \code{bam}. It is necessary to allow
+\code{mgcv} to work correctly with functions from \code{sandwich} to product
+cluster or robust standard errors.
 }
-\examples{
-set.seed(456)
-n <- 50
-x1 <- rnorm(n)
-state <- sample(letters[1:5], n, replace = TRUE)
-y <- exp(x1) + rnorm(n)
-data <- data.frame(y, x1, state)
-
-# Make character variables into factors for mgcv
-data$state <- factor(data$state)
-
-# A gKRLS model
-fit_gKRLS <- mgcv::gam(y ~ state + s(x1), data = data)
-# note that HC3 (default) is not available for mgcv
-robust <- sandwich::vcovHC(fit_gKRLS, type = 'HC1')
-cluster <- sandwich::vcovCL(fit_gKRLS, cluster = data$state)
-
-}
+\keyword{internal}

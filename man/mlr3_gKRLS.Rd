@@ -9,15 +9,15 @@
 This documents \code{LearnerRegrBam} and
   \code{LearnerClassifBam} that allow for \code{mgcv::bam} to be used in
   \code{mlr3} without explicitly loading \code{mlr3extralearners}. See
-  \link{ml_gKRLS} for discussion of how to use this and \code{mlr3} for
-  discussion of the "Learner" objects. See Wood et al. (2015) for a
-  discussion of \code{bam}.
+  \link{ml_gKRLS} for examples of how to use this and \code{mlr3} for
+  discussion of the "Learner" objects.
 }
 \references{
 Wood, Simon N and Goude, Yannig and Simon Shaw. 2015. "Generalized Additive
 Models for Large Data Sets." \emph{Journal of the Royal Statistical Society:
 Series C (Applied Statistics)} 64(1):139-155.
 }
+\keyword{internal}
 \section{Super classes}{
 \code{\link[mlr3:Learner]{mlr3::Learner}} -> \code{\link[mlr3:LearnerRegr]{mlr3::LearnerRegr}} -> \code{LearnerRegrBam}
 }

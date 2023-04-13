@@ -6,39 +6,40 @@
 #'
 #' @encoding UTF-8
 #' @name calculate_effects
-#' @param model A model estimated from \code{mgcv}.
-#' @param object A model estimated from \code{mgcv}.
-#' @param data A new data frame that used to calculate the marginal effect, or
-#'   set to \code{NULL}, which the data used to estimate the model will be used.
+#' @param model A model estimated using functions from \code{mgcv} (e.g., \code{gam} or \code{bam}).
+#' @param object A model estimated using functions from \code{mgcv} (e.g., \code{gam} or \code{bam}).
+#' @param data A data frame that is used to calculate the marginal effect or set
+#'   to \code{NULL} which will employ the data used when estimating the model.
 #'   The default is \code{NULL}.
 #' @param variables A character vector that specifies the variables for which to
-#'   calculate effects. The default, \code{NULL}, calculates marginal effects
-#'   for all variables.
-#' @param vcov A matrix that specifies the covariance matrix on the parameters.
+#'   calculate effects. The default, \code{NULL}, calculates effects for all
+#'   variables.
+#' @param vcov A matrix that specifies the covariance matrix of the parameters.
 #'   The default, \code{NULL}, uses the standard covariance matrix from
-#'   \code{mgcv}. This can be used to specify clustered or robust matrices
-#'   using, e.g., the \code{sandwich} package.
-#' @param raw Return the raw values used to calculate the difference in addition
-#'   to the estimated effect. Default is \code{FALSE}. If \code{TRUE}, an
-#'   additional column \code{...id} is present in the estimated effects that
-#'   reports whether the the row corresponds to the effect (\code{effect}), the
-#'   first value (\code{raw_0}) or the second value (\code{raw_1}) where
-#'   \code{effect=raw_1 - raw_0}. 
-#'   
-#'   For \code{"derivative"}, this must be scaled by the step size. For
-#'   \code{"second_derivative"}, \code{effect=raw_2 - 2 * raw_1 + raw_0}, scaled
-#'   by the step size; see the discussion for \code{epsilon}.
+#'   \code{mgcv}. This argument can be used to specify clustered or robust
+#'   matrices using, e.g., the \code{sandwich} package.
+#' @param raw A value of \code{TRUE} returns the raw values used to calculate
+#'   the difference in addition to the estimated effect. The default is
+#'   \code{FALSE}. If \code{TRUE}, an additional column \code{...id} is present
+#'   in the estimated effects that reports whether the row corresponds to the
+#'   effect (\code{effect}), the first value (\code{raw_0}) or the second value
+#'   (\code{raw_1}) where \code{effect=raw_1 - raw_0}. For \code{"derivative"},
+#'   this is further scaled by the step size. For \code{"second_derivative"},
+#'   \code{effect=raw_2 - 2 * raw_1 + raw_0}, scaled by the step size; see the
+#'   discussion for \code{epsilon} for how the step size is calculated.
 #' @param individual A value of \code{TRUE} calculates individual effects (i.e.
-#'   an effect for each observation in the provided data). The default is
+#'   an effect for each observation in the \code{data}). The default is
 #'   \code{FALSE}.
-#' @param conditional This is an analogue of Stata's \code{at()} option and the
-#'   \code{at} argument in the \code{margins}  package. For a marginal effect on
-#'   some variable \code{"a"}, this can specify the values for other covariates,
-#'   e.g. \code{"b"}, to be held at. Examples are provided below. This should be
-#'   either \code{NULL} (default) or a data.frame where each row is a
-#'   combination of covariate values to be held fixed. Marginal effects are
-#'   calculated separately for each row of \code{conditional}.
-#' @param epsilon A numerical value to define the step size when calculating
+#' @param conditional A data.frame or \code{NULL}. This is an analogue of
+#'   Stata's \code{at()} option and the \code{at} argument in the \code{margins}
+#'   package. For a marginal effect on some variable \code{"a"}, this specifies
+#'   fixed values for certain other covariates, e.g. \code{data.frame("b" = 0)}.
+#'   If \code{conditional} is \code{NULL}, all other covariates are held at
+#'   their observed value. If \code{conditional} is a data.frame, then each row
+#'   represents a different combination of covariate values to be held fixed,
+#'   and marginal effects are calculated separately for each row.Examples are
+#'   provided below.
+#' @param epsilon A numerical value that defines the step size when calculating
 #'   numerical derivatives.  For \code{"derivative"}, the step size for the
 #'   approximation is  \eqn{h = \epsilon \cdot \mathrm{max}(1,
 #'   \mathrm{max}(|x|))}{h = \epsilon * max(1, max(|x|))}, i.e. \eqn{f'(x)
@@ -50,65 +51,50 @@
 #'   \eqn{f''(x) \approx \frac{f(x+h) - 2 f(x) + f(x-h)}{h^2}}{f''(x) ≈ [f(x+h)
 #'   - 2 f(x) + f(x-h)]/h^2}
 #'   
-#' @param verbose A logical value indicates whether to report progress when
-#'   calculating the marginal effects.
-#' @param continuous_type A character string indicating the type of marginal
-#'   effects to estimate when the variable is continuous (i.e. not binary,
-#'   logical, factor, or character). Options are \code{"IQR"} (compares the
-#'   variable at its 25\% and 75\% percentile), \code{"minmax"} (compares the
-#'   variable at its minimum and maximum), \code{"derivative"} (numerically
-#'   approximates the derivative at each observed value),
-#'   \code{"second_derivative"} (numerically approximates the second derivative
-#'   at each observed value), \code{"onesd"} (compares one standard deviation
-#'   below and one standard deviation above). It may also accepted a \bold{named
-#'   list} where each named element corresponds to a numeric variable and has a
-#'   two-length vector as each element. The two values are then compared.
+#' @param verbose A logical value that indicates whether to report progress when
+#'   calculating the marginal effects. The default is \code{FALSE}.
+#' @param continuous_type A character string, with a default of \code{"IQR"},
+#'   that indicates the type of marginal effects to estimate when the variable
+#'   is continuous (i.e. not binary, logical, factor, or character). Options are
+#'   \code{"IQR"} (compares the variable at its 25\% and 75\% percentile),
+#'   \code{"minmax"} (compares the variable at its minimum and maximum),
+#'   \code{"derivative"} (numerically approximates the derivative at each
+#'   observed value), \code{"second_derivative"} (numerically approximates the
+#'   second derivative at each observed value), \code{"onesd"} (compares one
+#'   standard deviation below and one standard deviation above the mean of the
+#'   variable). It also accepts a \bold{named list} where each named element
+#'   corresponds to a numeric variable and has a two-length vector as each
+#'   element. The two values are then compared. If this is used, then all
+#'   continuous variables must have two values specified.
 #'   
 #'   A special option (\code{"predict"}) produces predictions (e.g.,
 #'   \code{predict(model, ..., type = "response")}) at each observed value and
-#'   then averages them together. This in conjunction with \code{conditional}
-#'   provides a way of calculating, for example, predicted probability curves
-#'   using an "observed value" approach (e.g., Hanmer and Kalkan 2013). The
-#'   examples below provide an illustration.
+#'   then averages them together. This, in conjunction with \code{conditional},
+#'   provides a way of calculating quantities such as predicted probability
+#'   curves using an "observed value" approach (e.g., Hanmer and Kalkan 2013).
+#'   The examples provide an illustration.
 #'
-#' @return  \code{calculate_effects} returns a data.frame of class
-#'   \code{"gKRLS_mfx"} that contains a data.frame with the estimated average
-#'   marginal effects. \code{"type"} reports the type of marginal effect
-#'   calculated. For families with multiple predicted outcomes (e.g.,
-#'   multinomial), the column \code{"response"} numbers the different outcomes
-#'   in the same order as \code{predict.gam(object)} for the specified family.
-#'   Many (but not all) extended and generalized families from \code{mgcv} are
-#'   included.
+#' @details 
+#'   \bold{Overview:} \code{calculate_effects} returns a data.frame of class
+#'   \code{"gKRLS_mfx"} that reports the estimated average marginal effects and
+#'   standard errors. Other columns include \code{"type"} that reports the type
+#'   of marginal effect calculated. For families with multiple predicted
+#'   outcomes (e.g., multinomial), the column \code{"response"} numbers the
+#'   different outcomes in the same order as \code{predict.gam(object)} for the
+#'   specified family. Many (but not all) extended and generalized families from
+#'   \code{mgcv} are included.
 #'   
-#'   To estimated predicted values at different covariate strata (i.e., create
-#'   an "observed value" predicted probability curve for a logistic regression),
-#'   please use the \code{conditional} argument while setting
-#'   \code{continuous_type = "predict"}. Please see the examples for an
-#'   illustration.
+#'   The \code{conditional} argument while setting \code{continuous_type =
+#'   "predict"} can be used to estimate predicted values at different covariate
+#'   strata (e.g., to create an "observed value" predicted probability curve for
+#'   a logistic regression). The examples provide an illustration.
 #'   
-#'   This data.frame has attributes, listed below, that are used in other
-#'   functions. The function \code{get_individual_effects} extracts the
-#'   individual-level effects that are estimated if \code{individual=TRUE}.
-#'   
-#'   \itemize{
-#'   \item{"jacobian": } This reports the corresponding Jacobian used to
-#'   calculate the standard error (via the delta method) for the estimate. There
-#'   is one row for each row in "marginal_effects". This can be used to, for
-#'   example, calculate a standard error on the difference between two estimated
-#'   marginal effects.
-#'   \item{"counter": } A placeholder for the number of marginal effects calculated.
-#'   \item{"N_eff": The number of observations (in the estimation data) minus
-#'   the effective degrees of freedom. This is used when calculating p-values as
-#'   the degrees of freedom for the t-distribution.}
-#'   \item{"N": The number of observations.}
-#'   }
-#'  
-#'  \code{calculate_interactions} provides some simple functions for calculate
-#'  interaction effects between variables. The default quantities it can produce
-#'  are listed below. Egami and Imai (2019) provide a detailed exposition of
-#'  these quantities. All marginalization is done using an "observed value"
-#'  approach, i.e. over the estimation data or a custom dataset provided to
-#'  \code{data}.
+#'  \bold{Interactions:} \code{calculate_interactions} provides some simple
+#'  functions for calculating interaction effects between variables. The default
+#'  quantities it can produce are listed below. Egami and Imai (2019) provide a
+#'  detailed exposition of these quantities. All marginalization is done using
+#'  an "observed value" approach, i.e. over the estimation data or a custom
+#'  dataset provided to \code{data}.
 #'  \itemize{
 #'    \item{"AME" or Average Marginal Effect: } This is the standard quantity
 #'    reported from \code{calculate_effects}.
@@ -120,6 +106,25 @@
 #'    effect" interpretation and reports the difference in average effect of one
 #'    variable ("A") between two different levels of a second variable ("B").
 #'  }
+#'
+#'   \bold{Other Functions:} \code{get_individual_effects} extracts the
+#'   individual-level effects that are estimated if \code{individual=TRUE}.
+#'   
+#'   @return Both \code{calculate_effects} and \code{calculate_effects} return
+#'     data.frames. \code{calculate_effects} contains attributes---including the
+#'     ones noted below---that may be useful for other analyses.
+#'   \itemize{
+#'   \item{"jacobian": } This reports the corresponding Jacobians used to
+#'   calculate the standard error (via the delta method) for the estimate. There
+#'   is one row for each row in main object. The format of this object depends
+#'   on the family used for \code{mgcv}. This could be used manually to, for
+#'   example, calculate a standard error on the difference between two estimated
+#'   marginal effects.
+#'   \item{"N_eff": The number of observations (in the estimation data) minus
+#'   the effective degrees of freedom. This is used when calculating p-values as
+#'   the degrees of freedom for the t-distribution.}
+#'   \item{"N": The number of observations.}
+#'   }
 #'  
 #' @references 
 #' 
@@ -798,13 +803,14 @@ calculate_effects <- function(model, data = NULL,
 }
 
 #' @rdname calculate_effects
-#' @param QOI Quantity of interest to calculate for
-#'   \code{calculate_interactions}. Options include AME (average marginal
-#'   effect), ACE (average combination effect), AIE (average interaction effect)
-#'   and AMIE (average marginal interaction effect); see "Details" for more
-#'   information.
-#' @param ... Used for \code{calculate_interactions} to pass arguments to
-#'   \code{calculate_effects}.
+#' @param QOI A vector of quantities of interest calculate for
+#'   \code{calculate_interactions}. Options include \code{"AME"} (average
+#'   marginal effect), \code{"ACE"} (average combination effect), \code{"AIE"}
+#'   (average interaction effect) and \code{"AMIE"} (average marginal
+#'   interaction effect); see "Details" for more information. The default
+#'   setting calculates all four quantities.
+#' @param ... This is used for \code{calculate_interactions} to pass arguments
+#'   to \code{calculate_effects}. It is unused for \code{summary.gKRLS_mfx}.
 #' @export
 calculate_interactions <- function(model,
       variables, QOI = c("AMIE", "ACE", "AME", "AIE"), ...) {
@@ -1043,7 +1049,7 @@ get_individual_effects <- function(x){
 }
 
 #' @rdname calculate_effects
-#' @param x Object fit with \code{calculate_effects} or \code{legacy_marginal_effect}
+#' @param x An object estimated using \code{calculate_effects}.
 #' @method print gKRLS_mfx
 #' @importFrom stats quantile pt
 #' @export
@@ -1069,7 +1075,6 @@ print.gKRLS_mfx <- function(x, ...) {
 
 #' @rdname calculate_effects
 #' @method summary gKRLS_mfx
-#' @param ... Additional arguments (unused).
 #' @export
 summary.gKRLS_mfx <- function(object, ...) {
   args <- list(...)

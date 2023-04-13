@@ -49,7 +49,7 @@ test_that("Test everything runs when kernel has categorical/factor variables", {
   expect_equal(v1, v2, tolerance = 1e-6)
   mfx_calc <- calculate_effects(fit_gam)
   expect_error(
-    legacy_marginal_effect(fit_gam, newdata = df), 
+    suppressMessages(legacy_marginal_effect(fit_gam)), 
     regexp = 'factors are provided')
   expect_s3_class(mfx_calc, 'gKRLS_mfx')
   
@@ -74,7 +74,7 @@ test_that("Test everything runs when kernel has categorical/factor variables", {
   )
   predict(fit_gam2, newdata = df[1:5,])
   expect_s3_class(calculate_effects(fit_gam2, variables = 'X5'), 'gKRLS_mfx')
-  expect_error(legacy_marginal_effect(fit_gam2, newdata = df[1:5,]),
+  expect_error(legacy_marginal_effect(fit_gam2, data = df[1:5,]),
                regexp = 'factors are provided')
 })
 
@@ -109,7 +109,7 @@ test_that("Test that factor vs dummies is equivalent", {
   mfx_direct <- calculate_effects(fit_direct, variables = 'X1', continuous_type = 'derivative')
   mfx_factor <- calculate_effects(fit_factor, variables = 'X1', continuous_type = 'derivative')
   expect_equivalent(mfx_direct, mfx_factor, tol = 1e-6)
-  legacy_direct <- legacy_marginal_effect(fit_direct, newdata = df, keep = 'X1')
+  legacy_direct <- legacy_marginal_effect(fit_direct, variables = 'X1')
   expect_equivalent(
     legacy_direct$AME_pointwise,
     mfx_direct$est,
@@ -124,4 +124,8 @@ test_that("Test that factor vs dummies is equivalent", {
   # Test that "summary" works as expected  
   expect_true(nrow(summary(legacy_direct)) == 1)
   expect_equal(summary(mfx_direct), mfx_direct)
+  
+  test_custom <- legacy_marginal_effect(fit_direct, data = df[1:5,], variables = 'X1')
+  expect_equal(nrow(test_custom$ME_pointwise), 5)
+  expect_equal(legacy_direct$ME_pointwise_var[1:5,,drop=F], test_custom$ME_pointwise_var)
 })
