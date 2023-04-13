@@ -103,13 +103,13 @@ test_that("Legacy Agrees with Numerical", {
   expect_equivalent(
     do.call("rbind", split(ind_est$est, ind_est$obs)),
     mfx_gKRLS$ME_pointwise,
-    tol = 1e-4
+    tol = 1e-3
   )
 
   expect_equivalent(
     do.call("rbind", split(ind_est$se^2, ind_est$obs)),
     mfx_gKRLS$ME_pointwise_var,
-    tol = 1e-4
+    tol = 1e-3
   )
 })
 

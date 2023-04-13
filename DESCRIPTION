@@ -2,7 +2,7 @@ Package: gKRLS
 Type: Package
 Title: Generalized Kernel Regularized Least Squares (gKRLS)
 Version: 1.0.1
-Date: 2023-4-5
+Date: 2023-4-13
 Encoding: UTF-8
 Authors@R: c(
   person("Qing", "Chang", role = c("aut"), email = "qic47@pitt.edu"),
