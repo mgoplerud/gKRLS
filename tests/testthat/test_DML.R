@@ -15,7 +15,7 @@ test_that("Test DoubleML", {
   
   N <- 100
   x1 <- rnorm(N)
-  x2 <- rbinom(N, size = 1, prob = .2)
+  x2 <- rbinom(N, size = 1, prob = 0.5)
   y <- x1^3 - 0.5 * x2 + rnorm(N, 0, 1)
   y <- y * 10
   X <- cbind(x1, x2, x1 + x2 * 3)
