@@ -12,7 +12,7 @@ Description: Kernel regularized least squares, also known as kernel ridge regres
     is a flexible machine learning method. This package implements this method by 
     providing a smooth term for use with 'mgcv' and uses random sketching to 
     facilitate scalable estimation on large datasets. It provides additional 
-    functions for calculating marginal effects after estimation and use with 
+    functions for calculating marginal effects after estimation and for use with 
     ensembles ('SuperLearning'), double/debiased machine learning ('DoubleML'), 
     and robust/clustered standard errors ('sandwich'). Chang and Goplerud (2023)
     <arxiv:2209.14355> provide further details.

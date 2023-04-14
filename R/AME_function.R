@@ -151,7 +151,7 @@
 #' Both \code{calculate_effects} and \code{calculate_interactions} return
 #' data.frames. \code{calculate_effects} contains attributes---including the
 #' ones noted below---that may be useful for other analyses. \itemize{
-#' \item{"jacobian": } This contains the gradients used to calculate the
+#' \item{"gradient": } This contains the gradients used to calculate the
 #' standard error (via the delta method) for the estimates from
 #' \code{calculate_effects}. There is one column for each quantity calculated in
 #' the main object. The format of this object depends on the family used for
@@ -341,9 +341,9 @@ calculate_effects <- function(model, data = NULL, variables = NULL,
   }
   
   if (simple_family){
-    out_jacobian <- matrix(nrow = length(coef(model)), ncol = 0)
+    out_gradient <- matrix(nrow = length(coef(model)), ncol = 0)
   }else{
-    out_jacobian <- list()
+    out_gradient <- list()
   }
   out_counter <- c()
 
@@ -799,16 +799,16 @@ calculate_effects <- function(model, data = NULL, variables = NULL,
     out_mfx <- rbind(out_mfx, out_mfx_i)
     
     if (simple_family){
-      out_jacobian_i <- do.call("cbind", lapply(data_out, FUN = function(i) {
-        i$jacobian
+      out_gradient_i <- do.call("cbind", lapply(data_out, FUN = function(i) {
+        i$gradient
       }))
-      out_jacobian <- cbind(out_jacobian, out_jacobian_i)
+      out_gradient <- cbind(out_gradient, out_gradient_i)
     }else{
 
-      out_jacobian_i <- lapply(data_out, FUN = function(i) {
-        i$jacobian
+      out_gradient_i <- lapply(data_out, FUN = function(i) {
+        i$gradient
       })
-      out_jacobian <- c(out_jacobian, list(out_jacobian_i))
+      out_gradient <- c(out_gradient, list(out_gradient_i))
       
     }
 
@@ -819,18 +819,18 @@ calculate_effects <- function(model, data = NULL, variables = NULL,
   }
   
   if (simple_family){
-    if (ncol(out_jacobian) != nrow(out_mfx)) {
-      stop("Unusual alignment error between jacobian and marginal effects.")
+    if (ncol(out_gradient) != nrow(out_mfx)) {
+      stop("Unusual alignment error between gradient and marginal effects.")
     }
     attr_lpi <- NULL
   }else{
-    # out_jacobian: One for each "conditional"
+    # out_gradient: One for each "conditional"
     # one for each variable
-    checksum_jacobian <- sum(sapply(out_jacobian, FUN=function(i){
+    checksum_gradient <- sum(sapply(out_gradient, FUN=function(i){
       sum(sapply(i, FUN=function(j){sapply(j, ncol)}))
     }))
-    if (checksum_jacobian != nrow(out_mfx)){
-      stop("Unusual alignment error between jacobian and marginal effects.")
+    if (checksum_gradient != nrow(out_mfx)){
+      stop("Unusual alignment error between gradient and marginal effects.")
     }
     attr_lpi <- data_out[[1]]$lpi
     
@@ -854,7 +854,7 @@ calculate_effects <- function(model, data = NULL, variables = NULL,
   out <- out_mfx
   attr(out, 'simple_family') <- simple_family
   attr(out, 'lpi') <- attr_lpi
-  attr(out, 'jacobian') <- out_jacobian
+  attr(out, 'gradient') <- out_gradient
   attr(out, 'counter') <- out_counter
   attr(out, 'individual') <- out_mfx_individual
   attr(out, 'N_eff') <- N_eff
@@ -1011,7 +1011,7 @@ calculate_interactions <- function(model,
         
         if (attr(fit_var, 'simple_family')){
           point_estimate <- as.vector(fit_var$est %*% id_matrix)
-          se_estimate <- apply(attr(fit_var, 'jacobian') %*% id_matrix,
+          se_estimate <- apply(attr(fit_var, 'gradient') %*% id_matrix,
              MARGIN = 2, FUN = function(i) {
                as.numeric(sqrt(t(i) %*% vcov_mdl %*% i))
              }
@@ -1019,15 +1019,15 @@ calculate_interactions <- function(model,
         }else{
           lpi <- attr(fit_var, 'lpi')
           point_estimate <- as.vector(fit_var$est %*% id_matrix)
-          # Loop over the jacobian for each conditional group
-          se_estimate <- do.call('c', lapply(attr(fit_var, 'jacobian'), FUN=function(ji){
-            # Loop over the jacobian for each *response*
+          # Loop over the gradient for each conditional group
+          se_estimate <- do.call('c', lapply(attr(fit_var, 'gradient'), FUN=function(ji){
+            # Loop over the gradient for each *response*
             se_loop <- mapply(ji[[i[1]]], ji[[i[2]]], ji[[v_i]], lpi, SIMPLIFY = TRUE, FUN=function(marg_1, marg_2, inter, lpi_loop){
-               jacobian_ji <- cbind(inter, marg_1, marg_2) %*% c(1, -1, -1)
+               gradient_ji <- cbind(inter, marg_1, marg_2) %*% c(1, -1, -1)
                if (is.null(lpi_loop)){
-                 out <- sqrt(as.numeric(t(jacobian_ji) %*% vcov_mdl %*% jacobian_ji))
+                 out <- sqrt(as.numeric(t(gradient_ji) %*% vcov_mdl %*% gradient_ji))
                }else{
-                 out <- sqrt(as.numeric(t(jacobian_ji) %*% vcov_mdl[lpi_loop, lpi_loop] %*% jacobian_ji))
+                 out <- sqrt(as.numeric(t(gradient_ji) %*% vcov_mdl[lpi_loop, lpi_loop] %*% gradient_ji))
                }
                return(out)
             })
@@ -1195,22 +1195,22 @@ weighted_mfx <- function(model, data_list, vcov,
       ex <- mean(e_i, na.rm = T)
       
       if (individual) {
-        jacob_i <- Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i
-        jacob <- colMeans(jacob_i, na.rm = T)
+        grad_i <- Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i
+        grad <- colMeans(grad_i, na.rm = T)
         nrow_valid <- sum(!is.na(lp_i))
       } else {
         se_i <- NULL
         e_i <- NULL
-        jacob_i <- NULL
+        grad_i <- NULL
         nrow_valid <- NULL
-        jacob <- colMeans(Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i, na.rm = T)
+        grad <- colMeans(Diagonal(x = model$family$mu.eta(lp_i)) %*% matrix_i, na.rm = T)
       }
       
       out <- list(
         expectation = ex,
         expectation_i = e_i,
-        jacobian_i = jacob_i,
-        jacobian = jacob,
+        gradient_i = grad_i,
+        gradient = grad,
         nrow_valid = nrow_valid
       )
     }else{
@@ -1221,12 +1221,12 @@ weighted_mfx <- function(model, data_list, vcov,
   })
   
   if (!simple_family){
-    noutcome <- length(raw_predictions[[1]]$jacobian)
+    noutcome <- length(raw_predictions[[1]]$gradient)
     complex_outcome <- isTRUE(raw_predictions[[1]]$complex_extended)
     
-    jacobian_net <- lapply(1:noutcome, FUN=function(d){
+    gradient_net <- lapply(1:noutcome, FUN=function(d){
       sapply(raw_predictions, FUN = function(i) {
-        i$jacobian[[d]]
+        i$gradient[[d]]
       }) %*% weights
     })
     
@@ -1247,7 +1247,7 @@ weighted_mfx <- function(model, data_list, vcov,
       })
     
       out_se <- sapply(1:noutcome, FUN=function(d){
-        sqrt(rowSums( (t(jacobian_net[[d]]) %*% vcov[lpi[[d]], lpi[[d]]]) * t(jacobian_net[[d]]) ))
+        sqrt(rowSums( (t(gradient_net[[d]]) %*% vcov[lpi[[d]], lpi[[d]]]) * t(gradient_net[[d]]) ))
       })
       
       out_lpi <- lpi
@@ -1255,7 +1255,7 @@ weighted_mfx <- function(model, data_list, vcov,
     }else{
       # If "complex" family, e.g., multinomial, do this one.
       out_se <- sapply(1:noutcome, FUN=function(d){
-        sqrt(rowSums( (t(jacobian_net[[d]]) %*% vcov) * t(jacobian_net[[d]]) ))
+        sqrt(rowSums( (t(gradient_net[[d]]) %*% vcov) * t(gradient_net[[d]]) ))
       })
       
       out_lpi <- NULL
@@ -1277,13 +1277,13 @@ weighted_mfx <- function(model, data_list, vcov,
     rownames(out_aggregate) <- NULL
   }else{
     out_lpi <- NULL
-    # Get the jacobian/gradient for each weighted average
-    jacobian_net <- sapply(raw_predictions, FUN = function(i) {
-      i$jacobian
+    # Get the gradient/gradient for each weighted average
+    gradient_net <- sapply(raw_predictions, FUN = function(i) {
+      i$gradient
     }) %*% weights
     
-    out_se <- sqrt(rowSums( (t(jacobian_net) %*% vcov) * t(jacobian_net) ))
-    # out_se <- sqrt(apply(jacobian_net, MARGIN = 2, FUN = function(i) {
+    out_se <- sqrt(rowSums( (t(gradient_net) %*% vcov) * t(gradient_net) ))
+    # out_se <- sqrt(apply(gradient_net, MARGIN = 2, FUN = function(i) {
     #   as.vector(t(i) %*% vcov %*% i)
     # }))
     out_est <- as.numeric(sapply(raw_predictions, FUN = function(i) {
@@ -1308,12 +1308,12 @@ weighted_mfx <- function(model, data_list, vcov,
       extract_ei <- sapply(raw_predictions, FUN = function(i) {
         i$expectation_i
       })
-      extract_jacob_i <- sapply(raw_predictions, FUN = function(i) {
-        i$jacobian_i
+      extract_grad_i <- sapply(raw_predictions, FUN = function(i) {
+        i$gradient_i
       })
       
       out_individual <- do.call('rbind', lapply(1:ncol(weights), FUN=function(w){
-        ji <- Reduce('+', mapply(extract_jacob_i, weights[,w], FUN = function(i, j) {
+        ji <- Reduce('+', mapply(extract_grad_i, weights[,w], FUN = function(i, j) {
           i * j
         }))
         est <- as.vector(extract_ei %*% weights[,w])
@@ -1329,8 +1329,8 @@ weighted_mfx <- function(model, data_list, vcov,
         extract_ei <- sapply(raw_predictions, FUN = function(i) {
           i$expectation_i[,d]
         })
-        extract_jacob_i <- sapply(raw_predictions, FUN = function(i) {
-          i$jacobian_i[[d]]
+        extract_grad_i <- sapply(raw_predictions, FUN = function(i) {
+          i$gradient_i[[d]]
         })
         
         if (!complex_outcome){
@@ -1341,7 +1341,7 @@ weighted_mfx <- function(model, data_list, vcov,
         }
         
         out_individual <- do.call('rbind', lapply(1:ncol(weights), FUN=function(w){
-          ji <- Reduce('+', mapply(extract_jacob_i, weights[,w], FUN = function(i, j) {
+          ji <- Reduce('+', mapply(extract_grad_i, weights[,w], FUN = function(i, j) {
             i * j
           }))
           est <- as.vector(extract_ei %*% weights[,w])
@@ -1362,7 +1362,7 @@ weighted_mfx <- function(model, data_list, vcov,
   return(list(
     aggregate = out_aggregate,
     individual = out_individual,
-    jacobian = jacobian_net,
+    gradient = gradient_net,
     lpi = out_lpi
   ))
 }
@@ -1388,13 +1388,13 @@ predict_extended <- function(object, X, individual){
     if (is.null(lpi)){
       
       # Use modifications of functions from "mgcv" to
-      # calculate the jacobian needed for the delta method
+      # calculate the gradient needed for the delta method
       lp_i <- as.vector(X %*% coef_object)
       if (grepl(family_object$family, pattern='^Ordered Categorical\\(')){
-        pred_obj <- ocat_jacobian(lp_i = as.vector(lp_i), 
+        pred_obj <- ocat_gradient(lp_i = as.vector(lp_i), 
           family_object = family_object)
       }else if (grepl(family_object$family, pattern='^Zero inflated Poisson\\(')){
-        pred_obj <- zip_jacobian(lp_i = as.vector(lp_i), 
+        pred_obj <- zip_gradient(lp_i = as.vector(lp_i), 
          family_object = family_object)      
       }else{
         stop('This extended family not set up for calculate_effect.')
@@ -1408,12 +1408,12 @@ predict_extended <- function(object, X, individual){
       })
 
       # # Incorrect as doesn't account for possibility of pos/neg signs      
-      # old_jacob_i <- exp(sweep(log(matrix(pred_jacobian$se.fit)), MARGIN = 1,
+      # old_grad_i <- exp(sweep(log(matrix(pred_gradient$se.fit)), MARGIN = 1,
       #                      STATS = log(abs(lp_i)), FUN = '-'
       # ))
       
       e_i <- pred_obj$fit
-      jacob_i <- pred_obj$jacobian
+      grad_i <- pred_obj$gradient
       nlp <- ncol(e_i)
     }else{
       
@@ -1426,14 +1426,14 @@ predict_extended <- function(object, X, individual){
       
       if (grepl(family_object$family, pattern='^multinom$')){
         
-        pred_obj <- multinom_jacobian(lp_i = lp_i, 
+        pred_obj <- multinom_gradient(lp_i = lp_i, 
           family_object = family_object)
         
       }else{
         stop('This extended family not set up for calculate_effect.')
       }
       e_i <- pred_obj$fit
-      jacob_i <- pred_obj$jacobian
+      grad_i <- pred_obj$gradient
       nlp <- ncol(e_i)
       
     }
@@ -1451,7 +1451,7 @@ predict_extended <- function(object, X, individual){
       lpi <- list(1:ncol(X))
     }
     
-    jacob_i <- sapply(1:nlp, FUN=function(d){
+    grad_i <- sapply(1:nlp, FUN=function(d){
       lpi_d <- lpi[[d]]
       list.mu.eta[[d]](as.vector(X[, lpi_d] %*% coef_object[lpi_d]))
     })
@@ -1467,58 +1467,58 @@ predict_extended <- function(object, X, individual){
   coef_names <- names(coef(object))
   if (individual){
     
-    if (!is.list(jacob_i)){
-      jacob_i <- lapply(1:nlp, FUN=function(d){
+    if (!is.list(grad_i)){
+      grad_i <- lapply(1:nlp, FUN=function(d){
         if (is.null(lpi)){
           lpi_d <- 1:ncol(X)
         }else{
           lpi_d <- lpi[[d]]
         }
-        return(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d])
+        return(Diagonal(x = grad_i[,d]) %*% X[, lpi_d])
       })
-      jacob <- lapply(jacob_i, colMeans, na.rm=T)
+      grad <- lapply(grad_i, colMeans, na.rm=T)
     }else{
-      jacob_i <- lapply(jacob_i, FUN=function(ji){
+      grad_i <- lapply(grad_i, FUN=function(ji){
         out <- do.call('cbind', sapply(1:ncol(ji), FUN=function(d){
           lpi_d <- lpi[[d]]
           return(Diagonal(x = ji[,d]) %*% X[, lpi_d])
         }))
         # out <- out[, unlist(lpi)]
         if (!isTRUE(identical(colnames(out), coef_names))){
-          stop("Name misalignment when creating jacobian")
+          stop("Name misalignment when creating gradient")
         }
         return(out)
       })
-      jacob <- lapply(jacob_i, colMeans, na.rm=T)
+      grad <- lapply(grad_i, colMeans, na.rm=T)
     }
     
   }else{
     
-    if (!is.list(jacob_i)){
-      jacob <- lapply(1:nlp, FUN=function(d){
+    if (!is.list(grad_i)){
+      grad <- lapply(1:nlp, FUN=function(d){
         if (is.null(lpi)){
           lpi_d <- 1:ncol(X)
         }else{
           lpi_d <- lpi[[d]]
         }
-        ji <- colMeans(Diagonal(x = jacob_i[,d]) %*% X[, lpi_d, drop = F], na.rm=T)
+        ji <- colMeans(Diagonal(x = grad_i[,d]) %*% X[, lpi_d, drop = F], na.rm=T)
         return(ji)
       })
     }else{
-      jacob <- lapply(jacob_i, FUN=function(ji){
+      grad <- lapply(grad_i, FUN=function(ji){
         out <- do.call('cbind', sapply(1:ncol(ji), FUN=function(d){
           lpi_d <- lpi[[d]]
           return(Diagonal(x = ji[,d]) %*% X[, lpi_d, drop = F])
         }))
         out <- out[, unlist(lpi), drop = F]
         if (!isTRUE(identical(colnames(out), coef_names))){
-          stop("Name misalignment when creating jacobian")
+          stop("Name misalignment when creating gradient")
         }
         out <- colMeans(out, na.rm=T)
         return(out)
       })
     }
-    jacob_i <- NULL
+    grad_i <- NULL
     e_i <- NULL
   }
   
@@ -1530,8 +1530,8 @@ predict_extended <- function(object, X, individual){
       complex_extended = complex_extended,
       expectation = ex,
       expectation_i = e_i,
-      jacobian_i = jacob_i,
-      jacobian = jacob,
+      gradient_i = grad_i,
+      gradient = grad,
       nrow_valid = nrow_valid,
       lpi = lpi
     )

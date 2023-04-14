@@ -2,20 +2,20 @@
 # outcomes with respect to the linear predictor for extended
 # families that have custom predict functions
 
-ocat_jacobian <- function(lp_i, family_object){
+ocat_gradient <- function(lp_i, family_object){
   cumprob <- cbind(0, 
                    outer(lp_i, family_object$getTheta(TRUE), 
                          FUN=function(l, th){plogis(th-l)}),
                    1)
   dprob <-  cumprob^2 - cumprob # - p * (1 - p)
   fit <- t(diff(t(cumprob)))
-  jacobian <- t(diff(t(dprob)))
+  gradient <- t(diff(t(dprob)))
   return(
-    list(fit = fit, jacobian = jacobian)
+    list(fit = fit, gradient = gradient)
   )
 }
 
-zip_jacobian <- function(lp_i, family_object){
+zip_gradient <- function(lp_i, family_object){
   transf_theta <- family_object$getTheta(trans = TRUE)
   lambda <- exp(lp_i)
   eta <- transf_theta[1] + transf_theta[2] * lp_i
@@ -27,11 +27,11 @@ zip_jacobian <- function(lp_i, family_object){
   # Get the derivative of fit w.r.t. lp
   d1 <- exp(eta - exp(eta)) * transf_theta[2] * E_nonzero
   d2 <- E_nonzero * (1 - E_nonzero * exp(-lambda)) * p_nonzero
-  jacobian <- d1 + d2
-  return(list(fit = fit, jacobian = jacobian))
+  gradient <- d1 + d2
+  return(list(fit = fit, gradient = gradient))
 }
 
-multinom_jacobian <- function(lp_i, family_object){
+multinom_gradient <- function(lp_i, family_object){
   
   aug_lpi <- cbind(0, lp_i)
   # Calculate softmax in a stable fashion to avoid dividing
@@ -56,6 +56,6 @@ multinom_jacobian <- function(lp_i, family_object){
   })
   
   return(
-    list(fit = lp_out, jacobian = lp_jacob)
+    list(fit = lp_out, gradient = lp_jacob)
   )
 }

@@ -144,7 +144,7 @@ arguments to \code{calculate_effects}. It is unused for
 Both \code{calculate_effects} and \code{calculate_interactions} return
 data.frames. \code{calculate_effects} contains attributes---including the
 ones noted below---that may be useful for other analyses. \itemize{
-\item{"jacobian": } This contains the gradients used to calculate the
+\item{"gradient": } This contains the gradients used to calculate the
 standard error (via the delta method) for the estimates from
 \code{calculate_effects}. There is one column for each quantity calculated in
 the main object. The format of this object depends on the family used for
