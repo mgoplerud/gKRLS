@@ -15,7 +15,7 @@ Description: Kernel regularized least squares, also known as kernel ridge regres
     functions for calculating marginal effects after estimation and for use with 
     ensembles ('SuperLearning'), double/debiased machine learning ('DoubleML'), 
     and robust/clustered standard errors ('sandwich'). Chang and Goplerud (2023)
-    <arxiv:2209.14355> provide further details.
+    <arXiv:2209.14355> provide further details.
 LinkingTo: Rcpp, RcppEigen
 Imports: 
   Rcpp (>= 1.0.6), 
