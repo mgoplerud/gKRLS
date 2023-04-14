@@ -32,7 +32,8 @@ test_that("mfx with degenerate Mahalanobis", {
     if (std != 'scaled'){
       expect_equivalent(ncol(fit_gKRLS$smooth[[1]]$X_train), 2)
     }
-    mfx_num <- calculate_effects(fit_gKRLS, data = data.frame(X), continuous_type = "deriv")
+    mfx_num <- calculate_effects(fit_gKRLS, data = data.frame(X), 
+        use_original = TRUE, continuous_type = "deriv")
     mfx_legacy <- legacy_marginal_effect(fit_gKRLS,
        data = data.frame(X),
        variables = c("x1", "x2", "x3")
@@ -61,14 +62,17 @@ test_that("Test MFX", {
   expect_equivalent(fit_gKRLS$smooth[[1]]$term, c("x1", "x2", "x3"))
   expect_equivalent(ncol(fit_gKRLS$smooth[[1]]$X_train), 3)
 
-  mfx_num <- calculate_effects(fit_gKRLS, data = data.frame(X), continuous_type = "deriv")
-  mfx_legacy <- legacy_marginal_effect(fit_gKRLS,
-    data = data.frame(X),
-    variables = c("x1", "x2", "x3")
-  )
-
-  expect_equivalent(mfx_num$est, mfx_legacy$AME_pointwise, tol = 1e-3)
-  expect_equivalent(mfx_num$se, sqrt(mfx_legacy$AME_pointwise_var), tol = 1e-3)
+  if (env_test != 'CRAN'){
+    mfx_num <- suppressWarnings(calculate_effects(fit_gKRLS, data = data.frame(X), 
+                                                  continuous_type = "deriv"))
+    mfx_legacy <- legacy_marginal_effect(fit_gKRLS,
+                                         data = data.frame(X),
+                                         variables = c("x1", "x2", "x3")
+    )
+    
+    expect_equivalent(mfx_num$est, mfx_legacy$AME_pointwise, tol = 1e-3)
+    expect_equivalent(mfx_num$se, sqrt(mfx_legacy$AME_pointwise_var), tol = 1e-3)
+  }
 })
 
 test_that("test 'calculate_effects'", {

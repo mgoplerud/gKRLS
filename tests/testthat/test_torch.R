@@ -47,7 +47,7 @@ if (interactive() & (env_test == 'local')){
     for (f in list(multinom(K=3), multinom(K=2), ocat(R=4), binomial(link = 'cloglog'), 
                    binomial(link = 'logit'), binomial(link = 'probit'), 
                    poisson(), gaussian(), tw(), nb(), scat(), ziP())){
-      print(f)
+      # print(f)
       if (grepl(f$family, pattern='multinom')){
         if (f$nlp == 3){
           b <- gam(list(new_y ~ te(x1, x2),

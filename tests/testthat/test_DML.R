@@ -72,6 +72,7 @@ test_that("Test SuperLearner", {
     fit_SL <- SuperLearner::SuperLearner(
       Y = as.numeric(y > mean(y)), obsWeights = rep(1, nrow(X)),
       X = data.frame(X), family = "binomial",
+      cvControl = list(V=2),
       SL.library = "sl_m"
     )
     expect_s3_class(fit_SL, "SuperLearner")

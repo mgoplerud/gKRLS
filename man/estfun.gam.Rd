@@ -19,6 +19,9 @@ set to \code{TRUE}.}
 
 \item{...}{Not used for \code{estfun.gam}.}
 }
+\value{
+A matrix used internally for \code{sandwich}.
+}
 \description{
 This extracts the score of the log-likelihood for each observation for a
 model estimated using \code{gam} or \code{bam}. It is necessary to allow

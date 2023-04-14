@@ -24,7 +24,7 @@ create_data_gKRLS <- function(term_levels, term_class, data_term, terms, allow.m
         if (length(new_levels_ij) > 0){
           d_i_j <- d_i_j[-new_levels_ij]
           d_i_i <- d_i_i[-new_levels_ij]
-          message(paste0('New levels found in factor ', n_i,'. See warnings from mgcv.\nGiving a zero value in the kernel.'))
+          message(paste0('New levels found in factor ', n_i,'. Giving a zero value in the kernel.'))
         }
       }else{
         if (any(is.na(d_i_j))){

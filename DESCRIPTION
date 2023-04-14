@@ -1,6 +1,6 @@
 Package: gKRLS
 Type: Package
-Title: Generalized Kernel Regularized Least Squares (gKRLS)
+Title: Generalized Kernel Regularized Least Squares
 Version: 1.0.1
 Date: 2023-4-13
 Encoding: UTF-8
@@ -9,14 +9,13 @@ Authors@R: c(
   person("Max", "Goplerud", role = c("aut", "cre"), email = "mgoplerud@pitt.edu"))
 License: GPL (>= 2)
 Description: Kernel regularized least squares, also known as kernel ridge regression, 
-    is a flexible machine learning method. This package implements this method for 
-    generalized linear models and other models with random sketching to facilitate 
-    scalability. It provides a smoothing basis type for estimation using 'mgcv' 
-    and associated functions. It provides additional functions for estimating 
-    marginal effects after estimation, implementation for ensembles 
-    (via 'SuperLearning'), double/debiased machine learning (via 'DoubleML'), 
-    and robust/clustered standard errors (via 'sandwich'). 
-    Chang and Goplerud (2023) <arxiv:2209.14355> provides further details.
+    is a flexible machine learning method. This package implements this method by 
+    providing a smooth term for use with 'mgcv' and uses random sketching to 
+    facilitate scalable estimation on large datasets. It provides additional 
+    functions for calculating marginal effects after estimation and use with 
+    ensembles ('SuperLearning'), double/debiased machine learning ('DoubleML'), 
+    and robust/clustered standard errors ('sandwich'). Chang and Goplerud (2023)
+    <arxiv:2209.14355> provide further details.
 LinkingTo: Rcpp, RcppEigen
 Imports: 
   Rcpp (>= 1.0.6), 

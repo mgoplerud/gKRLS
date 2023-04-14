@@ -93,7 +93,7 @@ test_that("Legacy Agrees with Numerical", {
   mfx_gKRLS <- legacy_marginal_effect(fit_gKRLS, data = data.frame(X))
   mfx_numerical <- calculate_effects(
     model = fit_gKRLS, individual = TRUE,
-    data = data.frame(X), continuous_type = "deriv"
+    continuous_type = "deriv"
   )
 
   expect_equivalent(mfx_gKRLS$AME_pointwise, mfx_numerical$est, tol = 1e-2)
@@ -137,7 +137,7 @@ test_that("Logistic KRLS Tests", {
 
   mfx_logit <- legacy_marginal_effect(fit_binary_gKRLS, data = data.frame(X))
   mfx_logit_num <- calculate_effects(fit_binary_gKRLS,
-    data = data.frame(X),
+    data = data.frame(X), use_original = TRUE,
     continuous_type = "deriv", individual = TRUE
   )
 

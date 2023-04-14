@@ -23,8 +23,8 @@ examples below and documentation in \code{SuperLearner} for more details.}
 \item{newX}{This is not usually directly specified in \code{SL.mgcv}, see the
 examples below and documentation in \code{SuperLearner} for more details.}
 
-\item{formula}{The formula used for \code{mgcv}. This must be specified, see
-the examples.}
+\item{formula}{A formula used for \code{gam} or \code{bam} from
+\code{mgcv}. This must be specified, see the examples.}
 
 \item{family}{This is not usually directly specified in \code{SL.mgcv}, see
 the examples below and documentation in \code{SuperLearner} for more
@@ -41,23 +41,31 @@ this can dramatically improve estimation time. Wood et al. (2015) and
 
 \item{...}{Additional arguments to \code{mgcv::gam} and \code{mgcv::bam}.}
 
-\item{object}{A gKRLS model.}
+\item{object}{This is not usually directly specified in \code{SL.mgcv}, see
+the examples below and documentation in \code{SuperLearner} for more
+details.}
 
-\item{newdata}{A new dataset uses for prediction. If no data provided, the original
-data will be used.}
+\item{newdata}{This is not usually directly specified in \code{SL.mgcv}, see
+the examples below and documentation in \code{SuperLearner} for more
+details.}
 
-\item{allow_missing_levels}{A logical variable indicates whether missing levels are
-allowed for prediction. The default is True.}
+\item{allow_missing_levels}{A logical variable that indicates whether missing
+levels in factors are allowed for prediction. The default is \code{TRUE}.}
+}
+\value{
+All three of the returned functions are usually called for use in
+  other functions, i.e. creating objects for use in \code{SuperLearner} or
+  adding \code{bam} models to \code{mlr3}.
 }
 \description{
-This provides a number of functions to integrate machine
-  learning with \code{gKRLS} (and \code{mgcv} more generally). Integration
-  into \code{SuperLearner} and \code{DoubleML} (via \code{mlr3}) is described
-  below.
+This provides a number of functions to use \code{gKRLS} (and
+  \code{mgcv} more generally) as part of machine learning algorithms.
+  Integration into \code{SuperLearner} and \code{DoubleML} (and \code{mlr3})
+  is described below.
 }
 \details{
 \bold{Ensembles:} \code{SuperLearner} integration is provided by
-  \code{SL.mgcv} and the corresponding predict method. `mgcv::bam` can be
+  \code{SL.mgcv} and the corresponding predict method. \code{mgcv::bam} can be
   enabled by using \code{bam = TRUE}. A formula \bold{without an outcome}
   must be explicitly provided.
 

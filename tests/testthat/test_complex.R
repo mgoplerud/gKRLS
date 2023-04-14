@@ -14,7 +14,7 @@ test_that(" Test for prediction/SE for complex families ", {
   
   # From mgcv
   n <- 400
-  dat <- gamSim(1,n=n)
+  dat <- gamSim(1,n=n, verbose = FALSE)
   dat$f <- dat$f - mean(dat$f)
   
   alpha <- c(-Inf,-1,0,5,Inf)
@@ -31,7 +31,12 @@ test_that(" Test for prediction/SE for complex families ", {
   # From mgcv: Confirm predictions line up for
   # single linear predictor models
 
-  for (f in list(ocat(R=R), poisson(link = 'identity'), gaussian(), tw(), nb(), scat(), ziP())){
+  if (env_test == 'CRAN'){# Slightly fewer links for CRAN
+    list_link <- list(ocat(R=R), poisson(link = 'identity'), nb(), scat(), ziP())
+  }else{
+    list_link <- list(ocat(R=R), poisson(link = 'identity'), gaussian(), tw(), nb(), scat(), ziP())
+  }
+  for (f in list_link){
     if (!grepl(f$family, pattern='^Zero')){
       b <- suppressWarnings(gam(y~ s(x0) + s(x1) + s(x2) + s(x3),family=f,data=dat))
     }else{
@@ -44,7 +49,6 @@ test_that(" Test for prediction/SE for complex families ", {
     rm(pred_gKRLS, pred_mgcv)
   }
   
-  # Multinomial Test: Note that this will *not* work with 1.8-42 (or below) when K >= 3
   b <- gam(list(new_y ~ s(x0), 
                 ~ x0 + x1 + x2, 
                 ~ s(x3, x2, bs = 'gKRLS')), 
@@ -74,30 +78,32 @@ test_that(" Test for prediction/SE for complex families ", {
   expect_equivalent(get_individual_effects(pred_gKRLS)$est, as.vector(pred_mgcv$fit), tol = 1e-6, scale = 1)
   expect_equivalent(get_individual_effects(pred_gKRLS)$se, as.vector(pred_mgcv$se.fit), tol = 1e-6, scale = 1)
   
-  # Test that multinomial and logit agree when 2 categories (K=1) 
-  new_dat_2 <- subset(dat, new_y < 2)
-  b <- gam(list(new_y ~ x0 + x1 + x2 * x3), 
-           data = new_dat_2,
-           family = multinom(K = 1), method = 'REML')
-  b2 <- gam(new_y ~ x0 + x1 + x2 * x3,
-            data = new_dat_2,
-            family = binomial(), method = 'REML')
-  
-  fit_multinom <- calculate_effects(b, variables = 'x3')
-  fit_logit <- calculate_effects(b2, variables = 'x3')
-  expect_equivalent(
-    fit_multinom[2,-5],
-    fit_logit,
-    tol = 1e-4, 
-  )
-  expect_equivalent(vcov(b), vcov(b2), tol = 1e-4, scale = 1)
-  expect_equivalent(coef(b), coef(b2), tol = 1e-4, scale = 1)
+  if (env_test != 'CRAN'){
+    # Test that multinomial and logit agree when 2 categories (K=1) 
+    new_dat_2 <- subset(dat, new_y < 2)
+    b <- gam(list(new_y ~ x0 + x1 + x2 * x3), 
+             data = new_dat_2,
+             family = multinom(K = 1), method = 'REML')
+    b2 <- gam(new_y ~ x0 + x1 + x2 * x3,
+              data = new_dat_2,
+              family = binomial(), method = 'REML')
+    
+    fit_multinom <- calculate_effects(b, variables = 'x3')
+    fit_logit <- calculate_effects(b2, variables = 'x3')
+    expect_equivalent(
+      fit_multinom[2,-5],
+      fit_logit,
+      tol = 1e-4, 
+    )
+    expect_equivalent(vcov(b), vcov(b2), tol = 1e-4, scale = 1)
+    expect_equivalent(coef(b), coef(b2), tol = 1e-4, scale = 1)
+  }
 })
 
 test_that("calculate_interactions works with complex familes", {
   
   n <- 100
-  dat <- gamSim(1,n=n)
+  dat <- gamSim(1,n=n, verbose = FALSE)
   dat$f <- dat$f - mean(dat$f)
   
   alpha <- c(-Inf,-1,0,5,Inf)
@@ -114,7 +120,7 @@ test_that("calculate_interactions works with complex familes", {
   dat$x1 <- cut(dat$x1, 3)
 
   for (f in list(ocat(R=R), nb(), scat(), ziP())){
-    print(f)
+    # print(f)
     if (!grepl(f$family, pattern='^Zero')){
       b <- suppressWarnings(gam(y~ x0 * x1 + s(x2) + s(x3),family=f,data=dat))
     }else{
@@ -222,10 +228,16 @@ test_that("calculate interactions works with lpi (e.g., gaulss)", {
   
   n <- 400
 
-  dat <- gamSim(eg = 3,  n = n, dist = 'gamma')
+  dat <- gamSim(eg = 3,  n = n, dist = 'gamma', verbose = FALSE)
   
-  for (f in list(gaulss(), gevlss())){
-    print(f)
+  if (env_test == 'CRAN'){
+    link_list <- list(gaulss())
+  }else{
+    link_list <- list(gaulss(), gevlss())
+  }
+  
+  for (f in link_list){
+    # print(f)
     fmla <- list(y ~ s(x1, x2, bs = 'gKRLS'), ~ s(x1, x2, bs = 'gKRLS'))
     if (f$family == 'gevlss'){
       fmla <- c(fmla, ~x1 + x2)

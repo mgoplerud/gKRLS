@@ -15,6 +15,8 @@
 #'   set to \code{TRUE}.
 #' @param ... Not used for \code{estfun.gam}.
 #'
+#' @returns A matrix used internally for \code{sandwich}.
+#' 
 #' @import sandwich
 #' @importFrom stats family residuals weights model.matrix
 #' @export

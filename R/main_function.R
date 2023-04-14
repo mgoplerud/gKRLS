@@ -9,23 +9,22 @@
 #' \bold{Overview:} The \code{gKRLS} function should not be called directly. Its
 #' options, described above, control how \code{gKRLS} is estimated. It should be
 #' passed to \code{mgcv} as follows: \code{s(x1, x2, x3, bs = "gKRLS", xt =
-#' gKRLS(...))}.
-#'
-#' Multiple kernels can be specified and have different \code{gKRLS} arguments.
-#' It can also be used alongside the existing options for \code{s()} in
-#' \code{mgcv}.
+#' gKRLS(...))}. Multiple kernels can be specified and have different
+#' \code{gKRLS} arguments. It can also be used alongside the existing options
+#' for \code{s()} in \code{mgcv}.
 #' 
-#' \code{Default Settings:} By default, \code{bs = "gKRLS"} uses Mahalanobis
+#' \bold{Default Settings:} By default, \code{bs = "gKRLS"} uses Mahalanobis
 #' distance between the observations, random sketching using subsampling
-#' sketching (see Yang et al. 2017) and a sketching dimension of \code{5 *
+#' sketching (i.e., where the kernel is constructed using a random sample of the
+#' observations; Yang et al. 2017) and a sketching dimension of \code{5 *
 #' ceiling(N^(1/3))} where \code{N} is the number of observations. Chang and
 #' Goplerud (2023) provide an exploration of alternative options.
 #' 
-#' \code{Notes:} Please note that variables must be separated with commas inside
+#' \bold{Notes:} Please note that variables must be separated with commas inside
 #' of \code{s(...)} and that character variables should usually be passed as
 #' factors to work smoothly with \code{mgcv}. When using this function with
 #' \code{bam}, the sketching dimension uses \code{chunk.size} in place of
-#' \code{N} and thus either this or \code{sketch_size_raw} must be used to cause
+#' \code{N} and thus either \code{chunk.size} or \code{sketch_size_raw} must be used to cause
 #' the sketching dimension to increase with \code{N}.
 #' 
 #' @encoding UTF-8
@@ -38,42 +37,44 @@
 #'   \code{"none"} (no sketching). Drineas et al. (2005) and Yang et al. (2017)
 #'   provide more details on these options.
 #'
-#'   To force \code{"subsampling"} to select a specific set of observations,
-#'   provide a vector of row positions to \code{sketch_method}. This manually
-#'   sets the size of the sketching multiplier, implicitly overriding other
-#'   options in \code{gKRLS}. The examples provide an illustration.
+#'   To force \code{"subsampling"} to select a specific set of observations, you
+#'   can provide a vector of row positions to \code{sketch_method}. This
+#'   manually sets the size of the sketching multiplier, implicitly overriding
+#'   other options in \code{gKRLS}. The examples provide an illustration.
 #' @param standardize A string that specifies how the data is standardized
 #'   before calculating the distance between observations. The default is
 #'   \code{"Mahalanobis"} (i.e., demeaned and transformed to have an identity
 #'   covariance matrix). Other options are \code{"scaled"} (all columns are
 #'   scaled to have mean zero and variance of one) or \code{"none"} (no
 #'   standardization).
-#' @param sketch_multiplier The size of the sketching dimension is set to
-#'   \code{sketch_multiplier * ceiling(N^(1/3))} where \code{N} is the number of
-#'   observations. The default is 5; Chang and Goplerud (2023) find that
-#'   increasing this to 15 may improve stability for certain complex kernels.
-#'   \code{sketch_size_raw} can directly set the size of the sketching
+#' @param sketch_multiplier A number that sets the size of the sketching
+#'   dimension: \code{sketch_multiplier * ceiling(N^(1/3))} where \code{N} is
+#'   the number of observations. The default is 5; Chang and Goplerud (2023)
+#'   find that increasing this to 15 may improve stability for certain complex
+#'   kernels. \code{sketch_size_raw} can directly set the size of the sketching
 #'   dimension.
-#' @param sketch_size_raw The default is \code{NULL}. \code{sketch_size_raw}
-#'   sets the exact size of the sketching dimension (cf.,
-#'   \code{sketch_multiplier}). Exactly one of \code{sketch_size_raw} or
+#' @param sketch_size_raw A number to set the exact size of the sketching
+#'   dimension. The default, \code{NULL}, means that this argument is not used
+#'   and the size depends on the number of observations; see
+#'   \code{sketch_multiplier}. Exactly one of \code{sketch_size_raw} or
 #'   \code{sketch_multiplier} must be \code{NULL}.
-#' @param sketch_prob For Bernoulli sketching, this sets the probability of
-#'   \code{1}. Yang et al. (2017) provide for more details.
+#' @param sketch_prob A probability for an element of the sketching matrix to
+#'   equal \code{1} when using Bernoulli sketching. Yang et al. (2017) provide
+#'   more details.
 #' @param rescale_penalty A logical value for whether the penalty should be
 #'   rescaled for numerical stability. See documentation for
 #'   \code{mgcv::smooth.spec} on the meaning of this term. The default is
 #'   \code{TRUE}.
-#' @param bandwidth The bandwidth for the kernel \eqn{P} where each element of
-#'   the kernel is defined by \eqn{\exp(-||x_i - x_j||^2_2/P)}.
+#' @param bandwidth A bandwidth \eqn{P} for the kernel where each element of
+#'   the kernel \eqn{(i,j)} is defined by \eqn{\exp(-||x_i - x_j||^2_2/P)}.
 #' @param remove_instability A logical value that indicates whether numerical
 #'   zeros (set via \code{truncate.eigen.tol}) should be removed when building
 #'   the penalty matrix. The default is \code{TRUE}.
-#' @param truncate.eigen.tol A threshold to remove columns of the penalty, i.e.
-#'   \eqn{S K S^T}, whose eigenvalues are small, i.e. below
-#'   \code{truncate.eigen.tol}. These columns are removed from the sketched
-#'   kernel and avoid instability due to numerically very small eigenvalues. The
-#'   default is is \code{sqrt(.Machine$double.eps)}. This adjustment can be
+#' @param truncate.eigen.tol A threshold to remove columns of the penalty
+#'   \eqn{S K S^T} whose eigenvalues are small (below
+#'   \code{truncate.eigen.tol}). These columns are removed from the sketched
+#'   kernel and avoids instability due to numerically very small eigenvalues. The
+#'   default is \code{sqrt(.Machine$double.eps)}. This adjustment can be
 #'   disabled by setting \code{remove_instability = FALSE}.
 #' @references 
 #' 
@@ -87,6 +88,8 @@
 #' Yang, Yun and Pilanci, Mert and Martin J. Wainwright. 2017. "Randomized
 #' Sketches for Kernels: Fast and Optimal Nonparametric Regression".
 #' \emph{Annals of Statistics} 45(3):991-1023.
+#' 
+#' @returns \code{gKRLS} returns a named list with the elements in "Arguments".
 #' 
 #' @useDynLib gKRLS
 #' @import Matrix
@@ -135,15 +138,15 @@
 #' stopifnot(identical(id, fit_gKRLS_custom$smooth[[1]]$subsampling_id))
 #' # calculate marginal effect (see ?calculate_effects for more examples)
 #' calculate_effects(fit_gKRLS, variables = "x1")
-gKRLS <- function(truncate.eigen.tol = sqrt(.Machine$double.eps),
-                  demean_kernel = FALSE,
-                  sketch_method = "subsampling",
+gKRLS <- function(sketch_method = "subsampling",
                   standardize = "Mahalanobis",
+                  bandwidth = NULL, 
                   sketch_multiplier = 5,
                   sketch_size_raw = NULL,
                   sketch_prob = NULL, 
                   rescale_penalty = TRUE,
-                  bandwidth = NULL, 
+                  truncate.eigen.tol = sqrt(.Machine$double.eps),
+                  demean_kernel = FALSE,
                   remove_instability = TRUE) {
   if (length(sketch_method) == 1){
     sketch_method <- match.arg(sketch_method, c("subsampling", "gaussian", "bernoulli", "none"))

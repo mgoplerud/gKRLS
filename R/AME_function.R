@@ -1,25 +1,28 @@
 #' Marginal Effects
 #'
-#' This function calculates the marginal effects after estimating a model with
-#' \code{gam} or \code{bam}. For continuous predictors, a numerical
-#' approximation of the partial derivative is available following Leeper (2016).
+#' These functions calculate marginal effects or predicted values after
+#' estimating a model with \code{gam} or \code{bam}.
 #'
 #' @encoding UTF-8
 #' @name calculate_effects
-#' @param model A model estimated using functions from \code{mgcv} (e.g., \code{gam} or \code{bam}).
-#' @param object A model estimated using functions from \code{mgcv} (e.g., \code{gam} or \code{bam}).
+#' @param model A model estimated using functions from \code{mgcv} (e.g.,
+#'   \code{gam} or \code{bam}).
+#' @param object A model estimated using functions from \code{mgcv} (e.g.,
+#'   \code{gam} or \code{bam}).
 #' @param data A data frame that is used to calculate the marginal effect or set
 #'   to \code{NULL} which will employ the data used when estimating the model.
-#'   The default is \code{NULL}.
+#'   The default is \code{NULL}. Using a custom dataset may have unexpected
+#'   implications for continuous and character/factor variables. See "WARNINGS"
+#'   for more discussion.
 #' @param variables A character vector that specifies the variables for which to
 #'   calculate effects. The default, \code{NULL}, calculates effects for all
 #'   variables.
 #' @param vcov A matrix that specifies the covariance matrix of the parameters.
 #'   The default, \code{NULL}, uses the standard covariance matrix from
-#'   \code{mgcv}. This argument can be used to specify clustered or robust
-#'   matrices using, e.g., the \code{sandwich} package.
-#' @param raw A value of \code{TRUE} returns the raw values used to calculate
-#'   the difference in addition to the estimated effect. The default is
+#'   \code{mgcv}. This can be used to specify clustered or robust standard
+#'   errors using output from (for example) \code{sandwich}.
+#' @param raw A logical value. \code{TRUE} returns the raw values used to
+#'   calculate the effect in addition to the estimated effect. The default is
 #'   \code{FALSE}. If \code{TRUE}, an additional column \code{...id} is present
 #'   in the estimated effects that reports whether the row corresponds to the
 #'   effect (\code{effect}), the first value (\code{raw_0}) or the second value
@@ -27,7 +30,7 @@
 #'   this is further scaled by the step size. For \code{"second_derivative"},
 #'   \code{effect=raw_2 - 2 * raw_1 + raw_0}, scaled by the step size; see the
 #'   discussion for \code{epsilon} for how the step size is calculated.
-#' @param individual A value of \code{TRUE} calculates individual effects (i.e.
+#' @param individual A logical value. \code{TRUE} calculates individual effects (i.e.
 #'   an effect for each observation in the \code{data}). The default is
 #'   \code{FALSE}.
 #' @param conditional A data.frame or \code{NULL}. This is an analogue of
@@ -37,23 +40,29 @@
 #'   If \code{conditional} is \code{NULL}, all other covariates are held at
 #'   their observed value. If \code{conditional} is a data.frame, then each row
 #'   represents a different combination of covariate values to be held fixed,
-#'   and marginal effects are calculated separately for each row.Examples are
+#'   and marginal effects are calculated separately for each row. Examples are
 #'   provided below.
 #' @param epsilon A numerical value that defines the step size when calculating
-#'   numerical derivatives.  For \code{"derivative"}, the step size for the
-#'   approximation is  \eqn{h = \epsilon \cdot \mathrm{max}(1,
+#'   numerical derivatives (default of 1e-7).  For \code{"derivative"}, the step
+#'   size for the approximation is  \eqn{h = \epsilon \cdot \mathrm{max}(1,
 #'   \mathrm{max}(|x|))}{h = \epsilon * max(1, max(|x|))}, i.e. \eqn{f'(x)
 #'   \approx \frac{f(x+h) - f(x-h)}{2h}}{f'(x) ≈ [f(x+h)-f(x-h)]/(2h)}. Please
 #'   see Leeper (2016) for more details.
 #'
 #'   For \code{"second_derivative"}, the step size is \eqn{h = [\epsilon \cdot
-#'   \mathrm{max}(1, \mathrm{max}(|x|))]^{0.5}}{h=[\epsilon * max(1, max(|x|))]^{0.5}}, i.e.
-#'   \eqn{f''(x) \approx \frac{f(x+h) - 2 f(x) + f(x-h)}{h^2}}{f''(x) ≈ [f(x+h)
-#'   - 2 f(x) + f(x-h)]/h^2}
-#'   
+#'   \mathrm{max}(1, \mathrm{max}(|x|))]^{0.5}}{h=[\epsilon * max(1,
+#'   max(|x|))]^{0.5}}, i.e. \eqn{f''(x) \approx \frac{f(x+h) - 2 f(x) +
+#'   f(x-h)}{h^2}}{f''(x) ≈ [f(x+h) - 2 f(x) + f(x-h)]/h^2}
+#' @param use_original A logical value that indicates whether to use the
+#'   estimation data (\code{TRUE}) or \code{data} (\code{FALSE}) when
+#'   calculating quantities such as the IQR for continuous variables or the
+#'   levels to examine for factor variables. Default (\code{FALSE}) uses the
+#'   provided data; if \code{data = NULL}, this is equivalent to using the
+#'   estimation data. The "WARNINGS" section provides more discussion of this
+#'   option.
 #' @param verbose A logical value that indicates whether to report progress when
 #'   calculating the marginal effects. The default is \code{FALSE}.
-#' @param continuous_type A character string, with a default of \code{"IQR"},
+#' @param continuous_type A character value, with a default of \code{"IQR"},
 #'   that indicates the type of marginal effects to estimate when the variable
 #'   is continuous (i.e. not binary, logical, factor, or character). Options are
 #'   \code{"IQR"} (compares the variable at its 25\% and 75\% percentile),
@@ -62,85 +71,97 @@
 #'   observed value), \code{"second_derivative"} (numerically approximates the
 #'   second derivative at each observed value), \code{"onesd"} (compares one
 #'   standard deviation below and one standard deviation above the mean of the
-#'   variable). It also accepts a \bold{named list} where each named element
-#'   corresponds to a numeric variable and has a two-length vector as each
+#'   variable). It also accepts a named list where each named element
+#'   corresponds to a continuous variable and has a two-length vector as each
 #'   element. The two values are then compared. If this is used, then all
 #'   continuous variables must have two values specified.
-#'   
+#'
 #'   A special option (\code{"predict"}) produces predictions (e.g.,
-#'   \code{predict(model, ..., type = "response")}) at each observed value and
-#'   then averages them together. This, in conjunction with \code{conditional},
+#'   \code{predict(model, type = "response")}) at each observed value and then
+#'   averages them together. This, in conjunction with \code{conditional},
 #'   provides a way of calculating quantities such as predicted probability
 #'   curves using an "observed value" approach (e.g., Hanmer and Kalkan 2013).
-#'   The examples provide an illustration.
+#'   Examples are provided below.
 #'
-#' @details 
-#'   \bold{Overview:} \code{calculate_effects} returns a data.frame of class
-#'   \code{"gKRLS_mfx"} that reports the estimated average marginal effects and
-#'   standard errors. Other columns include \code{"type"} that reports the type
-#'   of marginal effect calculated. For families with multiple predicted
-#'   outcomes (e.g., multinomial), the column \code{"response"} numbers the
-#'   different outcomes in the same order as \code{predict.gam(object)} for the
-#'   specified family. Many (but not all) extended and generalized families from
-#'   \code{mgcv} are included.
-#'   
-#'   The \code{conditional} argument while setting \code{continuous_type =
-#'   "predict"} can be used to estimate predicted values at different covariate
-#'   strata (e.g., to create an "observed value" predicted probability curve for
-#'   a logistic regression). The examples provide an illustration.
-#'   
-#'  \bold{Interactions:} \code{calculate_interactions} provides some simple
-#'  functions for calculating interaction effects between variables. The default
-#'  quantities it can produce are listed below. Egami and Imai (2019) provide a
-#'  detailed exposition of these quantities. All marginalization is done using
-#'  an "observed value" approach, i.e. over the estimation data or a custom
-#'  dataset provided to \code{data}.
-#'  \itemize{
-#'    \item{"AME" or Average Marginal Effect: } This is the standard quantity
-#'    reported from \code{calculate_effects}.
-#'    \item{"ACE" or Average Combination Effect: } This is the effect of
-#'    changing two variables simultaneously on the outcome.
-#'    \item{"AMIE" or Average Marginal Interaction Effect: } This is ACE minus
-#'    each corresponding AME.
-#'    \item{"AIE" or Average Interaction Effect:} This has a "conditional
-#'    effect" interpretation and reports the difference in average effect of one
-#'    variable ("A") between two different levels of a second variable ("B").
-#'  }
+#' @section WARNINGS:
 #'
-#'   \bold{Other Functions:} \code{get_individual_effects} extracts the
-#'   individual-level effects that are estimated if \code{individual=TRUE}.
+#'   Using a custom dataset for \code{data}, i.e. a dataset other than the
+#'   estimation data, may have unexpected implications. For continuous and
+#'   character/factor variables, the estimated marginal effects may depend on
+#'   the distribution of the variable in \code{data}. For example, if
+#'   \code{continuous_type="IQR"}, the variable \code{x1} is counterfactually
+#'   set to \code{quantile(data$x1, 0.25)} and \code{quantile(data$x1, 0.75)}
+#'   where \code{data} is provided by \code{calculate_effects} (versus the
+#'   estimation data). To force this range to be set based on the
+#'   \emph{estimation} data, set \code{use_original=TRUE}.
+#'
+#'   This default behavior if \code{data} is provided may be undesirable and
+#'   thus \code{calculate_effects} will issue a warning if this situation arises
+#'   and a custom \code{data} is provided. These settings are subject to change
+#'   in future releases.
 #'   
-#'   @return Both \code{calculate_effects} and \code{calculate_effects} return
-#'     data.frames. \code{calculate_effects} contains attributes---including the
-#'     ones noted below---that may be useful for other analyses.
-#'   \itemize{
-#'   \item{"jacobian": } This reports the corresponding Jacobians used to
-#'   calculate the standard error (via the delta method) for the estimate. There
-#'   is one row for each row in main object. The format of this object depends
-#'   on the family used for \code{mgcv}. This could be used manually to, for
-#'   example, calculate a standard error on the difference between two estimated
-#'   marginal effects.
-#'   \item{"N_eff": The number of observations (in the estimation data) minus
-#'   the effective degrees of freedom. This is used when calculating p-values as
-#'   the degrees of freedom for the t-distribution.}
-#'   \item{"N": The number of observations.}
-#'   }
-#'  
-#' @references 
-#' 
+#' @details \bold{Overview:} \code{calculate_effects} returns a data.frame of
+#' class \code{"gKRLS_mfx"} that reports the estimated average marginal effects
+#' and standard errors. Other columns include \code{"type"} that reports the
+#' type of marginal effect calculated. For families with multiple predicted
+#' outcomes (e.g., multinomial), the column \code{"response"} numbers the
+#' different outcomes in the same order as \code{predict.gam(object)} for the
+#' specified family. Many (but not all) extended and generalized families from
+#' \code{mgcv} are included.
+#'
+#' The \code{conditional} argument while setting \code{continuous_type =
+#' "predict"} can be used to estimate predicted values at different covariate
+#' strata (e.g., to create an "observed value" predicted probability curve for a
+#' logistic regression). The examples provide an illustration.
+#'
+#' \bold{Interactions:} \code{calculate_interactions} provides some simple
+#' functions for calculating interaction effects between variables. The default
+#' quantities it can produce are listed below. Egami and Imai (2019) provide a
+#' detailed exposition of these quantities. All marginalization is done using an
+#' "observed value" approach, i.e. over the estimation data or a custom dataset
+#' provided to \code{data}. \itemize{ \item{"AME" or Average Marginal Effect: }
+#' This is the standard quantity reported from \code{calculate_effects}.
+#' \item{"ACE" or Average Combination Effect: } This is the effect of changing
+#' two variables simultaneously on the outcome. \item{"AMIE" or Average Marginal
+#' Interaction Effect: } This is ACE minus each corresponding AME. \item{"AIE"
+#' or Average Interaction Effect:} This has a "conditional effect"
+#' interpretation and reports the difference in average effect of one variable
+#' ("A") between two different levels of a second variable ("B"). }
+#'
+#' \bold{Other Functions:} \code{get_individual_effects} extracts the
+#' individual-level effects that are estimated if \code{individual=TRUE}.
+#'   
+#' @references
+#'
 #' Egami, Naoki and Kosuke Imai. 2019. "Causal Interaction in Factorial
 #' Experiments: Application to Conjoint Analysis." \emph{Journal of the American
 #' Statistical Association}. 114(526):529-540.
-#' 
+#'
 #' Hanmer, Michael J. and Kerem Ozan Kalkan. 2013. "Behind the Curve: Clarifying
 #' the Best Approach to Calculating Predicted Probabilities and Marginal Effects
 #' from Limited Dependent Variable Models." \emph{American Journal of Political
 #' Science} 57(1): 263-277.
-#' 
+#'
 #' Leeper, Thomas J. 2016. "Interpreting Regression Results using Average
 #' Marginal Effects with R's \code{margins}." Working paper available at
 #' \url{https://s3.us-east-2.amazonaws.com/tjl-sharing/assets/AverageMarginalEffects.pdf}.
-#' 
+#'
+#' @returns
+#'
+#' Both \code{calculate_effects} and \code{calculate_interactions} return
+#' data.frames. \code{calculate_effects} contains attributes---including the
+#' ones noted below---that may be useful for other analyses. \itemize{
+#' \item{"jacobian": } This contains the gradients used to calculate the
+#' standard error (via the delta method) for the estimates from
+#' \code{calculate_effects}. There is one column for each quantity calculated in
+#' the main object. The format of this object depends on the family used for
+#' \code{gam} or \code{bam}. This could be used manually to calculate a standard error on the
+#' difference between two estimated marginal effects.
+#' \item{"N_eff": The number of observations (in the estimation data) minus the
+#' effective degrees of freedom. This is used when calculating p-values as the
+#' degrees of freedom for the t-distribution.} \item{"N": The number of
+#' observations.} }
+#'
 #' @examples
 #' set.seed(654)
 #' n <- 50
@@ -169,34 +190,35 @@
 #' # calculate interaction effects between two variables
 #' # use the default setting ("IQR") for the baseline and
 #' # comparison categories for each variable
-#' calculate_interactions(fit_gKRLS, 
+#' calculate_interactions(fit_gKRLS,
 #'    variables = list(c("x1", "x2")),
 #'    QOI = c('AIE', 'AMIE')
 #' )
-#' 
+#'
 #' # calculate marginal effect by specifying a factor conditional variable
 #' # estimate the individual marginal effects
 #' out <- calculate_effects(fit_gKRLS,
 #'   variables = "x1", individual = TRUE,
 #'   conditional = data.frame(state = c("a", "b", "c")), continuous_type = "derivative"
 #' )
-#' 
-#' # Extract the individual marginal effects: 
+#'
+#' # Extract the individual marginal effects:
 #' # shorthand for attr(fit_main, 'individual')
 #' get_individual_effects(out)
-#' 
-#' # calculated the average expected value across a grid of "x1" 
+#'
+#' # calculated the average expected value across a grid of "x1"
 #' # using an observed value approach for the other covariates
 #' calculate_effects(fit_gKRLS, conditional = data.frame(x1 = c(0, 0.2, 0.4, 0.6)),
 #'   continuous_type = 'predict'
 #' )
 #' @importFrom stats model.frame sd
 #' @export
-calculate_effects <- function(model, data = NULL,
-    variables = NULL, vcov = NULL, raw = FALSE, individual = FALSE,
-    conditional = NULL, epsilon = 1e-7, verbose = FALSE,
+calculate_effects <- function(model, data = NULL, variables = NULL, 
     continuous_type = c("IQR", "minmax", "derivative", 
-      "onesd", "predict", "second_derivative")) {
+      "onesd", "predict", "second_derivative"),
+    conditional = NULL, individual = FALSE,
+    vcov = NULL, raw = FALSE, use_original = FALSE,
+    epsilon = 1e-7, verbose = FALSE) {
   if (!is.list(continuous_type)) {
     continuous_type <- match.arg(continuous_type)
   }
@@ -215,8 +237,11 @@ calculate_effects <- function(model, data = NULL,
     }
   }
   if (is.null(data)) {
-    raw_data <- model.frame(model)
+    null_data <- TRUE
+    original_data <- raw_data <- model.frame(model)
   } else {
+    null_data <- FALSE
+    original_data <- model.frame(model)
     raw_data <- data
     rm(data)
   }
@@ -358,6 +383,21 @@ calculate_effects <- function(model, data = NULL,
       NA
     }
   }
+  
+  if (!use_original & !null_data & any(variable_type %in% c('nnames', 'fnames'))){
+    not_predict <- !identical('predict', continuous_type)
+    if (not_predict | any(variable_type %in% c('fnaes'))){
+      warning_message <- c(
+       'For custom argument to "data" and use_original=FALSE,',
+       'continuous variables and factor variables may behave unexpectedly as they use "data" to determine',
+       'the counterfactual values and step sizes. Set use_original=TRUE to', 
+       'override this and ?calculate_effects for more details')
+      warning_message <- paste(warning_message, collapse = ' ')
+      warning(warning_message)
+    }
+
+  }
+  
   for (cond_i in seq_len(ncond)) {
     if (verbose & cond_i %% ceiling(ncond / ncond) == 0) {
       message("|")
@@ -398,7 +438,9 @@ calculate_effects <- function(model, data = NULL,
             step <- NULL
             ctype <- "list"
           } else if (continuous_type == "second_derivative") {
-            if (!check_overlap_cond){
+            if (use_original) {
+              step <- sqrt(max(abs(original_data[[v_i]]), 1, na.rm = T) * epsilon)
+            } else if (!check_overlap_cond){
               step <- sqrt(max(abs(data[[v_i]]), 1, na.rm = T) * epsilon)
             }else{
               step <- sqrt(max(abs(raw_data[[v_i]]), 1, na.rm = T) * epsilon)
@@ -409,7 +451,9 @@ calculate_effects <- function(model, data = NULL,
             ctype <- "derivative"
           } else if (continuous_type == "derivative") {
             # Closely adapted from "margins" by Thomas Leeper
-            if (!check_overlap_cond){
+            if (use_original){
+              step <- max(abs(original_data[[v_i]]), 1, na.rm = T) * epsilon
+            } else if (!check_overlap_cond){
               step <- max(abs(data[[v_i]]), 1, na.rm = T) * epsilon
             }else{
               step <- max(abs(raw_data[[v_i]]), 1, na.rm = T) * epsilon
@@ -419,18 +463,31 @@ calculate_effects <- function(model, data = NULL,
             step <- NULL
             ctype <- "derivative"
           } else if (continuous_type == "onesd") {
-            step <- mean(data[[v_i]], na.rm = T)
-            sd_i <- sd(data[[v_i]], na.rm = T)
+            if (use_original){
+              step <- mean(original_data[[v_i]], na.rm = T)
+              sd_i <- sd(original_data[[v_i]], na.rm = T)
+            }else{
+              step <- mean(data[[v_i]], na.rm = T)
+              sd_i <- sd(data[[v_i]], na.rm = T)
+            }
             step2 <- c("0" = -sd_i, "1" = sd_i)
             ctype <- "onesd"
           } else if (continuous_type == "minmax") {
-            r_i <- range(data[[v_i]], na.rm = T)
+            if (use_original){
+              r_i <- range(original_data[[v_i]], na.rm = T)
+            }else{
+              r_i <- range(data[[v_i]], na.rm = T)
+            }
             names(r_i) <- NULL
             step2 <- c("0" = r_i[1], "1" = r_i[2])
             step <- NULL
             ctype <- "minmax"
           } else if (continuous_type == "IQR") {
-            q_i <- quantile(data[[v_i]], c(0.25, 0.75), na.rm = T)
+            if (use_original){
+              q_i <- quantile(original_data[[v_i]], c(0.25, 0.75), na.rm = T)
+            }else{
+              q_i <- quantile(data[[v_i]], c(0.25, 0.75), na.rm = T)
+            }
             names(q_i) <- NULL
             step2 <- c("0" = q_i[1], "1" = q_i[2])
             step <- NULL
@@ -606,7 +663,11 @@ calculate_effects <- function(model, data = NULL,
             names(packaged_data) <- paste(names(packaged_data), ":", v_i, sep = "")
           }
         } else if (type_i == "fnames") {
-          levs <- levels(as.factor(raw_data[[v_i]]))
+          if (use_original){
+            levs <- levels(as.factor(original_data[[v_i]]))
+          }else{
+            levs <- levels(as.factor(raw_data[[v_i]]))
+          }
           base <- levs[1L]
           levs <- levs[-1L]
           if (v_id == 1) {
@@ -809,8 +870,9 @@ calculate_effects <- function(model, data = NULL,
 #'   (average interaction effect) and \code{"AMIE"} (average marginal
 #'   interaction effect); see "Details" for more information. The default
 #'   setting calculates all four quantities.
-#' @param ... This is used for \code{calculate_interactions} to pass arguments
-#'   to \code{calculate_effects}. It is unused for \code{summary.gKRLS_mfx}.
+#' @param ... An argument used for \code{calculate_interactions} to pass
+#'   arguments to \code{calculate_effects}. It is unused for
+#'   \code{summary.gKRLS_mfx}.
 #' @export
 calculate_interactions <- function(model,
       variables, QOI = c("AMIE", "ACE", "AME", "AIE"), ...) {

@@ -129,3 +129,44 @@ test_that("Test that factor vs dummies is equivalent", {
   expect_equal(nrow(test_custom$ME_pointwise), 5)
   expect_equal(legacy_direct$ME_pointwise_var[1:5,,drop=F], test_custom$ME_pointwise_var)
 })
+
+test_that("test that changing factor reference category works in sensible ways", {
+  
+  dat <- gamSim(eg = 4, n = 100, verbose = FALSE)
+  dat$x0 <- dat$x0 > median(dat$x0)
+  dat$fac <- factor(letters[dat$fac])
+  dat$y <- rnorm(3)[match(dat$fac, letters)] + dat$y
+  
+  id <- sample(1:nrow(dat), 5 * ceiling(100^(1/3)))
+  b <- gam(y ~ x0 + s(x2, fac, bs = 'gKRLS', xt = gKRLS(sketch_method = id)), data = dat)
+  
+  dat$fac_new <- relevel(dat$fac, ref = 'c')
+  b_refit <- gam(y ~ x0 + s(x2, fac_new, bs = 'gKRLS', xt = gKRLS(sketch_method = id)), data = dat)
+  
+  fit_default <- calculate_effects(b)
+  fit_refit <- calculate_effects(b_refit)
+  expect_equivalent(fit_default[1:2,], fit_refit[1:2,], tol = 1e-6)
+  
+  # Confirm that changing the factor reorders the data.frame
+  expect_equal(
+    fit_default[fit_default$variable == 'factor(fac)b',]$est - fit_default[fit_default$variable == 'factor(fac)c',]$est,
+    fit_refit[fit_refit$variable == 'factor(fac_new)b',]$est,
+    tol = 1e-6
+  )
+  expect_equal(
+    -fit_default[fit_default$variable == 'factor(fac)c',]$est ,
+    fit_refit[fit_refit$variable == 'factor(fac_new)a',]$est,
+    tol = 1e-6
+  )
+  
+  # Confirm that re-leveling the factor in the custom data and using
+  # the originally estimated model returns the expected results
+  new_dat <- dat
+  new_dat$fac <- factor(new_dat$fac, levels = c('c', 'a', 'b'))
+  fit_custom <- expect_warning(calculate_effects(b, data = new_dat), regexp  ='For custom argument')
+  fit_override <- calculate_effects(b, data = new_dat, use_original = TRUE)
+  
+  expect_equivalent(fit_override, fit_default, tol = 1e-6)
+  expect_equivalent(fit_refit[,-1], fit_custom[,-1], tol = 1e-6)
+  
+})
