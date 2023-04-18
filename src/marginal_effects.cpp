@@ -114,6 +114,16 @@ Rcpp::List cpp_gkrls_me(
   }else{
     SIZE_Z = 0;
   }
+  bool any_FE = (SIZE_FE > 0);
+  
+  // Create a size that is a minimum of 1
+  // to avoid creating a zero-length vector.
+  int fake_size_FE;
+  if (any_FE){
+    fake_size_FE = SIZE_FE;
+  }else{
+    fake_size_FE = 1;
+  }
   
   if (N_train != S.cols()){
     Rcpp::stop("ncol(S) must equal nrow(X_train)");
@@ -131,7 +141,11 @@ Rcpp::List cpp_gkrls_me(
 
     Eigen::VectorXd std_X_i = std_X_test.row(i);
     Eigen::VectorXd WX_i = WX_test.row(i);
-    Eigen::VectorXd X_FE_i = FE_matrix_test.row(i);
+    Eigen::VectorXd X_FE_i(fake_size_FE);
+    if (any_FE){
+      X_FE_i = FE_matrix_test.row(i); 
+    }
+
     Eigen::VectorXd z_i(SIZE_Z);
     if (any_Z){
       z_i = tZ.col(i);
@@ -143,7 +157,10 @@ Rcpp::List cpp_gkrls_me(
     }
 
     Eigen::VectorXd tilde_k_i = S * kern_i;
-    double fe_i = (X_FE_i.array() * fe_mean.array()).sum();
+    double fe_i = 0;
+    if (any_FE){
+      fe_i += (X_FE_i.array() * fe_mean.array()).sum();
+    }
     double offset_i = offset(i);
     double linpred_i = fe_i + (tilde_k_i.array() * re_mean.array()).sum() + offset_i;
     double f_prime_i = f_prime(linpred_i, family);
@@ -171,12 +188,21 @@ Rcpp::List cpp_gkrls_me(
         Eigen::VectorXd grad_ME_K_p_c = (kdsc * f_double_prime_i) * (S * kern_i);
         grad_ME_K_p_c +=  (f_prime_i * -2.0/bandwidth) * S * kern_ip;
         
-        Eigen::VectorXd grad_ME_K_p_beta = (-2.0/bandwidth * f_double_prime_i * meat_ip) * X_FE_i;
-        Eigen::VectorXd grad_ME_K_p_alpha(SIZE_Z);
         if (any_Z){
-          grad_ME_K_p_alpha = (-2.0/bandwidth * f_double_prime_i * meat_ip) * z_i;
+          Eigen::VectorXd grad_ME_K_p_alpha = (-2.0/bandwidth * f_double_prime_i * meat_ip) * z_i;
+          if (any_FE){
+            Eigen::VectorXd grad_ME_K_p_beta = (-2.0/bandwidth * f_double_prime_i * meat_ip) * X_FE_i;
+            grad_ME_K_p << grad_ME_K_p_beta, grad_ME_K_p_alpha, grad_ME_K_p_c;
+          }
+          grad_ME_K_p << grad_ME_K_p_alpha, grad_ME_K_p_c;
+        }else{
+          if (any_FE){
+            Eigen::VectorXd grad_ME_K_p_beta = (-2.0/bandwidth * f_double_prime_i * meat_ip) * X_FE_i;
+            grad_ME_K_p << grad_ME_K_p_beta, grad_ME_K_p_c;
+          }else{
+            grad_ME_K_p << grad_ME_K_p_c;
+          }
         }
-        grad_ME_K_p << grad_ME_K_p_beta, grad_ME_K_p_alpha, grad_ME_K_p_c;
         
         ME_pointwise_var(i, raw_p) = grad_ME_K_p.transpose() * (vcov_ridge * grad_ME_K_p);
         AME_grad.col(raw_p) = AME_grad.col(raw_p) + grad_ME_K_p;
@@ -184,16 +210,6 @@ Rcpp::List cpp_gkrls_me(
       }else if (type_mfx[p] == "deriv_FE"){
         
         ME_pointwise(i,raw_p) = f_prime_i * fe_mean(p);
-        
-        Eigen::VectorXd grad_ME_FE_p_beta(SIZE_FE);
-        
-        for (int p_prime = 0; p_prime < SIZE_FE; p_prime++){
-          double grad_ME_FE_p_prime = f_double_prime_i * fe_mean(p) * X_FE_i(p_prime);
-          if (p == p_prime){
-            grad_ME_FE_p_prime += f_prime_i;
-          }
-          grad_ME_FE_p_beta(p_prime) = grad_ME_FE_p_prime;
-        }
         
         Eigen::VectorXd grad_ME_FE_p_c = (-2.0/bandwidth * f_double_prime_i * fe_mean(p)) * 
           (S * kern_i);
@@ -204,7 +220,20 @@ Rcpp::List cpp_gkrls_me(
         if (any_Z){
           grad_ME_F_p_alpha = f_double_prime_i * fe_mean(p) * z_i;
         }
-        grad_ME_FE_p << grad_ME_FE_p_beta, grad_ME_F_p_alpha, grad_ME_FE_p_c;
+        
+        if (any_FE){
+          Eigen::VectorXd grad_ME_FE_p_beta(SIZE_FE);
+          for (int p_prime = 0; p_prime < SIZE_FE; p_prime++){
+            double grad_ME_FE_p_prime = f_double_prime_i * fe_mean(p) * X_FE_i(p_prime);
+            if (p == p_prime){
+              grad_ME_FE_p_prime += f_prime_i;
+            }
+            grad_ME_FE_p_beta(p_prime) = grad_ME_FE_p_prime;
+          }
+          grad_ME_FE_p << grad_ME_FE_p_beta, grad_ME_F_p_alpha, grad_ME_FE_p_c;
+        }else{
+          grad_ME_FE_p << grad_ME_F_p_alpha, grad_ME_FE_p_c;
+        }
         
         ME_pointwise_var(i,raw_p) = grad_ME_FE_p.transpose() * (vcov_ridge * grad_ME_FE_p);
         AME_grad.col(raw_p) = AME_grad.col(raw_p) + grad_ME_FE_p;
@@ -279,14 +308,24 @@ Rcpp::List cpp_gkrls_me(
         double linpred_i_0 = fe_i_0 + (k_i_0.array() * Sc).sum() + offset_i;
         
         ME_pointwise(i, raw_p) = f_base(linpred_i_1, family) - f_base(linpred_i_0, family);
-        Eigen::VectorXd grad_ME_i_fd_beta = (f_prime(linpred_i_1, family) - f_prime(linpred_i_0, family)) * X_FE_i;
         Eigen::VectorXd grad_ME_i_fd_c = S * (f_prime(linpred_i_1, family) * k_i_1 - f_prime(linpred_i_0, family) * k_i_0);
         Eigen::VectorXd grad_ME_FD(SIZE_PARAMETER);
-        Eigen::VectorXd grad_ME_i_fd_alpha(SIZE_Z);
         if (any_Z){
-          grad_ME_i_fd_alpha = (f_prime(linpred_i_1, family) - f_prime(linpred_i_0, family)) * z_i;
+          Eigen::VectorXd grad_ME_i_fd_alpha = (f_prime(linpred_i_1, family) - f_prime(linpred_i_0, family)) * z_i;
+          if (any_FE){
+            Eigen::VectorXd grad_ME_i_fd_beta = (f_prime(linpred_i_1, family) - f_prime(linpred_i_0, family)) * X_FE_i;
+            grad_ME_FD << grad_ME_i_fd_beta, grad_ME_i_fd_alpha, grad_ME_i_fd_c;
+          }else{
+            grad_ME_FD << grad_ME_i_fd_alpha, grad_ME_i_fd_c;
+          }
+        }else{
+          if (any_FE){
+            Eigen::VectorXd grad_ME_i_fd_beta = (f_prime(linpred_i_1, family) - f_prime(linpred_i_0, family)) * X_FE_i;
+            grad_ME_FD << grad_ME_i_fd_beta, grad_ME_i_fd_c;
+          }else{
+            grad_ME_FD << grad_ME_i_fd_c;
+          }
         }
-        grad_ME_FD << grad_ME_i_fd_beta, grad_ME_i_fd_alpha, grad_ME_i_fd_c;
         
         ME_pointwise_var(i,raw_p) = grad_ME_FD.transpose() * (vcov_ridge * grad_ME_FD);
         AME_grad.col(raw_p) = AME_grad.col(raw_p) + grad_ME_FD;

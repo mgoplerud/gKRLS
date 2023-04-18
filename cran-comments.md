@@ -2,7 +2,7 @@
 
 There were no ERRORs or WARNINGs. 
 
-There was one note. This is an initial submission.
+There was one note. This submission attempts to correct a `clang-UBSAN` issue..
 
 ## Downstream dependencies
 
