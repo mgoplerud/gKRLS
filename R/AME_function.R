@@ -133,11 +133,11 @@
 #'   
 #' @references
 #'
-#' Egami, Naoki and Kosuke Imai. 2019. "Causal Interaction in Factorial
+#' Egami, Naoki, and Kosuke Imai. 2019. "Causal Interaction in Factorial
 #' Experiments: Application to Conjoint Analysis." \emph{Journal of the American
 #' Statistical Association}. 114(526):529-540.
 #'
-#' Hanmer, Michael J. and Kerem Ozan Kalkan. 2013. "Behind the Curve: Clarifying
+#' Hanmer, Michael J., and Kerem Ozan Kalkan. 2013. "Behind the Curve: Clarifying
 #' the Best Approach to Calculating Predicted Probabilities and Marginal Effects
 #' from Limited Dependent Variable Models." \emph{American Journal of Political
 #' Science} 57(1): 263-277.

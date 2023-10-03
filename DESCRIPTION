@@ -1,7 +1,7 @@
 Package: gKRLS
 Type: Package
 Title: Generalized Kernel Regularized Least Squares
-Version: 1.0.2
+Version: 1.0.3
 Date: 2023-4-17
 Encoding: UTF-8
 Authors@R: c(
@@ -15,7 +15,7 @@ Description: Kernel regularized least squares, also known as kernel ridge regres
     functions for calculating marginal effects after estimation and for use with 
     ensembles ('SuperLearning'), double/debiased machine learning ('DoubleML'), 
     and robust/clustered standard errors ('sandwich'). Chang and Goplerud (2023)
-    <arXiv:2209.14355> provide further details.
+    <doi:10.1017/pan.2023.27> provide further details.
 LinkingTo: Rcpp, RcppEigen
 Imports: 
   Rcpp (>= 1.0.6), 

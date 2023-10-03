@@ -109,11 +109,6 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   rm(std_X)
   gc()
 
-  bandwidth <- object$xt$bandwidth
-  if (is.null(bandwidth)) {
-    bandwidth <- ncol(X)
-  }
-  
   # Create the Kernel
   N <- nrow(X)
 
@@ -179,6 +174,22 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
       sketch_matrix <- create_sketch_matrix(N, sketch_size, object$xt$sketch_prob, object$xt$sketch_method)
     }
     
+  }
+  
+  calibration_time <- NULL
+  bandwidth <- object$xt$bandwidth
+  if (is.null(bandwidth)){
+    bandwidth <- ncol(X)
+  }else if (bandwidth == 'calibrate'){
+    message('Beginning calibration of kernel bandwidth:')
+    calibration_time <- Sys.time()
+    bandwidth <- calibrate_bandwidth(X = X, S = sketch_matrix, id_S = subsampling_id)
+    calibration_time <- Sys.time() - calibration_time
+    calibration_time <- as.double(calibration_time, units = 'mins')
+    message(paste0('Calibration complete; time needed ', round(calibration_time, 2), ' minutes.'))
+    message(paste0('Calibrated bandwidth of ', round(bandwidth, 2), ' versus default of ncol(X)=', ncol(X)))
+  }else if (is.character(bandwidth)){
+    stop('bandwidth must be NULL, a number or "calibrate"')
   }
 
   KSt <- create_sketched_kernel(
@@ -247,6 +258,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   object$copy <- KSt
   object$X_train <- X_train
   object$bandwidth <- bandwidth
+  object$calibration_time <- calibration_time
   object$sketch_matrix <- sketch_matrix
   object$std_train <- std_train
   object$fd_flag <- fd_flag

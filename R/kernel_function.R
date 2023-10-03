@@ -105,3 +105,61 @@ base_kernel <- function(X, Y) {
   }))
   return(out)
 }
+
+# Calibrate b modifying the procedure in Hartman, Hazlett, and Sterbenz (2021)
+# for sketched kernels; see "gKRLS_addendum.pdf" on the GitHub repo for more
+# information.
+#' @importFrom stats optimize
+calibrate_bandwidth <- function(X, S = NULL, id_S = NULL, tol = sqrt(.Machine$double.eps)){
+  
+  # subsampling sketch as only "id_S" is provided
+  if (!is.null(id_S)){ 
+    design_X <- X[id_S,]
+    raw_KSt <- create_sketched_kernel(
+      X_test = X, X_train = design_X,
+      S = diag(length(id_S)),
+      bandwidth = 1, raw = T)
+    type <- 'subsampling'
+  }else if (is.null(id_S) & !is.null(S)){
+    type <- 'direct'
+  }else{stop('both id_S and S cannot be NULL')}
+  
+  f <- function(ln_b, raw_KSt, type){
+    b <- exp(ln_b)
+    if (type == 'subsampling'){
+      KSt <- exp(-raw_KSt/b)
+      reduced_K <- KSt[id_S,]
+    }else{
+      KSt <- create_sketched_kernel(
+        X_test = X, X_train = X,
+        S = S, bandwidth = b)
+      reduced_K <- S %*% KSt
+    }
+    eigen_K <- eigen(reduced_K)
+    if (any(eigen_K$values < tol)){
+      nonzero_ev <- which(eigen_K$values >= tol)
+      eigen_K$vectors <- eigen_K$vectors[,nonzero_ev]
+      eigen_K$values <- eigen_K$values[nonzero_ev]
+    }
+    A <- eigen_K$vectors %*% Diagonal(x=1/sqrt(eigen_K$values))
+    KSt_A <- KSt %*% A
+    AtA <- t(KSt_A) %*% KSt_A
+    
+    N <- nrow(KSt_A)^2 
+    sum_K <- sum( colSums( (KSt_A) )^2 )
+    sum_Ksq <-  sum((KSt_A %*% AtA) * KSt_A)
+    # sum_Ksq <- sum(
+    #   apply(KSt_A, MARGIN = 1, FUN=function(i){sum( (KSt_A %*% i)^2 )})
+    # )
+    var_K <- sum_Ksq/N - (sum_K/N)^2
+    var_K <- var_K * N/(N-1)
+    return(var_K)
+  }
+  
+  opt <- optimize(f = f, raw_KSt = raw_KSt, type = type,
+                  interval = c(-10, 10), maximum = TRUE)
+  opt$maximum <- exp(opt$maximum)
+  dist_from_boundary <- min(abs(opt$maximum - exp(c(-10, 10))))
+  if (dist_from_boundary < 1e-4){warning('kernel bandwidth optimized near boundary; try rescaling covariates')}
+  return(opt$maximum)
+}

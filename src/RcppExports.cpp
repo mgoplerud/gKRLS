@@ -12,15 +12,16 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // kern_gauss
-double kern_gauss(const Eigen::VectorXd X_one, const Eigen::VectorXd X_two, const double bandwidth);
-RcppExport SEXP _gKRLS_kern_gauss(SEXP X_oneSEXP, SEXP X_twoSEXP, SEXP bandwidthSEXP) {
+double kern_gauss(const Eigen::VectorXd X_one, const Eigen::VectorXd X_two, const double bandwidth, const bool raw);
+RcppExport SEXP _gKRLS_kern_gauss(SEXP X_oneSEXP, SEXP X_twoSEXP, SEXP bandwidthSEXP, SEXP rawSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const Eigen::VectorXd >::type X_one(X_oneSEXP);
     Rcpp::traits::input_parameter< const Eigen::VectorXd >::type X_two(X_twoSEXP);
     Rcpp::traits::input_parameter< const double >::type bandwidth(bandwidthSEXP);
-    rcpp_result_gen = Rcpp::wrap(kern_gauss(X_one, X_two, bandwidth));
+    Rcpp::traits::input_parameter< const bool >::type raw(rawSEXP);
+    rcpp_result_gen = Rcpp::wrap(kern_gauss(X_one, X_two, bandwidth, raw));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -61,8 +62,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // create_sketched_kernel
-Eigen::MatrixXd create_sketched_kernel(const Eigen::Map<Eigen::MatrixXd> X_test, const Eigen::Map<Eigen::MatrixXd> X_train, const Eigen::MatrixXd S, const double bandwidth);
-RcppExport SEXP _gKRLS_create_sketched_kernel(SEXP X_testSEXP, SEXP X_trainSEXP, SEXP SSEXP, SEXP bandwidthSEXP) {
+Eigen::MatrixXd create_sketched_kernel(const Eigen::Map<Eigen::MatrixXd> X_test, const Eigen::Map<Eigen::MatrixXd> X_train, const Eigen::MatrixXd S, const double bandwidth, const bool raw);
+RcppExport SEXP _gKRLS_create_sketched_kernel(SEXP X_testSEXP, SEXP X_trainSEXP, SEXP SSEXP, SEXP bandwidthSEXP, SEXP rawSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -70,15 +71,16 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type X_train(X_trainSEXP);
     Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type S(SSEXP);
     Rcpp::traits::input_parameter< const double >::type bandwidth(bandwidthSEXP);
-    rcpp_result_gen = Rcpp::wrap(create_sketched_kernel(X_test, X_train, S, bandwidth));
+    Rcpp::traits::input_parameter< const bool >::type raw(rawSEXP);
+    rcpp_result_gen = Rcpp::wrap(create_sketched_kernel(X_test, X_train, S, bandwidth, raw));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_gKRLS_kern_gauss", (DL_FUNC) &_gKRLS_kern_gauss, 3},
+    {"_gKRLS_kern_gauss", (DL_FUNC) &_gKRLS_kern_gauss, 4},
     {"_gKRLS_cpp_gkrls_me", (DL_FUNC) &_gKRLS_cpp_gkrls_me, 26},
-    {"_gKRLS_create_sketched_kernel", (DL_FUNC) &_gKRLS_create_sketched_kernel, 4},
+    {"_gKRLS_create_sketched_kernel", (DL_FUNC) &_gKRLS_create_sketched_kernel, 5},
     {NULL, NULL, 0}
 };
 

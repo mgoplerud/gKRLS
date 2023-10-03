@@ -3,6 +3,7 @@
 
 double kern_gauss(Eigen::VectorXd X_one, 
                   Eigen::VectorXd X_two, 
-                  double bandwidth);
+                  double bandwidth,
+                  bool raw);
 
 #endif

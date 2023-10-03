@@ -131,7 +131,7 @@ if (requireNamespace("DoubleML", quietly = TRUE)) {
 }
 }
 \references{
-Wood, Simon N and Goude, Yannig and Simon Shaw. 2015. "Generalized Additive
+Wood, Simon N., Yannig Goude, and Simon Shaw. 2015. "Generalized Additive
 Models for Large Data Sets." \emph{Journal of the Royal Statistical Society:
 Series C (Applied Statistics)} 64(1):139-155.
 }
