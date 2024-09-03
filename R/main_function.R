@@ -4,6 +4,8 @@
 #' \code{mgcv}. Post-estimation functions to calculate marginal effects are
 #' documented elsewhere, e.g. \link{calculate_effects}.
 #' 
+#' @name gKRLS
+#' 
 #' @details 
 #' 
 #' \bold{Overview:} The \code{gKRLS} function should not be called directly. Its
@@ -13,12 +15,16 @@
 #' \code{gKRLS} arguments. It can also be used alongside the existing options
 #' for \code{s()} in \code{mgcv}.
 #' 
+#' If \code{bandwidth="calibrate"}, the function
+#' \code{get_calibration_information} reports the estimated bandwidth and time
+#' (in minutes) needed to do so.
+#' 
 #' \bold{Default Settings:} By default, \code{bs = "gKRLS"} uses Mahalanobis
 #' distance between the observations, random sketching using subsampling
 #' sketching (i.e., where the kernel is constructed using a random sample of the
 #' observations; Yang et al. 2017) and a sketching dimension of \code{5 *
 #' ceiling(N^(1/3))} where \code{N} is the number of observations. Chang and
-#' Goplerud (2023) provide an exploration of alternative options.
+#' Goplerud (2024) provide an exploration of alternative options.
 #' 
 #' \bold{Notes:} Please note that variables must be separated with commas inside
 #' of \code{s(...)} and that character variables should usually be passed as
@@ -49,7 +55,7 @@
 #'   standardization).
 #' @param sketch_multiplier A number that sets the size of the sketching
 #'   dimension: \code{sketch_multiplier * ceiling(N^(1/3))} where \code{N} is
-#'   the number of observations. The default is 5; Chang and Goplerud (2023)
+#'   the number of observations. The default is 5; Chang and Goplerud (2024)
 #'   find that increasing this to 15 may improve stability for certain complex
 #'   kernels. \code{sketch_size_raw} can directly set the size of the sketching
 #'   dimension.
@@ -65,8 +71,15 @@
 #'   rescaled for numerical stability. See documentation for
 #'   \code{mgcv::smooth.spec} on the meaning of this term. The default is
 #'   \code{TRUE}.
-#' @param bandwidth A bandwidth \eqn{P} for the kernel where each element of
-#'   the kernel \eqn{(i,j)} is defined by \eqn{\exp(-||x_i - x_j||^2_2/P)}.
+#' @param bandwidth A bandwidth \eqn{P} for the kernel where each element of the
+#'   kernel \eqn{(i,j)} is defined by \eqn{\exp(-||x_i - x_j||^2_2/P)}. The
+#'   default (\code{NULL}) uses the number of covariates in the kernel or the
+#'   rank of the corresponding design matrix. An additional option
+#'   (\code{"calibrate"}) choses \eqn{P} to maximize the variance of the kernel,
+#'   e.g., \eqn{var(vec(K))} for the unsketched case. This follows Hartman et
+#'   al. (2024) with modifications when the kernel is sketched. Please see
+#'   \href{https://github.com/mgoplerud/gKRLS/blob/master/.github/gKRLS_addendum.pdf}{gKRLS_addendum.pdf}
+#'    for a formal exposition.
 #' @param remove_instability A logical value that indicates whether numerical
 #'   zeros (set via \code{truncate.eigen.tol}) should be removed when building
 #'   the penalty matrix. The default is \code{TRUE}.
@@ -78,15 +91,20 @@
 #'   disabled by setting \code{remove_instability = FALSE}.
 #' @references 
 #' 
-#' Chang, Qing and Max Goplerud. 2023. "Generalized Kernel Regularized Least
-#' Squares". \url{https://arxiv.org/abs/2209.14355}.
+#' Chang, Qing, and Max Goplerud. 2024. "Generalized Kernel Regularized Least
+#' Squares." \emph{Political Analysis} 32(2):157-171.
 #' 
-#' Drineas, Petros and Mahoney, Michael W and Nello Cristianini. 2005. "On the
+#' Hartman, Erin, Chad Hazlett, and Ciara Sterbenz. 2024. "kpop: A Kernel
+#' Balancing Approach for Reducing Specification Assumptions in Survey
+#' Weighting." \emph{Journal of the Royal Statistical Society Series A:
+#' Statistics in Society} \url{https://doi.org/10.1093/jrsssa/qnae082}.
+#' 
+#' Drineas, Petros, Michael W. Mahoney, and Nello Cristianini. 2005. "On the
 #' Nyström Method for Approximating a Gram Matrix For Improved Kernel-Based
-#' Learning". \emph{Journal of Machine Learning Research} 6(12):2153-2175.
+#' Learning." \emph{Journal of Machine Learning Research} 6(12):2153-2175.
 #' 
-#' Yang, Yun and Pilanci, Mert and Martin J. Wainwright. 2017. "Randomized
-#' Sketches for Kernels: Fast and Optimal Nonparametric Regression".
+#' Yang, Yun, Mert Pilanci, and Martin J. Wainwright. 2017. "Randomized
+#' Sketches for Kernels: Fast and Optimal Nonparametric Regression."
 #' \emph{Annals of Statistics} 45(3):991-1023.
 #' 
 #' @returns \code{gKRLS} returns a named list with the elements in "Arguments".
@@ -165,4 +183,24 @@ gKRLS <- function(sketch_method = "subsampling",
   }
 
   return(mget(ls()))
+}
+
+#' @rdname gKRLS
+#' @param object Model estimated using \code{mgcv::gam} or \code{mgcv::bam}
+#' @export
+get_calibration_information <- function(object){
+  gKRLS_smooth <- sapply(object$smooth, inherits, 'gKRLS.smooth')
+  calibration_output <- do.call('rbind', lapply(object$smooth[which(gKRLS_smooth)], FUN=function(i){
+    ctime <- i$calibration_time
+    if (is.null(ctime)){ctime <- NA}
+    data.frame(bandwidth = i$bandwidth,
+               time = ctime, 
+               stringsAsFactors = FALSE)
+  }))
+  if (!is.null(calibration_output)){
+    calibration_output$smooth <- which(gKRLS_smooth)
+  }else{
+    calibration_output <- data.frame()
+  }
+  return(calibration_output)
 }

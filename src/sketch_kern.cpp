@@ -16,7 +16,8 @@ Eigen::MatrixXd create_sketched_kernel(
     const Eigen::Map<Eigen::MatrixXd> X_test,
     const Eigen::Map<Eigen::MatrixXd> X_train,
     const Eigen::MatrixXd S,
-    const double bandwidth
+    const double bandwidth,
+    const bool raw = false
 ){
   
   int N_test = X_test.rows();
@@ -37,7 +38,7 @@ Eigen::MatrixXd create_sketched_kernel(
     
     for (int j = 0; j < N_train; j++){
       Eigen::VectorXd X_j = X_train.row(j);
-      kern_i(j) = kern_gauss(X_i, X_j, bandwidth);      
+      kern_i(j) = kern_gauss(X_i, X_j, bandwidth, raw);      
     }
     
     // Get the sketched kernel S 
