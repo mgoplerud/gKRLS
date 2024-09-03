@@ -153,7 +153,7 @@ Rcpp::List cpp_gkrls_me(
     Eigen::VectorXd kern_i(N_train);
 
     for (int j = 0; j < N_train; j++){
-      kern_i(j) = kern_gauss(std_X_i, std_X_train.row(j), bandwidth);      
+      kern_i(j) = kern_gauss(std_X_i, std_X_train.row(j), bandwidth, false);      
     }
 
     Eigen::VectorXd tilde_k_i = S * kern_i;
@@ -289,7 +289,7 @@ Rcpp::List cpp_gkrls_me(
               raw_i_0(p - SIZE_FE) = fd_matrix(p, 0);
               Eigen::VectorXd std_X_i_0 = t_whiten * (raw_i_0 - std_mean);
               for (int j = 0; j < N_train; j++){
-                k_i_0(j) = kern_gauss(std_X_i_0, std_X_train.row(j), bandwidth);
+                k_i_0(j) = kern_gauss(std_X_i_0, std_X_train.row(j), bandwidth, false);
               }
             }
             
@@ -298,7 +298,7 @@ Rcpp::List cpp_gkrls_me(
               raw_i_1(p - SIZE_FE) = fd_matrix(p, 1);
               Eigen::VectorXd std_X_i_1 = t_whiten * (raw_i_1 - std_mean);
               for (int j = 0; j < N_train; j++){
-                k_i_1(j) = kern_gauss(std_X_i_1, std_X_train.row(j), bandwidth);
+                k_i_1(j) = kern_gauss(std_X_i_1, std_X_train.row(j), bandwidth, false);
               }
             }
           }
