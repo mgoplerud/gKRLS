@@ -46,13 +46,13 @@ default (\code{NULL}) uses the number of covariates in the kernel or the
 rank of the corresponding design matrix. An additional option
 (\code{"calibrate"}) choses \eqn{P} to maximize the variance of the kernel,
 e.g., \eqn{var(vec(K))} for the unsketched case. This follows Hartman et
-al. (2021) with modifications when the kernel is sketched. Please see
+al. (2024) with modifications when the kernel is sketched. Please see
 \href{https://github.com/mgoplerud/gKRLS/blob/master/.github/gKRLS_addendum.pdf}{gKRLS_addendum.pdf}
  for a formal exposition.}
 
 \item{sketch_multiplier}{A number that sets the size of the sketching
 dimension: \code{sketch_multiplier * ceiling(N^(1/3))} where \code{N} is
-the number of observations. The default is 5; Chang and Goplerud (2023)
+the number of observations. The default is 5; Chang and Goplerud (2024)
 find that increasing this to 15 may improve stability for certain complex
 kernels. \code{sketch_size_raw} can directly set the size of the sketching
 dimension.}
@@ -114,7 +114,7 @@ distance between the observations, random sketching using subsampling
 sketching (i.e., where the kernel is constructed using a random sample of the
 observations; Yang et al. 2017) and a sketching dimension of \code{5 *
 ceiling(N^(1/3))} where \code{N} is the number of observations. Chang and
-Goplerud (2023) provide an exploration of alternative options.
+Goplerud (2024) provide an exploration of alternative options.
 
 \bold{Notes:} Please note that variables must be separated with commas inside
 of \code{s(...)} and that character variables should usually be passed as
@@ -168,12 +168,13 @@ stopifnot(identical(id, fit_gKRLS_custom$smooth[[1]]$subsampling_id))
 calculate_effects(fit_gKRLS, variables = "x1")
 }
 \references{
-Chang, Qing, and Max Goplerud. 2023. "Generalized Kernel Regularized Least
-Squares." \emph{Political Analysis} \url{https://doi.org/10.1017/pan.2023.27}.
+Chang, Qing, and Max Goplerud. 2024. "Generalized Kernel Regularized Least
+Squares." \emph{Political Analysis} 32(2):157-171.
 
-Hartman, Erin, Chad Hazlett, and Ciara Sterbenz. 2021. "Kpop: A Kernel
+Hartman, Erin, Chad Hazlett, and Ciara Sterbenz. 2024. "kpop: A Kernel
 Balancing Approach for Reducing Specification Assumptions in Survey
-Weighting." \emph{arxiv pre-print} https://arxiv.org/abs/2107.08075.
+Weighting." \emph{Journal of the Royal Statistical Society Series A:
+Statistics in Society} \url{https://doi.org/10.1093/jrsssa/qnae082}.
 
 Drineas, Petros, Michael W. Mahoney, and Nello Cristianini. 2005. "On the
 Nyström Method for Approximating a Gram Matrix For Improved Kernel-Based

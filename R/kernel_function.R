@@ -106,7 +106,7 @@ base_kernel <- function(X, Y) {
   return(out)
 }
 
-# Calibrate b modifying the procedure in Hartman, Hazlett, and Sterbenz (2021)
+# Calibrate b modifying the procedure in Hartman, Hazlett, and Sterbenz (2024)
 # for sketched kernels; see "gKRLS_addendum.pdf" on the GitHub repo for more
 # information.
 #' @importFrom stats optimize

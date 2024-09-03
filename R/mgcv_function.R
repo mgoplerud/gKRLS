@@ -69,11 +69,9 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   if (!is.null(object$pc)) {
     stop('non-NULL "pc" not set up yet.')
   }
-  if (!is.null(object$id)) {
-    stop('custom "id" not set up yet for "kern".')
-  }
+  
   if (!is.na(object$p.order)) {
-    stop('m not used in "kern".')
+    stop('m not used in "gKRLS".')
   }
 
   if (object$bs.dim != "-1") {
