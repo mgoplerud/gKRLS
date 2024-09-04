@@ -6,7 +6,14 @@ This is an update on gKRLS 1.0.2 that adds additional functionality, clarifies t
 
 There were no ERRORs or WARNINGs. 
 
-There was one note. This submission attempts to correct a `clang-UBSAN` issue..
+There was one note about a new maintainer
+
+New maintainer:
+  Max Goplerud <mgoplerud@austin.utexas.edu>
+Old maintainer(s):
+  Max Goplerud <mgoplerud@pitt.edu>
+  
+This is because I have changed institutions. I will send an email from my old email (@pitt.edu) about this to XX as per CRAN policy.
 
 ## Downstream dependencies
 

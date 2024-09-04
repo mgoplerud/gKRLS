@@ -97,7 +97,7 @@
 #' Hartman, Erin, Chad Hazlett, and Ciara Sterbenz. 2024. "kpop: A Kernel
 #' Balancing Approach for Reducing Specification Assumptions in Survey
 #' Weighting." \emph{Journal of the Royal Statistical Society Series A:
-#' Statistics in Society} \url{https://doi.org/10.1093/jrsssa/qnae082}.
+#' Statistics in Society} \doi{10.1093/jrsssa/qnae082}.
 #' 
 #' Drineas, Petros, Michael W. Mahoney, and Nello Cristianini. 2005. "On the
 #' Nyström Method for Approximating a Gram Matrix For Improved Kernel-Based

@@ -2,7 +2,7 @@ Package: gKRLS
 Type: Package
 Title: Generalized Kernel Regularized Least Squares
 Version: 1.0.3
-Date: 2023-9-2
+Date: 2024-09-02
 Encoding: UTF-8
 Authors@R: c(
   person("Qing", "Chang", role = c("aut"), email = "qic47@pitt.edu"),
@@ -30,7 +30,7 @@ Suggests:
   DoubleML,
   testthat
 SystemRequirements: GNU make
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
 NeedsCompilation: yes
 URL: https://github.com/mgoplerud/gKRLS
 BugReports: https://github.com/mgoplerud/gKRLS/issues
