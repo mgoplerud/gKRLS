@@ -13,7 +13,7 @@ New maintainer:
 Old maintainer(s):
   Max Goplerud <mgoplerud@pitt.edu>
   
-This is because I have changed institutions. I will send an email from my old email (@pitt.edu) about this to XX as per CRAN policy.
+This is because I have changed institutions. I will send an email from my old email (@pitt.edu) about this to CRAN as per the stated policy.
 
 ## Downstream dependencies
 
