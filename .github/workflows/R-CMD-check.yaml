@@ -81,7 +81,7 @@ jobs:
           Sys.getenv("OLD_PKGS")
           if (Sys.getenv("OLD_PKGS")) {
             remotes::install_version(package = "evaluate", version = "0.23")
-            remotes::install_version(package = "gam", version = "1.22")
+            remotes::install_version(package = "gam", version = "1.20")
           }
         shell: Rscript {0}
 
