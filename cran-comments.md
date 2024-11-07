@@ -1,20 +1,13 @@
 ## Resubmission
 
-This is an update on gKRLS 1.0.2 that adds additional functionality, clarifies the document and updates the maintainer's email address to their current institutional email.
+This is an update on gKRLS 1.0.3 that addesses a failure in a test induced by
+the update of `waldo`.
 
 ## R CMD check results
 
-There were no ERRORs or WARNINGs. 
-
-There was one note about a new maintainer
-
-New maintainer:
-  Max Goplerud <mgoplerud@austin.utexas.edu>
-Old maintainer(s):
-  Max Goplerud <mgoplerud@pitt.edu>
-  
-This is because I have changed institutions. I will send an email from my old email (@pitt.edu) about this to CRAN as per the stated policy.
+There were no ERRORs, WARNINGs or NOTEs. 
 
 ## Downstream dependencies
 
-There are no downstream dependencies.
+I have checked the downstream dependencies using
+https://github.com/r-devel/recheck and all pass R CMD CHECK.

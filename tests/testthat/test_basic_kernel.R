@@ -113,7 +113,15 @@ test_that("Test sketch size options work as anticipated", {
   expect_equal(nrow(fit_two$smooth[[1]]$sketch_matrix), 3)
 })
 
+
 test_that("Test custom vector", {
+  
+  custom_expect_vector <- function(x, p){
+    expect_true(is.vector(x) && is.atomic(x))
+    if (!missing(p)){
+      expect_true(length(x) == p)
+    }
+  }
   
   N <- 50
   X <- cbind(matrix(rnorm(N * 2), ncol = 2), rbinom(N, 1, 0.5))
@@ -151,8 +159,7 @@ test_that("Test custom vector", {
   expect_true(all(fit_one$smooth[[1]]$subsampling_id == 1))
   expect_s3_class(fit_one, "gam")
   v <- predict(fit_one, newdata = data.frame(X)[1:5,])
-  expect_vector(v, size = 5)
-  
+  expect_vector(as.vector(v), 5)
   
 })
 
