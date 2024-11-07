@@ -183,7 +183,8 @@ test_that("Test Robust for bam", {
   meat <- t(mm) %*% Diagonal(x = residuals(est_bam)^2) %*% mm
   inv <- solve(crossprod(mm) + bdiag(0, S))
   # expect_equivalent(as.matrix(inv %*% meat %*% inv), vcovHC(est_bam, type = 'HC0'), scale = 1, tol = 1e-6)
-  expect_equivalent(as.matrix(inv %*% meat %*% inv), vcovHC(est_bam, type = 'HC0'), tol = 1e-5)
+  expect_equivalent(as.matrix(inv %*% meat %*% inv), vcovHC(est_bam, type = 'HC0'),
+                    scale = 1, tol = 1e-5)
 })
 
 test_that("Test Robust for Complex Family", {
