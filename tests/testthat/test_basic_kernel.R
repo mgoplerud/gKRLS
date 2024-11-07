@@ -159,7 +159,7 @@ test_that("Test custom vector", {
   expect_true(all(fit_one$smooth[[1]]$subsampling_id == 1))
   expect_s3_class(fit_one, "gam")
   v <- predict(fit_one, newdata = data.frame(X)[1:5,])
-  expect_vector(as.vector(v), 5)
+  custom_expect_vector(as.vector(v), 5)
   
 })
 
