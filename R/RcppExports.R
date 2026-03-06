@@ -9,6 +9,22 @@ cpp_gkrls_me <- function(std_X_train, std_X_test, bandwidth, family, mahal, sd_y
     .Call('_gKRLS_cpp_gkrls_me', PACKAGE = 'gKRLS', std_X_train, std_X_test, bandwidth, family, mahal, sd_y, offset, any_Z, tZ, S, fe_mean, re_mean, SIZE_PARAMETER, vcov_ridge, FE_matrix_test, W_Matrix, WX_test, WX_train, raw_X_test, std_mean, std_whiten, type_mfx, fd_matrix, std_fd_matrix, fit_position, mfx_counter)
 }
 
+#' Mini-batch k-means clustering for Nystrom landmark selection
+#'
+#' Uses k-means++ initialization and vectorized batch distance computation
+#' via Eigen for fast landmark point selection.
+#'
+#' @param X Data matrix (N x P)
+#' @param k Number of clusters (landmark points)
+#' @param batch_size Size of each mini-batch
+#' @param max_iter Maximum number of iterations
+#' @param tol Convergence tolerance on centroid shift
+#' @return Matrix of k centroids (k x P)
+#' @keywords internal
+minibatch_kmeans_cpp <- function(X, k, batch_size, max_iter, tol) {
+    .Call('_gKRLS_minibatch_kmeans_cpp', PACKAGE = 'gKRLS', X, k, batch_size, max_iter, tol)
+}
+
 #' Create the sketched kernel
 #' @param X_test Test data
 #' @param X_train Train data

@@ -160,6 +160,22 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
       X_train <- X[subsampling_id, , drop = F]
       sketch_size <- length(subsampling_id)
       sketch_matrix <- diag(length(subsampling_id)) * sqrt(N/sketch_size)
+    }else if (object$xt$sketch_method == "nystrom") {
+      if (sketch_size > N) {
+        stop("Nystrom sketch_size must be less than N.")
+      }
+      nystrom_args <- object$xt$nystrom_args
+      batch_size <- nystrom_args$batch_size
+      if (is.null(batch_size)) {
+        batch_size <- min(N, max(10L * sketch_size, 1000L))
+      }
+      X_train <- minibatch_kmeans_cpp(
+        X = X, k = sketch_size,
+        batch_size = batch_size,
+        max_iter = nystrom_args$max_iter,
+        tol = nystrom_args$tol
+      )
+      sketch_matrix <- diag(sketch_size)
     }else if (object$xt$sketch_method == "subsampling") {
       if (sketch_size > N) {
         stop("Subsampling requires sketch_size < N.")
@@ -181,7 +197,13 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   }else if (bandwidth == 'calibrate'){
     message('Beginning calibration of kernel bandwidth:')
     calibration_time <- Sys.time()
-    bandwidth <- calibrate_bandwidth(X = X, S = sketch_matrix, id_S = subsampling_id)
+    if (object$xt$sketch_method == "nystrom") {
+      # Use a random subsample for calibration (bandwidth is a data property)
+      calib_id <- sample(1:N, min(sketch_size, N))
+      bandwidth <- calibrate_bandwidth(X = X, id_S = calib_id)
+    } else {
+      bandwidth <- calibrate_bandwidth(X = X, S = sketch_matrix, id_S = subsampling_id)
+    }
     calibration_time <- Sys.time() - calibration_time
     calibration_time <- as.double(calibration_time, units = 'mins')
     message(paste0('Calibration complete; time needed ', round(calibration_time, 2), ' minutes.'))
@@ -199,7 +221,13 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   P_orig <- NULL
   if (!object$fixed) {
     # S K S^T is the Penalty Term
-    if (!is.na(sketch_size) & object$xt$sketch_method %in% c("custom", "subsampling", "subsampling_leverage") ) {
+    if (object$xt$sketch_method == "nystrom") {
+      # Penalty = K(landmarks, landmarks) for Nystrom
+      Penalty <- create_sketched_kernel(
+        X_test = X_train, X_train = X_train,
+        S = sketch_matrix, bandwidth = bandwidth
+      )
+    } else if (!is.na(sketch_size) & object$xt$sketch_method %in% c("custom", "subsampling", "subsampling_leverage") ) {
       Penalty <- t(KSt[subsampling_id, ]) %*% t(sketch_matrix)
     } else {
       Penalty <- t(KSt) %*% t(sketch_matrix)

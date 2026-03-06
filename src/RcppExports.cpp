@@ -61,6 +61,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// minibatch_kmeans_cpp
+Eigen::MatrixXd minibatch_kmeans_cpp(const Eigen::Map<Eigen::MatrixXd> X, int k, int batch_size, int max_iter, double tol);
+RcppExport SEXP _gKRLS_minibatch_kmeans_cpp(SEXP XSEXP, SEXP kSEXP, SEXP batch_sizeSEXP, SEXP max_iterSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type X(XSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< int >::type batch_size(batch_sizeSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(minibatch_kmeans_cpp(X, k, batch_size, max_iter, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
 // create_sketched_kernel
 Eigen::MatrixXd create_sketched_kernel(const Eigen::Map<Eigen::MatrixXd> X_test, const Eigen::Map<Eigen::MatrixXd> X_train, const Eigen::MatrixXd S, const double bandwidth, const bool raw);
 RcppExport SEXP _gKRLS_create_sketched_kernel(SEXP X_testSEXP, SEXP X_trainSEXP, SEXP SSEXP, SEXP bandwidthSEXP, SEXP rawSEXP) {
@@ -80,6 +95,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_gKRLS_kern_gauss", (DL_FUNC) &_gKRLS_kern_gauss, 4},
     {"_gKRLS_cpp_gkrls_me", (DL_FUNC) &_gKRLS_cpp_gkrls_me, 26},
+    {"_gKRLS_minibatch_kmeans_cpp", (DL_FUNC) &_gKRLS_minibatch_kmeans_cpp, 5},
     {"_gKRLS_create_sketched_kernel", (DL_FUNC) &_gKRLS_create_sketched_kernel, 5},
     {NULL, NULL, 0}
 };

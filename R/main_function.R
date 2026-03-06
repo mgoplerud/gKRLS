@@ -39,9 +39,11 @@
 #'   \code{FALSE}.
 #' @param sketch_method A string that specifies which kernel sketching method
 #'   should be used (default of \code{"subsampling"}). Options include
-#'   \code{"subsampling"}, \code{"gaussian"}, \code{"bernoulli"}, or
-#'   \code{"none"} (no sketching). Drineas et al. (2005) and Yang et al. (2017)
-#'   provide more details on these options.
+#'   \code{"subsampling"}, \code{"gaussian"}, \code{"bernoulli"},
+#'   \code{"nystrom"}, or \code{"none"} (no sketching). Drineas et al. (2005)
+#'   and Yang et al. (2017) provide more details on sketching options.
+#'   \code{"nystrom"} uses the Nystrom approximation with landmark points
+#'   selected by mini-batch k-means (Sculley, 2010); see \code{nystrom_args}.
 #'
 #'   To force \code{"subsampling"} to select a specific set of observations, you
 #'   can provide a vector of row positions to \code{sketch_method}. This
@@ -89,20 +91,32 @@
 #'   kernel and avoids instability due to numerically very small eigenvalues. The
 #'   default is \code{sqrt(.Machine$double.eps)}. This adjustment can be
 #'   disabled by setting \code{remove_instability = FALSE}.
-#' @references 
-#' 
+#' @param nystrom_args A named list of arguments controlling mini-batch k-means
+#'   when \code{sketch_method = "nystrom"}. Allowed elements:
+#'   \describe{
+#'     \item{\code{batch_size}}{Size of each mini-batch (default \code{NULL},
+#'       auto-set to \code{min(N, max(10 * sketch_size, 1000))}).}
+#'     \item{\code{max_iter}}{Maximum iterations (default \code{100}).}
+#'     \item{\code{tol}}{Convergence tolerance for centroid shift (default
+#'       \code{1e-6}).}
+#'   }
+#' @references
+#'
 #' Chang, Qing, and Max Goplerud. 2024. "Generalized Kernel Regularized Least
 #' Squares." \emph{Political Analysis} 32(2):157-171.
-#' 
+#'
 #' Hartman, Erin, Chad Hazlett, and Ciara Sterbenz. 2024. "kpop: A Kernel
 #' Balancing Approach for Reducing Specification Assumptions in Survey
 #' Weighting." \emph{Journal of the Royal Statistical Society Series A:
 #' Statistics in Society} \doi{doi:10.1093/jrsssa/qnae082}.
-#' 
+#'
 #' Drineas, Petros, Michael W. Mahoney, and Nello Cristianini. 2005. "On the
 #' Nyström Method for Approximating a Gram Matrix For Improved Kernel-Based
 #' Learning." \emph{Journal of Machine Learning Research} 6(12):2153-2175.
-#' 
+#'
+#' Sculley, David. 2010. "Web-Scale K-Means Clustering." \emph{Proceedings of
+#' the 19th International Conference on World Wide Web (WWW)} 1177-1178.
+#'
 #' Yang, Yun, Mert Pilanci, and Martin J. Wainwright. 2017. "Randomized
 #' Sketches for Kernels: Fast and Optimal Nonparametric Regression."
 #' \emph{Annals of Statistics} 45(3):991-1023.
@@ -111,6 +125,7 @@
 #' 
 #' @useDynLib gKRLS
 #' @import Matrix
+#' @importFrom utils modifyList
 #' @export
 #'
 #' @examples
@@ -158,20 +173,27 @@
 #' calculate_effects(fit_gKRLS, variables = "x1")
 gKRLS <- function(sketch_method = "subsampling",
                   standardize = "Mahalanobis",
-                  bandwidth = NULL, 
+                  bandwidth = NULL,
                   sketch_multiplier = 5,
                   sketch_size_raw = NULL,
-                  sketch_prob = NULL, 
+                  sketch_prob = NULL,
                   rescale_penalty = TRUE,
                   truncate.eigen.tol = sqrt(.Machine$double.eps),
                   demean_kernel = FALSE,
-                  remove_instability = TRUE) {
+                  remove_instability = TRUE,
+                  nystrom_args = list()) {
   if (length(sketch_method) == 1){
-    sketch_method <- match.arg(sketch_method, c("subsampling", "gaussian", "bernoulli", "none"))
+    sketch_method <- match.arg(sketch_method, c("subsampling", "gaussian", "bernoulli", "nystrom", "none"))
   }else{
     sketch_vector <- sketch_method
     sketch_method <- 'custom'
   }
+  nystrom_defaults <- list(batch_size = NULL, max_iter = 100L, tol = 1e-6)
+  unknown_nystrom <- setdiff(names(nystrom_args), names(nystrom_defaults))
+  if (length(unknown_nystrom) > 0) {
+    stop('Unknown nystrom_args: ', paste(unknown_nystrom, collapse = ', '))
+  }
+  nystrom_args <- modifyList(nystrom_defaults, nystrom_args)
   standardize <- match.arg(standardize, c("Mahalanobis", "scaled", "none"))
   if (!(rescale_penalty %in% c(TRUE, FALSE))){
     stop('rescale_penalty must be TRUE or FALSE.')

@@ -16,7 +16,8 @@ gKRLS(
   rescale_penalty = TRUE,
   truncate.eigen.tol = sqrt(.Machine$double.eps),
   demean_kernel = FALSE,
-  remove_instability = TRUE
+  remove_instability = TRUE,
+  nystrom_args = list()
 )
 
 get_calibration_information(object)
@@ -24,9 +25,11 @@ get_calibration_information(object)
 \arguments{
 \item{sketch_method}{A string that specifies which kernel sketching method
   should be used (default of \code{"subsampling"}). Options include
-  \code{"subsampling"}, \code{"gaussian"}, \code{"bernoulli"}, or
-  \code{"none"} (no sketching). Drineas et al. (2005) and Yang et al. (2017)
-  provide more details on these options.
+  \code{"subsampling"}, \code{"gaussian"}, \code{"bernoulli"},
+  \code{"nystrom"}, or \code{"none"} (no sketching). Drineas et al. (2005)
+  and Yang et al. (2017) provide more details on sketching options.
+  \code{"nystrom"} uses the Nystrom approximation with landmark points
+  selected by mini-batch k-means (Sculley, 2010); see \code{nystrom_args}.
 
   To force \code{"subsampling"} to select a specific set of observations, you
   can provide a vector of row positions to \code{sketch_method}. This
@@ -86,6 +89,16 @@ disabled by setting \code{remove_instability = FALSE}.}
 \item{remove_instability}{A logical value that indicates whether numerical
 zeros (set via \code{truncate.eigen.tol}) should be removed when building
 the penalty matrix. The default is \code{TRUE}.}
+
+\item{nystrom_args}{A named list of arguments controlling mini-batch k-means
+when \code{sketch_method = "nystrom"}. Allowed elements:
+\describe{
+  \item{\code{batch_size}}{Size of each mini-batch (default \code{NULL},
+    auto-set to \code{min(N, max(10 * sketch_size, 1000))}).}
+  \item{\code{max_iter}}{Maximum iterations (default \code{100}).}
+  \item{\code{tol}}{Convergence tolerance for centroid shift (default
+    \code{1e-6}).}
+}}
 
 \item{object}{Model estimated using \code{mgcv::gam} or \code{mgcv::bam}}
 }
@@ -179,6 +192,9 @@ Statistics in Society} \doi{doi:10.1093/jrsssa/qnae082}.
 Drineas, Petros, Michael W. Mahoney, and Nello Cristianini. 2005. "On the
 Nyström Method for Approximating a Gram Matrix For Improved Kernel-Based
 Learning." \emph{Journal of Machine Learning Research} 6(12):2153-2175.
+
+Sculley, David. 2010. "Web-Scale K-Means Clustering." \emph{Proceedings of
+the 19th International Conference on World Wide Web (WWW)} 1177-1178.
 
 Yang, Yun, Mert Pilanci, and Martin J. Wainwright. 2017. "Randomized
 Sketches for Kernels: Fast and Optimal Nonparametric Regression."
