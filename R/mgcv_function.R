@@ -161,7 +161,7 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
       sketch_size <- length(subsampling_id)
       sketch_matrix <- diag(length(subsampling_id)) * sqrt(N/sketch_size)
     }else if (object$xt$sketch_method == "nystrom") {
-      if (sketch_size > N) {
+      if (sketch_size >= N) {
         stop("Nystrom sketch_size must be less than N.")
       }
       nystrom_args <- object$xt$nystrom_args
@@ -197,13 +197,10 @@ smooth.construct.gKRLS.smooth.spec <- function(object, data, knots) {
   }else if (bandwidth == 'calibrate'){
     message('Beginning calibration of kernel bandwidth:')
     calibration_time <- Sys.time()
-    if (object$xt$sketch_method == "nystrom") {
-      # Use a random subsample for calibration (bandwidth is a data property)
-      calib_id <- sample(1:N, min(sketch_size, N))
-      bandwidth <- calibrate_bandwidth(X = X, id_S = calib_id)
-    } else {
-      bandwidth <- calibrate_bandwidth(X = X, S = sketch_matrix, id_S = subsampling_id)
-    }
+    # For nystrom, landmarks are centroids (not data rows), so calibrate
+    # using a random subsample of the same size (bandwidth is a data property).
+    calib_id <- if (object$xt$sketch_method == "nystrom") sample(1:N, sketch_size) else subsampling_id
+    bandwidth <- calibrate_bandwidth(X = X, S = sketch_matrix, id_S = calib_id)
     calibration_time <- Sys.time() - calibration_time
     calibration_time <- as.double(calibration_time, units = 'mins')
     message(paste0('Calibration complete; time needed ', round(calibration_time, 2), ' minutes.'))

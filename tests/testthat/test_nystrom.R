@@ -238,13 +238,25 @@ test_that("Nystrom with demean_kernel works", {
   expect_true(all(is.finite(fitted(fit_dm))))
 })
 
-test_that("Nystrom errors when sketch_size > N", {
+test_that("Nystrom errors when sketch_size >= N", {
 
+  # sketch_size > N
   expect_error(
     suppressWarnings(
       gam(y_cont ~ s(x1, x2, bs = "gKRLS",
         xt = gKRLS(sketch_method = "nystrom",
           sketch_multiplier = NULL, sketch_size_raw = N + 10)),
+        data = dat)
+    ),
+    "sketch_size must be less than N"
+  )
+
+  # sketch_size == N
+  expect_error(
+    suppressWarnings(
+      gam(y_cont ~ s(x1, x2, bs = "gKRLS",
+        xt = gKRLS(sketch_method = "nystrom",
+          sketch_multiplier = NULL, sketch_size_raw = N)),
         data = dat)
     ),
     "sketch_size must be less than N"

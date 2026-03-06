@@ -7,8 +7,8 @@ using namespace Rcpp;
 
 // [[Rcpp::export]]
 double kern_gauss(
-    const Eigen::VectorXd X_one,
-    const Eigen::VectorXd X_two,
+    const Eigen::VectorXd& X_one,
+    const Eigen::VectorXd& X_two,
     const double bandwidth,
     const bool raw
 ){

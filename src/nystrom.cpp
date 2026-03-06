@@ -92,11 +92,18 @@ Eigen::MatrixXd minibatch_kmeans_cpp(
   // Pre-compute center squared norms for fast distance computation
   Eigen::VectorXd c_norms = centers.rowwise().squaredNorm();
 
+  // Pre-allocate loop temporaries outside the hot loop
   Eigen::VectorXi batch_idx(bs);
   Eigen::MatrixXd X_batch(bs, P);
+  Eigen::VectorXi assignments(bs);
+  Eigen::MatrixXd cluster_sums(k, P);
+  Eigen::VectorXi n_assigned(k);
+  Eigen::VectorXd x_norms(bs);
+  Eigen::MatrixXd D(bs, k);
 
   for (int iter = 0; iter < max_iter; iter++) {
-    Eigen::MatrixXd old_centers = centers;
+
+    Rcpp::checkUserInterrupt();
 
     // Sample mini-batch
     for (int i = 0; i < bs; i++) {
@@ -107,13 +114,12 @@ Eigen::MatrixXd minibatch_kmeans_cpp(
 
     // Vectorized squared distance: D_ij = ||x_i||^2 + ||c_j||^2 - 2 x_i . c_j
     // This is the hot path; the matrix multiply is BLAS-optimized
-    Eigen::VectorXd x_norms = X_batch.rowwise().squaredNorm();
-    Eigen::MatrixXd D = -2.0 * X_batch * centers.transpose();
+    x_norms = X_batch.rowwise().squaredNorm();
+    D.noalias() = -2.0 * X_batch * centers.transpose();
     D.colwise() += x_norms;
     D.rowwise() += c_norms.transpose();
 
     // Assign each batch point to nearest center
-    Eigen::VectorXi assignments(bs);
     for (int i = 0; i < bs; i++) {
       Eigen::Index min_idx;
       D.row(i).minCoeff(&min_idx);
@@ -121,8 +127,8 @@ Eigen::MatrixXd minibatch_kmeans_cpp(
     }
 
     // Accumulate per-cluster sums and counts, then do batch update
-    Eigen::MatrixXd cluster_sums = Eigen::MatrixXd::Zero(k, P);
-    Eigen::VectorXi n_assigned = Eigen::VectorXi::Zero(k);
+    cluster_sums.setZero();
+    n_assigned.setZero();
 
     for (int i = 0; i < bs; i++) {
       int c = assignments(i);
@@ -130,20 +136,25 @@ Eigen::MatrixXd minibatch_kmeans_cpp(
       n_assigned(c)++;
     }
 
+    // Update centroids and track convergence shift
+    double shift = 0.0;
     for (int c = 0; c < k; c++) {
       if (n_assigned(c) > 0) {
         counts(c) += n_assigned(c);
         double lr = (double)n_assigned(c) / counts(c);
-        Eigen::RowVectorXd batch_mean = cluster_sums.row(c) / n_assigned(c);
-        centers.row(c) += lr * (batch_mean - centers.row(c));
+        // Compute delta = lr * (batch_mean - center) without a temporary
+        // centers.row(c) += lr * (cluster_sums.row(c) / n_assigned(c) - centers.row(c))
+        // Rewrite as: centers = (1-lr)*centers + (lr/n)*sums
+        Eigen::RowVectorXd old_center = centers.row(c);
+        centers.row(c) *= (1.0 - lr);
+        centers.row(c) += (lr / n_assigned(c)) * cluster_sums.row(c);
+        shift += (centers.row(c) - old_center).squaredNorm();
       }
     }
 
     // Update cached center norms
     c_norms = centers.rowwise().squaredNorm();
 
-    // Check convergence: total squared shift of centroids
-    double shift = (centers - old_centers).squaredNorm();
     if (shift < tol * tol * k) break;
   }
 

@@ -12,13 +12,13 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // kern_gauss
-double kern_gauss(const Eigen::VectorXd X_one, const Eigen::VectorXd X_two, const double bandwidth, const bool raw);
+double kern_gauss(const Eigen::VectorXd& X_one, const Eigen::VectorXd& X_two, const double bandwidth, const bool raw);
 RcppExport SEXP _gKRLS_kern_gauss(SEXP X_oneSEXP, SEXP X_twoSEXP, SEXP bandwidthSEXP, SEXP rawSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const Eigen::VectorXd >::type X_one(X_oneSEXP);
-    Rcpp::traits::input_parameter< const Eigen::VectorXd >::type X_two(X_twoSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd& >::type X_one(X_oneSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd& >::type X_two(X_twoSEXP);
     Rcpp::traits::input_parameter< const double >::type bandwidth(bandwidthSEXP);
     Rcpp::traits::input_parameter< const bool >::type raw(rawSEXP);
     rcpp_result_gen = Rcpp::wrap(kern_gauss(X_one, X_two, bandwidth, raw));

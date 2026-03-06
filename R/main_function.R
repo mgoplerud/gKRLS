@@ -188,12 +188,14 @@ gKRLS <- function(sketch_method = "subsampling",
     sketch_vector <- sketch_method
     sketch_method <- 'custom'
   }
-  nystrom_defaults <- list(batch_size = NULL, max_iter = 100L, tol = 1e-6)
-  unknown_nystrom <- setdiff(names(nystrom_args), names(nystrom_defaults))
-  if (length(unknown_nystrom) > 0) {
-    stop('Unknown nystrom_args: ', paste(unknown_nystrom, collapse = ', '))
+  if (sketch_method == "nystrom") {
+    nystrom_defaults <- list(batch_size = NULL, max_iter = 100L, tol = 1e-6)
+    unknown_nystrom <- setdiff(names(nystrom_args), names(nystrom_defaults))
+    if (length(unknown_nystrom) > 0) {
+      stop('Unknown nystrom_args: ', paste(unknown_nystrom, collapse = ', '))
+    }
+    nystrom_args <- modifyList(nystrom_defaults, nystrom_args)
   }
-  nystrom_args <- modifyList(nystrom_defaults, nystrom_args)
   standardize <- match.arg(standardize, c("Mahalanobis", "scaled", "none"))
   if (!(rescale_penalty %in% c(TRUE, FALSE))){
     stop('rescale_penalty must be TRUE or FALSE.')
