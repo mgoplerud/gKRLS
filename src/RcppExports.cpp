@@ -26,7 +26,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // cpp_gkrls_me
-Rcpp::List cpp_gkrls_me(const Eigen::MatrixXd std_X_train, const Eigen::MatrixXd std_X_test, const double bandwidth, const std::string family, const bool mahal, const double sd_y, const Eigen::VectorXd offset, const bool any_Z, const Eigen::MappedSparseMatrix<double> tZ, const Eigen::MatrixXd S, const Eigen::VectorXd fe_mean, const Eigen::VectorXd re_mean, const int SIZE_PARAMETER, const Eigen::MatrixXd vcov_ridge, const Eigen::MatrixXd FE_matrix_test, const Eigen::MatrixXd W_Matrix, const Eigen::MatrixXd WX_test, const Eigen::MatrixXd WX_train, const Eigen::MatrixXd raw_X_test, const Eigen::VectorXd std_mean, const Eigen::MatrixXd std_whiten, const std::vector<std::string> type_mfx, const Eigen::MatrixXd fd_matrix, const Eigen::MatrixXd std_fd_matrix, const Eigen::VectorXi fit_position, const Eigen::VectorXi mfx_counter);
+Rcpp::List cpp_gkrls_me(const Eigen::MatrixXd std_X_train, const Eigen::MatrixXd std_X_test, const double bandwidth, const std::string family, const bool mahal, const double sd_y, const Eigen::VectorXd offset, const bool any_Z, const Eigen::Map<Eigen::SparseMatrix<double>> tZ, const Eigen::MatrixXd S, const Eigen::VectorXd fe_mean, const Eigen::VectorXd re_mean, const int SIZE_PARAMETER, const Eigen::MatrixXd vcov_ridge, const Eigen::MatrixXd FE_matrix_test, const Eigen::MatrixXd W_Matrix, const Eigen::MatrixXd WX_test, const Eigen::MatrixXd WX_train, const Eigen::MatrixXd raw_X_test, const Eigen::VectorXd std_mean, const Eigen::MatrixXd std_whiten, const std::vector<std::string> type_mfx, const Eigen::MatrixXd fd_matrix, const Eigen::MatrixXd std_fd_matrix, const Eigen::VectorXi fit_position, const Eigen::VectorXi mfx_counter);
 RcppExport SEXP _gKRLS_cpp_gkrls_me(SEXP std_X_trainSEXP, SEXP std_X_testSEXP, SEXP bandwidthSEXP, SEXP familySEXP, SEXP mahalSEXP, SEXP sd_ySEXP, SEXP offsetSEXP, SEXP any_ZSEXP, SEXP tZSEXP, SEXP SSEXP, SEXP fe_meanSEXP, SEXP re_meanSEXP, SEXP SIZE_PARAMETERSEXP, SEXP vcov_ridgeSEXP, SEXP FE_matrix_testSEXP, SEXP W_MatrixSEXP, SEXP WX_testSEXP, SEXP WX_trainSEXP, SEXP raw_X_testSEXP, SEXP std_meanSEXP, SEXP std_whitenSEXP, SEXP type_mfxSEXP, SEXP fd_matrixSEXP, SEXP std_fd_matrixSEXP, SEXP fit_positionSEXP, SEXP mfx_counterSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -39,7 +39,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const double >::type sd_y(sd_ySEXP);
     Rcpp::traits::input_parameter< const Eigen::VectorXd >::type offset(offsetSEXP);
     Rcpp::traits::input_parameter< const bool >::type any_Z(any_ZSEXP);
-    Rcpp::traits::input_parameter< const Eigen::MappedSparseMatrix<double> >::type tZ(tZSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::SparseMatrix<double>> >::type tZ(tZSEXP);
     Rcpp::traits::input_parameter< const Eigen::MatrixXd >::type S(SSEXP);
     Rcpp::traits::input_parameter< const Eigen::VectorXd >::type fe_mean(fe_meanSEXP);
     Rcpp::traits::input_parameter< const Eigen::VectorXd >::type re_mean(re_meanSEXP);

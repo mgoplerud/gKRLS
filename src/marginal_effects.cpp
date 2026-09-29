@@ -83,7 +83,7 @@ Rcpp::List cpp_gkrls_me(
   const double sd_y,
   const Eigen::VectorXd offset,
   const bool any_Z,
-  const Eigen::MappedSparseMatrix<double> tZ,
+  const Eigen::Map<Eigen::SparseMatrix<double>> tZ,
   const Eigen::MatrixXd S,
   const Eigen::VectorXd fe_mean,
   const Eigen::VectorXd re_mean,
