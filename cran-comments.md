@@ -1,6 +1,7 @@
 ## Resubmission
 
-This is an update on gKRLS 1.0.4 that addesses an upcoming change to RcppEigen.
+This is an update on gKRLS 1.0.4 that addesses an upcoming change to RcppEigen
+and adds one argument for a custom function.
 
 ## R CMD check results
 

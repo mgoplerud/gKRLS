@@ -1,6 +1,7 @@
 # gKRLS 1.0.5
 
 * Small adjustments to prepare for Eigen 5.0.*; thanks to Dirk Eddelbuettel for the PR
+* Small adjustments to allow for a custom function to "AME"
 
 # gKRLS 1.0.4
 
