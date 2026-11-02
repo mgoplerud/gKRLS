@@ -82,7 +82,9 @@
 #'   provides a way of calculating quantities such as predicted probability
 #'   curves using an "observed value" approach (e.g., Hanmer and Kalkan 2013).
 #'   Examples are provided below.
-#'
+#' @param custom_function Pass a custom function to make predictions that
+#'   accepts arguments "model", "newdata", "individual", and "na.action". See
+#'   GitHub for code for how to design such a function.
 #' @section WARNINGS:
 #'
 #'   Using a custom dataset for \code{data}, i.e. a dataset other than the
@@ -218,24 +220,36 @@ calculate_effects <- function(model, data = NULL, variables = NULL,
       "onesd", "predict", "second_derivative"),
     conditional = NULL, individual = FALSE,
     vcov = NULL, raw = FALSE, use_original = FALSE,
-    epsilon = 1e-7, verbose = FALSE) {
+    epsilon = 1e-7, verbose = FALSE, custom_function = NULL) {
+  
+
   if (!is.list(continuous_type)) {
     continuous_type <- match.arg(continuous_type)
   }
 
+  # Is a custom prediction function being used?
+  custom <- !is.null(custom_function)
   simple_family <- !inherits(model$family, c('general.family', 'extended.family'))
-  N_eff <- length(model$y) - sum(model$edf)
-  N <- length(model$y)
+  simple_family <- simple_family & !custom
+  
+  if ('y' %in% names(model)){
+    N <- length(model$y)
+    N_eff <- N - sum(model$edf)
+  }else{
+    N <- NROW(model$X)
+    N_eff <- N - sum(model$edf)
+  }
 
   if (!all(model$prior.weights == 1)){
     warning('calculate_effects ignores "weights" argument when calculating effects.')
   }
   if (!is.null(model$offset)){
     flat_offset <- unlist(model$offset)
-    if (!all(flat_offset == 0)){
+    if (!all(flat_offset == 0) & !custom){
       stop('"offset" not set up for calculate_effects.')
     }
   }
+  
   if (is.null(data)) {
     null_data <- TRUE
     original_data <- raw_data <- model.frame(model)
@@ -260,7 +274,10 @@ calculate_effects <- function(model, data = NULL, variables = NULL,
     vcov <- stats::vcov(model)
   }
 
-  all_variables <- gam_terms(model = model, variables = NULL)
+  all_variables <- gam_terms(
+    model = model, variables = NULL
+  )
+  
   variable_list <- unlist(all_variables)
   variable_type <- rep(names(all_variables), lengths(all_variables))
   names(variable_type) <- unlist(all_variables)
@@ -286,11 +303,13 @@ calculate_effects <- function(model, data = NULL, variables = NULL,
     ncond <- 1
   }
 
-  any_binary <- sapply(names(variable_type), FUN=function(i){
-    j <- raw_data[[i]]
-    all(j %in% c(0,1)) & !all(is.logical(j))
-  })
-  variable_type[which(any_binary)] <- "bnames"
+  if (length(variable_type) > 0){
+    any_binary <- sapply(names(variable_type), FUN=function(i){
+      j <- raw_data[[i]]
+      all(j %in% c(0,1)) & !all(is.logical(j))
+    })
+    variable_type[which(any_binary)] <- "bnames"
+  }
 
   if (identical(continuous_type, 'predict')){
     variable_list <- list('...placeholder')
@@ -731,7 +750,8 @@ calculate_effects <- function(model, data = NULL, variables = NULL,
           data_list = data_i$data,
           weights = list("AME" = data_i$weights),
           vcov = vcov,
-          individual = individual, raw = data_i$raw
+          individual = individual, raw = data_i$raw,
+          custom_function = custom_function
         )
         if (data_i$raw) {
           fit_i$aggregate[["...id"]] <- c("effect", paste0('raw_', rev(-1 + seq_len(nrow(fit_i$aggregate)-1))))
@@ -1077,7 +1097,9 @@ calculate_interactions <- function(model,
 
 # Adapted from Leeper's "margins"
 gam_terms <- function(model, variables = NULL) {
+  
   classes <- attributes(terms(model))$dataClasses[-1]
+  
   if (is.null(classes)) {
     stop("terms not found from gam")
   }
@@ -1155,10 +1177,15 @@ summary.gKRLS_mfx <- function(object, ...) {
 
 #' @importFrom stats coef vcov na.pass predict
 weighted_mfx <- function(model, data_list, vcov,
-                         weights, raw = FALSE, individual = FALSE) {
+                         weights, raw = FALSE, individual = FALSE,
+                         custom_function = NULL) {
+  
+
   model_coef <- coef(model)
 
   simple_family <- !inherits(model$family, c('general.family', 'extended.family'))
+  custom <- !is.null(custom_function)
+  simple_family <- simple_family & !custom
   
   if (missing(vcov)) {
     vcov <- vcov(model)
@@ -1186,6 +1213,13 @@ weighted_mfx <- function(model, data_list, vcov,
 
   # Get the predictions for each covariate profile provided
   raw_predictions <- lapply(data_list, FUN = function(data_i) {
+    
+    if (custom){
+      return(custom_function(model, individual = individual,
+        newdata = data_i, na.action = na.pass)
+      )
+    }
+    
     # Get the design
     matrix_i <- predict(model, newdata = data_i, 
       na.action = na.pass, type = "lpmatrix")
@@ -1199,7 +1233,6 @@ weighted_mfx <- function(model, data_list, vcov,
         grad <- colMeans(grad_i, na.rm = T)
         nrow_valid <- sum(!is.na(lp_i))
       } else {
-        se_i <- NULL
         e_i <- NULL
         grad_i <- NULL
         nrow_valid <- NULL
@@ -1221,9 +1254,15 @@ weighted_mfx <- function(model, data_list, vcov,
   })
   
   if (!simple_family){
+    
     noutcome <- length(raw_predictions[[1]]$gradient)
     complex_outcome <- isTRUE(raw_predictions[[1]]$complex_extended)
     
+    noutcome_names <- names(raw_predictions[[1]]$gradient)
+    if (is.null(noutcome_names)){
+      noutcome_names <- seq_len(noutcome)
+    }
+
     gradient_net <- lapply(1:noutcome, FUN=function(d){
       sapply(raw_predictions, FUN = function(i) {
         i$gradient[[d]]
@@ -1236,7 +1275,7 @@ weighted_mfx <- function(model, data_list, vcov,
       }) %*% weights
     })
     
-    if (!complex_outcome){
+    if (!complex_outcome & !custom){
       # If "simple extended family", then do each outcome
       # with its own linear predictor
       lpi <- lapply(1:noutcome, FUN=function(i){
@@ -1271,7 +1310,7 @@ weighted_mfx <- function(model, data_list, vcov,
         name = colnames(weights), 
         est = out_est[,d], 
         se = out_se[,d])
-      out_aggregate$response <- d
+      out_aggregate$response <- noutcome_names[d]
       return(out_aggregate)
     }))
     rownames(out_aggregate) <- NULL
@@ -1329,11 +1368,11 @@ weighted_mfx <- function(model, data_list, vcov,
         extract_ei <- sapply(raw_predictions, FUN = function(i) {
           i$expectation_i[,d]
         })
-        extract_grad_i <- sapply(raw_predictions, FUN = function(i) {
+        extract_grad_i <- lapply(raw_predictions, FUN = function(i) {
           i$gradient_i[[d]]
         })
         
-        if (!complex_outcome){
+        if (!complex_outcome & !custom){
           lpi_d <- lpi[[d]]
           vcov_d <- vcov[lpi_d, lpi_d]
         }else{
@@ -1341,8 +1380,9 @@ weighted_mfx <- function(model, data_list, vcov,
         }
         
         out_individual <- do.call('rbind', lapply(1:ncol(weights), FUN=function(w){
-          ji <- Reduce('+', mapply(extract_grad_i, weights[,w], FUN = function(i, j) {
-            i * j
+          ji <- Reduce('+', mapply(extract_grad_i, weights[,w], SIMPLIFY = FALSE,
+            FUN = function(i, j) {
+              i * j
           }))
           est <- as.vector(extract_ei %*% weights[,w])
           se <- sqrt(rowSums( (ji %*% vcov_d) * ji))
@@ -1350,7 +1390,7 @@ weighted_mfx <- function(model, data_list, vcov,
           return(out)
         }))
         out_individual$variable <- colnames(weights)[out_individual$variable]
-        out_individual$response <- d
+        out_individual$response <- noutcome_names[d]
         return(out_individual)
       })
       out_individual <- do.call('rbind', out_individual)
