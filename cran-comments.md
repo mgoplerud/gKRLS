@@ -1,7 +1,7 @@
 ## Resubmission
 
-This is an update on gKRLS 1.0.3 that addesses a failure in a test induced by
-the update of `waldo`.
+This is an update on gKRLS 1.0.4 that addesses an upcoming change to RcppEigen
+and adds one argument for a custom function.
 
 ## R CMD check results
 

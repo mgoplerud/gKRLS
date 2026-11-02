@@ -21,7 +21,8 @@ calculate_effects(
   raw = FALSE,
   use_original = FALSE,
   epsilon = 1e-07,
-  verbose = FALSE
+  verbose = FALSE,
+  custom_function = NULL
 )
 
 calculate_interactions(
@@ -123,6 +124,10 @@ option.}
 
 \item{verbose}{A logical value that indicates whether to report progress when
 calculating the marginal effects. The default is \code{FALSE}.}
+
+\item{custom_function}{Pass a custom function to make predictions that
+accepts arguments "model", "newdata", "individual", and "na.action". See
+GitHub for code for how to design such a function.}
 
 \item{QOI}{A vector of quantities of interest calculate for
 \code{calculate_interactions}. Options include \code{"AME"} (average
